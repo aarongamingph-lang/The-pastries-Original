@@ -397,14 +397,16 @@ function renderPlayerPlaylist(filterText = "") {
 }
 
 function restartMainPageTextSequence() {
+    const layout = getBouncingLayout();
+
     mainPage.classList.remove("text-sequence-active");
     bouncingMessage.classList.remove("visible");
     bouncingMessage.textContent = "";
     bouncingTextIndex = 0;
-    bouncingTextX = 36;
-    bouncingTextY = 120;
-    bouncingVelocityX = 1.05;
-    bouncingVelocityY = 0.92;
+    bouncingTextX = layout.startX;
+    bouncingTextY = layout.startY;
+    bouncingVelocityX = layout.velocityX;
+    bouncingVelocityY = layout.velocityY;
     bouncingTextTransitioning = false;
 
     void mainPageTitle.offsetWidth;
@@ -431,6 +433,48 @@ function startBouncingTextSequence() {
 function showBouncingText(text) {
     bouncingMessage.textContent = text;
     bouncingMessage.classList.add("visible");
+}
+
+function getBouncingLayout() {
+    const isPhonePortrait = window.matchMedia("(max-width: 768px) and (orientation: portrait)").matches;
+    const isPhoneLandscape = window.matchMedia("(max-width: 932px) and (orientation: landscape)").matches;
+
+    if (isPhonePortrait) {
+        return {
+            startX: 10,
+            startY: 58,
+            velocityX: 0.68,
+            velocityY: 0.58,
+            minX: 4,
+            minY: 44,
+            maxPaddingX: 4,
+            maxPaddingY: 10
+        };
+    }
+
+    if (isPhoneLandscape) {
+        return {
+            startX: 10,
+            startY: 40,
+            velocityX: 0.82,
+            velocityY: 0.64,
+            minX: 4,
+            minY: 32,
+            maxPaddingX: 6,
+            maxPaddingY: 8
+        };
+    }
+
+    return {
+        startX: 36,
+        startY: 120,
+        velocityX: 1.05,
+        velocityY: 0.92,
+        minX: 12,
+        minY: 96,
+        maxPaddingX: 12,
+        maxPaddingY: 96
+    };
 }
 
 function cycleBouncingText() {
@@ -466,12 +510,13 @@ function animateBouncingText() {
             return;
         }
 
+        const layout = getBouncingLayout();
         const containerRect = mainPageContent.getBoundingClientRect();
         const messageRect = bouncingMessage.getBoundingClientRect();
-        const minX = 12;
-        const minY = 96;
-        const maxX = Math.max(minX, containerRect.width - messageRect.width - 12);
-        const maxY = Math.max(minY, containerRect.height - messageRect.height - 96);
+        const minX = layout.minX;
+        const minY = layout.minY;
+        const maxX = Math.max(minX, containerRect.width - messageRect.width - layout.maxPaddingX);
+        const maxY = Math.max(minY, containerRect.height - messageRect.height - layout.maxPaddingY);
         let hitX = false;
         let hitY = false;
 
