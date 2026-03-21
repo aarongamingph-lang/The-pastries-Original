@@ -1508,6 +1508,7 @@
                 gap: 6px;
             }
 
+            /* Compact mobile control sizing */
             .player-button,
             .player-list-toggle {
                 width: 32px;
@@ -1796,6 +1797,7 @@
                 margin-top: 6px;
             }
 
+            /* Extra-small landscape control sizing */
             .player-button,
             .player-list-toggle {
                 width: 34px;
