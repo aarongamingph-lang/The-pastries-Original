@@ -96,7 +96,6 @@ const mainPageTitle = document.querySelector(".main-page-title");
 const bouncingMessage = document.getElementById("bouncingMessage");
 const audioPlayer = document.getElementById("audioPlayer");
 const audioStatus = document.getElementById("audioStatus");
-const uploadedSongList = document.getElementById("uploadedSongList");
 const playerToggle = document.getElementById("playerToggle");
 const playerWrap = document.getElementById("playerWrap");
 const settingsToggle = document.getElementById("settingsToggle");
@@ -646,25 +645,12 @@ function setupThemes() {
     });
 }
 
-function addSongToPlayer(song, shouldRenderList = false) {
+function addSongToPlayer(song) {
     const alreadyExists = songs.some((item) => item.file === song.file);
 
     if (!alreadyExists) {
         songs.push(song);
         renderPlayerPlaylist(playerSearchInput.value);
-    }
-
-    if (shouldRenderList) {
-        const existsInList = Array.from(uploadedSongList.children).some(
-            (item) => item.dataset.songFile === song.file
-        );
-
-        if (!existsInList) {
-            const li = document.createElement("li");
-            li.dataset.songFile = song.file;
-            li.textContent = song.title;
-            uploadedSongList.appendChild(li);
-        }
     }
 }
 
@@ -693,7 +679,6 @@ async function loadSupabaseSongs() {
     }
 
     songs.length = 0;
-    uploadedSongList.innerHTML = "";
     audioPlayer.removeAttribute("src");
     audioPlayer.load();
     nowPlayingTitle.textContent = "Loading songs...";
@@ -816,7 +801,7 @@ function setupSettingsPanel() {
             const song = await uploadSongToSupabase(file);
 
             if (song) {
-                addSongToPlayer(song, true);
+                addSongToPlayer(song);
             }
         }
 
