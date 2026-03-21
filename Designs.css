@@ -1509,8 +1509,7 @@
             }
 
             .player-button,
-            .player-list-toggle,
-            .player-hide-toggle {
+            .player-list-toggle {
                 width: 32px;
                 height: 32px;
             }
