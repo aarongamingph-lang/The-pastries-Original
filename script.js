@@ -290,6 +290,10 @@ function chooseRandomSong() {
     return true;
 }
 
+function isMobilePlayerLayout() {
+    return window.matchMedia("(max-width: 932px)").matches;
+}
+
 async function requestLandscapeFullscreenIfMobile() {
     const isLikelyMobile = window.matchMedia("(max-width: 932px), (pointer: coarse)").matches;
 
@@ -846,6 +850,20 @@ function setupSongs() {
     [playerWrap, playerPlaylistList, playerVolumePanel].forEach((element) => {
         element.addEventListener("pointerdown", resetPlayerAutoCloseTimer);
         element.addEventListener("pointermove", resetPlayerAutoCloseTimer);
+    });
+
+    document.addEventListener("pointerdown", (event) => {
+        if (!isMobilePlayerLayout() || !playerWrap.classList.contains("song-list-open")) {
+            return;
+        }
+
+        const clickedInsidePlaylist = playerPlaylistPanel.contains(event.target);
+        const clickedPlaylistButton = playerListToggle.contains(event.target);
+
+        if (!clickedInsidePlaylist && !clickedPlaylistButton) {
+            playerWrap.classList.remove("song-list-open");
+            resetPlayerAutoCloseTimer();
+        }
     });
 }
 
