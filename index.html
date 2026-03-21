@@ -7,16 +7,8 @@
     <link rel='stylesheet' href='Designs.css'>
 </head>
 <body>
-    <!-- ================================
-         BACKGROUND PARTICLES
-    ================================= -->
-    <div class="particles" id="particles" aria-hidden="true"></div>
-
-    <!-- ================================
-         LOCK SCREEN
-         First screen before the quiz
-    ================================= -->
-    <main class="screen active" id="lockScreen">
+<div class="particles" id="particles" aria-hidden="true"></div>
+<main class="screen active" id="lockScreen">
         <div class="lock-icon">NAME</div>
         <h1>Enter Your Name</h1>
         <p>Type your name to continue.</p>
@@ -31,28 +23,19 @@
                 spellcheck="false"
                 required
             >
-            <button type="submit" id="unlockButton">Unlock</button>
+            <button type="submit" id="unlockButton">PROCEED</button>
         </form>
 
         <div class="message" id="lockMessage" aria-live="polite"></div>
     </main>
-
-    <!-- ================================
-         QUIZ SCREEN
-         This screen shows the 10 questions
-    ================================= -->
-    <section class="screen hidden" id="quizScreen">
+<section class="screen hidden" id="quizScreen">
         <div class="quiz-progress" id="quizProgress">Question 1 of 10</div>
         <h2 class="question-title" id="questionTitle">Question</h2>
         <p class="quiz-meta" id="questionMeta">Choose the correct answer to continue.</p>
         <div class="choices" id="choices"></div>
         <div class="message" id="quizMessage" aria-live="polite"></div>
     </section>
-
-    <!-- ================================
-         LANDSCAPE REMINDER SCREEN
-    ================================= -->
-    <section class="screen hidden orientation-screen" id="landscapeScreen">
+<section class="screen hidden orientation-screen" id="landscapeScreen">
         <div>
             <h2 class="orientation-title">Turn Your Phone Landscape</h2>
             <p class="orientation-note">Rotate your phone sideways first, then continue to the main page.</p>
@@ -63,13 +46,7 @@
         </div>
         <button class="proceed-button" id="proceedMainButton" type="button">Proceed</button>
     </section>
-
-    <!-- ================================
-         MAIN PAGE
-         Edit this whole block if you want
-         to change the final unlocked page
-    ================================= -->
-    <section class="screen hidden main-page" id="mainPage">
+<section class="screen hidden main-page" id="mainPage">
         <div class="main-page-content">
             <h2 class="main-page-title">Welcome Since You're Here Take A Sit And Relax</h2>
             <p class="bouncing-message" id="bouncingMessage"></p>
@@ -208,5 +185,6 @@
     <script src="script.js"></script>
 </body>
 </html>
+
 
 
