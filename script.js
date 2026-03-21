@@ -290,6 +290,36 @@ function chooseRandomSong() {
     return true;
 }
 
+async function requestLandscapeFullscreenIfMobile() {
+    const isLikelyMobile = window.matchMedia("(max-width: 932px), (pointer: coarse)").matches;
+
+    if (!isLikelyMobile) {
+        return;
+    }
+
+    const fullscreenTarget = document.documentElement;
+    const requestFullscreen =
+        fullscreenTarget.requestFullscreen ||
+        fullscreenTarget.webkitRequestFullscreen ||
+        fullscreenTarget.msRequestFullscreen;
+
+    try {
+        if (!document.fullscreenElement && typeof requestFullscreen === "function") {
+            await requestFullscreen.call(fullscreenTarget);
+        }
+    } catch {
+        // Ignore fullscreen failures; some mobile browsers restrict this.
+    }
+
+    try {
+        if (screen.orientation && typeof screen.orientation.lock === "function") {
+            await screen.orientation.lock("landscape");
+        }
+    } catch {
+        // Ignore orientation lock failures; support varies across mobile browsers.
+    }
+}
+
 function formatTime(totalSeconds) {
     if (!Number.isFinite(totalSeconds) || totalSeconds < 0) {
         return "0:00";
@@ -943,11 +973,12 @@ function startQuiz() {
     renderQuestion();
 }
 
-proceedMainButton.addEventListener("click", () => {
+proceedMainButton.addEventListener("click", async () => {
     if (chooseRandomSong()) {
         setCurrentSong(currentSongIndex, false);
     }
 
+    await requestLandscapeFullscreenIfMobile();
     setActiveScreen(mainPage);
 });
 
