@@ -1394,8 +1394,8 @@
 
             .bouncing-message {
                 width: min(84vw, 360px);
-                font-size: clamp(1.1rem, 5.3vw, 1.45rem);
-                line-height: 1.75;
+                font-size: clamp(0.92rem, 4.4vw, 1.18rem);
+                line-height: 1.5;
             }
 
             @keyframes titleMove {
@@ -1597,8 +1597,8 @@
 
             .bouncing-message {
                 width: min(70vw, 560px);
-                font-size: clamp(1.1rem, 2.8vw, 1.9rem);
-                line-height: 1.5;
+                font-size: clamp(0.92rem, 2.2vw, 1.35rem);
+                line-height: 1.32;
             }
 
             @keyframes titleMove {
