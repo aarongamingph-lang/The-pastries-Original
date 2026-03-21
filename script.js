@@ -153,6 +153,7 @@ let bouncingVelocityY = 0.92;
 let bouncingTextTransitioning = false;
 let audioStatusTimeout = null;
 let playerAutoCloseTimeout = null;
+let mobileBouncingTextTimeout = null;
 
 const finalQuestionWarnings = [
     "Are you sure?",
@@ -420,12 +421,18 @@ function restartMainPageTextSequence() {
 
 function stopBouncingTextSequence() {
     clearTimeout(bouncingTextStartTimeout);
+    clearTimeout(mobileBouncingTextTimeout);
     cancelAnimationFrame(bouncingTextAnimationFrame);
     bouncingMessage.classList.remove("visible");
     bouncingMessage.textContent = "";
 }
 
 function startBouncingTextSequence() {
+    if (window.matchMedia("(max-width: 932px)").matches) {
+        startMobileRandomTextSequence();
+        return;
+    }
+
     showBouncingText(bouncingTexts[bouncingTextIndex]);
     animateBouncingText();
 }
@@ -475,6 +482,47 @@ function getBouncingLayout() {
         maxPaddingX: 12,
         maxPaddingY: 96
     };
+}
+
+function setRandomMobileTextPosition() {
+    const containerRect = mainPageContent.getBoundingClientRect();
+    const messageRect = bouncingMessage.getBoundingClientRect();
+    const maxX = Math.max(8, containerRect.width - messageRect.width - 8);
+    const maxY = Math.max(52, containerRect.height - messageRect.height - 12);
+    const nextX = Math.random() * maxX;
+    const nextY = 42 + Math.random() * Math.max(0, maxY - 42);
+
+    bouncingMessage.style.transform = `translate(${nextX}px, ${nextY}px)`;
+}
+
+function startMobileRandomTextSequence() {
+    const showNextText = () => {
+        if (!mainPage.classList.contains("active")) {
+            return;
+        }
+
+        if (bouncingTexts.length > 1) {
+            let nextIndex = bouncingTextIndex;
+
+            while (nextIndex === bouncingTextIndex) {
+                nextIndex = Math.floor(Math.random() * bouncingTexts.length);
+            }
+
+            bouncingTextIndex = nextIndex;
+        }
+
+        bouncingMessage.textContent = bouncingTexts[bouncingTextIndex];
+        setRandomMobileTextPosition();
+        bouncingMessage.classList.add("visible");
+
+        mobileBouncingTextTimeout = setTimeout(() => {
+            bouncingMessage.classList.remove("visible");
+
+            mobileBouncingTextTimeout = setTimeout(showNextText, 550);
+        }, 5000);
+    };
+
+    showNextText();
 }
 
 function cycleBouncingText() {
