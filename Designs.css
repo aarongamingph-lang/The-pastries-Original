@@ -82,6 +82,9 @@
             display: block;
             place-items: unset;
             background: #000;
+            overflow: hidden;
+            overscroll-behavior: none;
+            touch-action: none;
         }
 
         body.main-page-active .particles {
@@ -303,6 +306,8 @@
             backdrop-filter: none;
             overflow: hidden;
             animation: fadeIn 0.9s ease;
+            overscroll-behavior: none;
+            touch-action: none;
         }
 
         .main-page::before {
@@ -336,6 +341,26 @@
             justify-content: center;
             align-items: center;
             gap: 28px;
+            overscroll-behavior: none;
+            touch-action: none;
+        }
+
+        .main-page button,
+        .main-page input,
+        .main-page label,
+        .settings-panel,
+        .settings-section,
+        .player-wrap,
+        .player-playlist-panel,
+        .player-playlist-list,
+        .player-volume-panel {
+            touch-action: manipulation;
+        }
+
+        .settings-panel,
+        .settings-section,
+        .player-playlist-list {
+            overscroll-behavior: contain;
         }
 
         .main-page-title {
