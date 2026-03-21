@@ -1,8 +1,4 @@
 @import url("https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap");
-
-        /* ================================
-           THEME COLORS
-        ================================= */
         :root {
             color-scheme: dark;
             --bg: #050505;
@@ -16,10 +12,6 @@
             --main-page-background: url("background.jpg");
             --main-page-brightness: 1;
         }
-
-        /* ================================
-           BASE / PAGE RESET
-        ================================= */
         * {
             box-sizing: border-box;
         }
@@ -41,10 +33,6 @@
         body.unlocking {
             animation: unlockZoom 1.15s ease forwards;
         }
-
-        /* ================================
-           FLOATING BACKGROUND DOTS
-        ================================= */
         .particles {
             position: fixed;
             inset: 0;
@@ -61,10 +49,6 @@
             animation: floatUp linear infinite;
             box-shadow: 0 0 10px rgba(255, 255, 255, 0.14);
         }
-
-        /* ================================
-           GENERAL SCREEN / CARD LAYOUT
-        ================================= */
         .screen {
             position: relative;
             z-index: 1;
@@ -103,10 +87,6 @@
         body.main-page-active .particles {
             display: none;
         }
-
-        /* ================================
-           ICONS / TITLES / TEXT
-        ================================= */
         .lock-icon {
             width: 68px;
             height: 68px;
@@ -134,10 +114,6 @@
             color: var(--muted);
             line-height: 1.5;
         }
-
-        /* ================================
-           LOCK FORM
-        ================================= */
         form {
             display: grid;
             gap: 14px;
@@ -184,10 +160,6 @@
             opacity: 0.55;
             transform: none;
         }
-
-        /* ================================
-           STATUS TEXT
-        ================================= */
         .message {
             min-height: 24px;
             margin-top: 16px;
@@ -210,10 +182,6 @@
             letter-spacing: 0.08em;
             text-transform: uppercase;
         }
-
-        /* ================================
-           QUIZ SCREEN
-        ================================= */
         .question-title {
             margin-bottom: 8px;
         }
@@ -255,10 +223,6 @@
             color: rgba(255, 255, 255, 0.58);
             text-transform: uppercase;
         }
-
-        /* ================================
-           LANDSCAPE REMINDER SCREEN
-        ================================= */
         .orientation-screen {
             display: grid;
             gap: 20px;
@@ -326,12 +290,6 @@
         .proceed-button {
             min-width: 180px;
         }
-
-        /* ================================
-           MAIN PAGE
-           Edit this section if you want to
-           redesign the final page
-        ================================= */
         .main-page {
             position: fixed;
             inset: 0;
@@ -1154,10 +1112,6 @@
             width: 100%;
             accent-color: #fff1b3;
         }
-
-        /* ================================
-           ANIMATIONS
-        ================================= */
         @keyframes floatUp {
             from {
                 transform: translateY(0) scale(1);
@@ -1322,10 +1276,6 @@
                 opacity: 1;
             }
         }
-
-        /* ================================
-           MOBILE ADJUSTMENTS
-        ================================= */
         @media (max-width: 768px) and (orientation: portrait) {
             body {
                 overflow: auto;
@@ -1497,8 +1447,6 @@
             .player-controls {
                 gap: 6px;
             }
-
-            /* Compact mobile control sizing */
             .player-button,
             .player-list-toggle {
                 width: 32px;
@@ -1786,8 +1734,6 @@
             .player-progress {
                 margin-top: 6px;
             }
-
-            /* Extra-small landscape control sizing */
             .player-button,
             .player-list-toggle {
                 width: 34px;
@@ -1798,4 +1744,5 @@
                 max-height: min(25vh, 112px);
             }
         }
+
 
