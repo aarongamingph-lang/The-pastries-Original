@@ -519,7 +519,7 @@ function startMobileRandomTextSequence() {
             bouncingMessage.classList.remove("visible");
 
             mobileBouncingTextTimeout = setTimeout(showNextText, 550);
-        }, 5000);
+        }, 3000);
     };
 
     showNextText();
