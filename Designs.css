@@ -1487,6 +1487,23 @@
                 font-size: 0.9rem;
             }
 
+            .player-wrap.song-list-open {
+                background: transparent;
+                border-color: transparent;
+                box-shadow: none;
+                backdrop-filter: none;
+                -webkit-backdrop-filter: none;
+            }
+
+            .player-wrap.song-list-open::before,
+            .player-wrap.song-list-open .player-decor,
+            .player-wrap.song-list-open .player-header,
+            .player-wrap.song-list-open .player-progress,
+            .player-wrap.song-list-open .player-controls,
+            .player-wrap.song-list-open .sound-bars {
+                display: none;
+            }
+
             .player-controls {
                 gap: 6px;
             }
@@ -1679,6 +1696,23 @@
             .player-playlist-item {
                 padding: 10px 10px;
                 font-size: 0.84rem;
+            }
+
+            .player-wrap.song-list-open {
+                background: transparent;
+                border-color: transparent;
+                box-shadow: none;
+                backdrop-filter: none;
+                -webkit-backdrop-filter: none;
+            }
+
+            .player-wrap.song-list-open::before,
+            .player-wrap.song-list-open .player-decor,
+            .player-wrap.song-list-open .player-header,
+            .player-wrap.song-list-open .player-progress,
+            .player-wrap.song-list-open .player-controls,
+            .player-wrap.song-list-open .sound-bars {
+                display: none;
             }
 
             .player-controls {
