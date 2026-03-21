@@ -119,7 +119,7 @@ const supabaseClient = window.supabase
 const SPECIAL_PERSON_CONFIG = {
     valerie: {
         themeFile: "special.jpg",
-        preferredSongMatches: ["i like your eyes", "i like you so much"]
+        preferredSongMatches: ["i like you so much"]
     }
 };
 
