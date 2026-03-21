@@ -647,16 +647,6 @@
             color: var(--danger);
         }
 
-        .audio-song-list {
-            margin: 0;
-            padding-left: 18px;
-            display: grid;
-            gap: 6px;
-            color: rgba(255, 255, 255, 0.82);
-            font-size: 0.82rem;
-            line-height: 1.4;
-        }
-
         .theme-card {
             width: 100%;
             padding: 10px;
