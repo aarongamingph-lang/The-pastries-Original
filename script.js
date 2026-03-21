@@ -1,19 +1,5 @@
-/* ================================
-   MAIN PAGE BACKGROUND GUIDE
-   Change only the file name below in CSS:
-   --main-page-background: url("background.jpg");
-================================= */
-
-/* ================================
-   MAIN PAGE SONG LIST
-   Songs shown in the player are loaded
-   from Supabase uploads.
-================================= */
 const songs = [];
 
-/* ================================
-   QUIZ QUESTIONS
-================================= */
 function getQuestions(name) {
     return [
         {
@@ -70,9 +56,6 @@ function getQuestions(name) {
     ];
 }
 
-/* ================================
-   PAGE ELEMENT REFERENCES
-================================= */
 const particles = document.getElementById("particles");
 const lockScreen = document.getElementById("lockScreen");
 const quizScreen = document.getElementById("quizScreen");
@@ -133,9 +116,13 @@ const supabaseClient = window.supabase
     ? window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY)
     : null;
 
-/* ================================
-   APP STATE
-================================= */
+const SPECIAL_PERSON_CONFIG = {
+    valerie: {
+        themeFile: "special.jpg",
+        preferredSongMatches: ["i like your eyes", "i like you so much"]
+    }
+};
+
 let currentQuestionIndex = 0;
 let currentUser = "";
 let currentSongIndex = 0;
@@ -187,11 +174,14 @@ function setAudioStatus(message, tone = "neutral", autoClearMs = 0) {
     }
 }
 
-/* ================================
-   BOUNCING TEXT LIST
-   Add or remove text here.
-   Put one text per line.
-================================= */
+function getCurrentUserKey() {
+    return currentUser.trim().toLowerCase();
+}
+
+function getSpecialPersonConfig() {
+    return SPECIAL_PERSON_CONFIG[getCurrentUserKey()] || null;
+}
+
 const bouncingTexts = `
 RELAX
 WAG ISIPIN ANG PROBLEMA
@@ -223,9 +213,6 @@ ALDEAN NEILL
     .map((text) => text.trim())
     .filter(Boolean);
 
-/* ================================
-   BACKGROUND PARTICLE BUILDER
-================================= */
 function buildParticles(total) {
     for (let index = 0; index < total; index += 1) {
         const dot = document.createElement("span");
@@ -246,9 +233,6 @@ function buildParticles(total) {
     }
 }
 
-/* ================================
-   SCREEN SWITCHING
-================================= */
 function setActiveScreen(screenToShow) {
     [lockScreen, quizScreen, landscapeScreen, mainPage].forEach((screen) => {
         screen.classList.add("hidden");
@@ -635,12 +619,42 @@ function applyTheme(fileName) {
     );
 }
 
+function setActiveThemeCard(fileName) {
+    themeCards.forEach((card) => {
+        card.classList.toggle("active", card.dataset.themeFile === fileName);
+    });
+}
+
+function applyThemeSelection(fileName) {
+    applyTheme(fileName);
+    setActiveThemeCard(fileName);
+}
+
+function applyUserSpecificTheme() {
+    const specialConfig = getSpecialPersonConfig();
+    const themeFile = specialConfig ? specialConfig.themeFile : "background.jpg";
+    applyThemeSelection(themeFile);
+}
+
+function findPreferredSongIndex() {
+    const specialConfig = getSpecialPersonConfig();
+
+    if (!specialConfig || songs.length === 0) {
+        return -1;
+    }
+
+    return songs.findIndex((song) => {
+        const normalizedTitle = song.title.toLowerCase();
+        return specialConfig.preferredSongMatches.some((phrase) =>
+            normalizedTitle.includes(phrase)
+        );
+    });
+}
+
 function setupThemes() {
     themeCards.forEach((card) => {
         card.addEventListener("click", () => {
-            themeCards.forEach((item) => item.classList.remove("active"));
-            card.classList.add("active");
-            applyTheme(card.dataset.themeFile);
+            applyThemeSelection(card.dataset.themeFile);
         });
     });
 }
@@ -714,7 +728,9 @@ async function loadSupabaseSongs() {
 
     if (loadedCount > 0) {
         if (songs.length > 0) {
-            setCurrentSong(0, mainPage.classList.contains("active"));
+            const preferredSongIndex = findPreferredSongIndex();
+            currentSongIndex = preferredSongIndex >= 0 ? preferredSongIndex : 0;
+            setCurrentSong(currentSongIndex, mainPage.classList.contains("active"));
         }
         setAudioStatus("Online songs loaded.", "success", 2200);
     } else {
@@ -815,9 +831,6 @@ function setupSettingsPanel() {
     });
 }
 
-/* ================================
-   MAIN PAGE AUDIO PLAYER
-================================= */
 function setupSongs() {
     nowPlayingTitle.textContent = "Loading songs...";
     playerCurrentTime.textContent = "0:00";
@@ -987,9 +1000,6 @@ function updatePlayPauseButton() {
     playPauseButton.textContent = audioPlayer.paused ? "▶" : "❚❚";
 }
 
-/* ================================
-   QUIZ FLOW
-================================= */
 function goToNextQuestion() {
     currentQuestionIndex += 1;
 
@@ -1070,7 +1080,14 @@ function startQuiz() {
 }
 
 proceedMainButton.addEventListener("click", async () => {
-    if (chooseRandomSong()) {
+    applyUserSpecificTheme();
+
+    const preferredSongIndex = findPreferredSongIndex();
+
+    if (preferredSongIndex >= 0) {
+        currentSongIndex = preferredSongIndex;
+        setCurrentSong(currentSongIndex, false);
+    } else if (chooseRandomSong()) {
         setCurrentSong(currentSongIndex, false);
     }
 
@@ -1090,6 +1107,7 @@ lockForm.addEventListener("submit", (event) => {
     }
 
     currentUser = enteredName;
+    applyUserSpecificTheme();
     lockMessage.textContent = `Welcome, ${currentUser}.`;
     lockMessage.className = "message success";
     nameInput.disabled = true;
@@ -1105,12 +1123,11 @@ lockForm.addEventListener("submit", (event) => {
     }, 1180);
 });
 
-/* ================================
-   INITIAL PAGE SETUP
-================================= */
 buildParticles(60);
 setupSongs();
 setupAudioUnlock();
 setupThemes();
 setupSettingsPanel();
+applyThemeSelection("background.jpg");
 loadSupabaseSongs();
+
