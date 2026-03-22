@@ -159,7 +159,7 @@ let mobileBouncingTextTimeout = null;
 let mobileNowPlayingTimeout = null;
 let savedUsersCache = [];
 let savedUsersClockInterval = null;
-let savedUsersLastReloadAt = 0;
+let lastNameProceedAt = null;
 
 const finalQuestionWarnings = [
     "Are you sure?",
@@ -224,6 +224,11 @@ function isAdminUser(name = currentUser) {
     return normalizeSavedUserName(name) === "nico";
 }
 
+// Admin names are not saved into the user list.
+function shouldSaveUser(name) {
+    return !isAdminUser(name);
+}
+
 // Any name starting with V becomes a special person.
 function isSpecialPersonName(name) {
     const normalizedName = normalizeSpecialName(name);
@@ -248,8 +253,9 @@ function getSpecialPersonConfig() {
 async function saveUserIfNew(name) {
     const cleanName = String(name || "").trim();
     const normalizedName = normalizeSavedUserName(cleanName);
+    const createdAt = lastNameProceedAt || Date.now();
 
-    if (!cleanName || !normalizedName) {
+    if (!cleanName || !normalizedName || !shouldSaveUser(cleanName)) {
         return;
     }
 
@@ -266,7 +272,8 @@ async function saveUserIfNew(name) {
         .from(SUPABASE_USERS_TABLE)
         .insert({
             name: cleanName,
-            normalized_name: normalizedName
+            normalized_name: normalizedName,
+            created_at: new Date(createdAt).toISOString()
         });
 
     if (error && !/duplicate key|unique/i.test(error.message)) {
@@ -276,6 +283,10 @@ async function saveUserIfNew(name) {
 
     await loadSavedUsers();
 }
+
+unlockButton.addEventListener("click", () => {
+    lastNameProceedAt = Date.now();
+});
 
 async function removeSavedUser(nameToRemove) {
     const normalizedTarget = normalizeSavedUserName(nameToRemove);
@@ -319,7 +330,6 @@ async function loadSavedUsers() {
         normalizedName: savedUser.normalized_name,
         createdAt: savedUser.created_at
     }));
-    savedUsersLastReloadAt = Date.now();
 }
 
 function formatSavedUserTime(createdAt) {
@@ -413,14 +423,12 @@ function startSavedUsersClock() {
             return;
         }
 
-        if (Date.now() - savedUsersLastReloadAt >= 15000) {
-            await loadSavedUsers();
-        }
+        await loadSavedUsers();
 
         if (userAdminSection.classList.contains("active")) {
             renderSavedUsers();
         }
-    }, 1000);
+    }, 15000);
 }
 
 async function updateAdminSettingsView() {
@@ -1485,6 +1493,8 @@ lockForm.addEventListener("submit", async (event) => {
 
         startQuiz();
     }, 1180);
+
+    lastNameProceedAt = null;
 });
 
 adminPasswordForm.addEventListener("submit", (event) => {
