@@ -185,11 +185,7 @@ function getSpecialPersonConfig() {
         return null;
     }
 
-    if (
-        normalizedName === "valerie" ||
-        normalizedName.startsWith("val") ||
-        normalizedName.startsWith("vale")
-    ) {
+    if (normalizedName.startsWith("v")) {
         return SPECIAL_PERSON_CONFIG.valerie;
     }
 
