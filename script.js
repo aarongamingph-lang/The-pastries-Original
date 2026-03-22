@@ -82,6 +82,7 @@ const proceedMainButton = document.getElementById("proceedMainButton");
 const floatingNowPlaying = document.getElementById("floatingNowPlaying");
 const floatingNowPlayingTitle = document.getElementById("floatingNowPlayingTitle");
 const floatingNowPlayingTime = document.getElementById("floatingNowPlayingTime");
+const mainPageVideo = document.getElementById("mainPageVideo");
 const mainPageContent = document.querySelector(".main-page-content");
 const mainPageTitle = document.querySelector(".main-page-title");
 const bouncingMessage = document.getElementById("bouncingMessage");
@@ -134,7 +135,7 @@ const ADMIN_PASSWORD = "1234";
 // Special-person settings.
 // Any name starting with V uses this.
 const SPECIAL_PERSON_CONFIG = {
-    themeFile: "special.jpg",
+    themeFile: "special.mp4",
     preferredSongMatches: ["i like you so much"]
 };
 
@@ -360,10 +361,10 @@ function formatSavedUserEnteredTime(createdAt, enteredAt) {
     }
 
     if (!firstTime || firstTime === latestTime) {
-        return latestTime;
+        return `Entered: ${latestTime}`;
     }
 
-    return `${firstTime} - ${latestTime}`;
+    return `Entered: ${firstTime} -> ${latestTime}`;
 }
 
 function renderSavedUsers() {
@@ -918,6 +919,29 @@ function setupAudioUnlock() {
 }
 
 function applyTheme(fileName) {
+    const usesVideoTheme = /\.mp4$/i.test(fileName);
+
+    mainPage.classList.toggle("video-theme", usesVideoTheme);
+
+    if (usesVideoTheme) {
+        mainPageVideo.src = fileName;
+        mainPageVideo.muted = true;
+        mainPageVideo.volume = 0;
+        mainPageVideo.load();
+
+        const playAttempt = mainPageVideo.play();
+        if (playAttempt && typeof playAttempt.catch === "function") {
+            playAttempt.catch(() => {
+                // Ignore autoplay failures for the decorative background video.
+            });
+        }
+
+        return;
+    }
+
+    mainPageVideo.pause();
+    mainPageVideo.removeAttribute("src");
+    mainPageVideo.load();
     document.documentElement.style.setProperty(
         "--main-page-background",
         `url("${fileName}")`
