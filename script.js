@@ -1,5 +1,7 @@
+// This array holds all songs loaded from Supabase.
 const songs = [];
 
+// Questions shown after the name screen.
 function getQuestions(name) {
     return [
         {
@@ -56,15 +58,21 @@ function getQuestions(name) {
     ];
 }
 
+// HTML elements used by the JavaScript.
 const particles = document.getElementById("particles");
 const lockScreen = document.getElementById("lockScreen");
 const quizScreen = document.getElementById("quizScreen");
+const adminPasswordScreen = document.getElementById("adminPasswordScreen");
 const landscapeScreen = document.getElementById("landscapeScreen");
 const mainPage = document.getElementById("mainPage");
 const lockForm = document.getElementById("lockForm");
 const nameInput = document.getElementById("nameInput");
 const unlockButton = document.getElementById("unlockButton");
 const lockMessage = document.getElementById("lockMessage");
+const adminPasswordForm = document.getElementById("adminPasswordForm");
+const adminPasswordInput = document.getElementById("adminPasswordInput");
+const adminPasswordButton = document.getElementById("adminPasswordButton");
+const adminPasswordMessage = document.getElementById("adminPasswordMessage");
 const questionTitle = document.getElementById("questionTitle");
 const questionMeta = document.getElementById("questionMeta");
 const quizProgress = document.getElementById("quizProgress");
@@ -86,6 +94,9 @@ const settingsPanel = document.getElementById("settingsPanel");
 const settingsClose = document.getElementById("settingsClose");
 const settingsTabs = Array.from(document.querySelectorAll(".settings-tab"));
 const settingsSections = Array.from(document.querySelectorAll(".settings-section"));
+const userAdminTab = document.getElementById("userAdminTab");
+const userAdminSection = document.getElementById("userAdminSection");
+const savedUserList = document.getElementById("savedUserList");
 const brightnessRange = document.getElementById("brightnessRange");
 const brightnessValue = document.getElementById("brightnessValue");
 const volumeRange = document.getElementById("volumeRange");
@@ -112,15 +123,20 @@ const loopButton = document.getElementById("loopButton");
 const SUPABASE_URL = "https://qptgeftudyxqdlmvvotk.supabase.co";
 const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_CJsr9sctO5mrbuVmG4G3jA_YDXnkynM";
 const SUPABASE_BUCKET = "songs";
+const SUPABASE_USERS_TABLE = "site_users";
 const supabaseClient = window.supabase
     ? window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY)
     : null;
+const ADMIN_PASSWORD = "1234";
 
+// Special-person settings.
+// Any name starting with V uses this.
 const SPECIAL_PERSON_CONFIG = {
     themeFile: "special.jpg",
     preferredSongMatches: ["i like you so much"]
 };
 
+// App state values that change while the page is running.
 let currentQuestionIndex = 0;
 let currentUser = "";
 let currentSongIndex = 0;
@@ -138,6 +154,7 @@ let bouncingTextTransitioning = false;
 let audioStatusTimeout = null;
 let playerAutoCloseTimeout = null;
 let mobileBouncingTextTimeout = null;
+let savedUsersCache = [];
 
 const finalQuestionWarnings = [
     "Are you sure?",
@@ -150,6 +167,7 @@ const finalQuestionWarnings = [
     "Come on atleast try??"
 ];
 
+// Shows small text messages in the audio settings area.
 function setAudioStatus(message, tone = "neutral", autoClearMs = 0) {
     clearTimeout(audioStatusTimeout);
     audioStatus.textContent = message;
@@ -175,10 +193,12 @@ function setAudioStatus(message, tone = "neutral", autoClearMs = 0) {
     }
 }
 
+// Turns the current typed name into a simple lowercase value.
 function getCurrentUserKey() {
     return currentUser.trim().toLowerCase();
 }
 
+// Cleans a name so matching is easier.
 function normalizeSpecialName(name) {
     return String(name || "")
         .trim()
@@ -186,11 +206,26 @@ function normalizeSpecialName(name) {
         .replace(/[^a-z]/g, "");
 }
 
+// Used for unique saved-name checking.
+function normalizeSavedUserName(name) {
+    return String(name || "")
+        .trim()
+        .toLowerCase()
+        .replace(/\s+/g, " ");
+}
+
+// Nico is the admin who can open the user list.
+function isAdminUser(name = currentUser) {
+    return normalizeSavedUserName(name) === "nico";
+}
+
+// Any name starting with V becomes a special person.
 function isSpecialPersonName(name) {
     const normalizedName = normalizeSpecialName(name);
     return normalizedName.startsWith("v");
 }
 
+// Returns the special settings if the current person is special.
 function getSpecialPersonConfig() {
     const normalizedName = normalizeSpecialName(currentUser);
 
@@ -205,6 +240,169 @@ function getSpecialPersonConfig() {
     return null;
 }
 
+async function saveUserIfNew(name) {
+    const cleanName = String(name || "").trim();
+    const normalizedName = normalizeSavedUserName(cleanName);
+
+    if (!cleanName || !normalizedName) {
+        return;
+    }
+
+    if (!supabaseClient) {
+        return;
+    }
+
+    const { error } = await supabaseClient
+        .from(SUPABASE_USERS_TABLE)
+        .insert({
+            name: cleanName,
+            normalized_name: normalizedName
+        });
+
+    if (error && !/duplicate key|unique/i.test(error.message)) {
+        console.error("Could not save user:", error.message);
+        return;
+    }
+
+    await loadSavedUsers();
+}
+
+async function removeSavedUser(nameToRemove) {
+    const normalizedTarget = normalizeSavedUserName(nameToRemove);
+
+    if (!normalizedTarget || !supabaseClient) {
+        return;
+    }
+
+    const { error } = await supabaseClient
+        .from(SUPABASE_USERS_TABLE)
+        .delete()
+        .eq("normalized_name", normalizedTarget);
+
+    if (error) {
+        console.error("Could not remove user:", error.message);
+        return;
+    }
+
+    await loadSavedUsers();
+}
+
+async function loadSavedUsers() {
+    if (!supabaseClient) {
+        savedUsersCache = [];
+        return;
+    }
+
+    const { data, error } = await supabaseClient
+        .from(SUPABASE_USERS_TABLE)
+        .select("name, normalized_name, created_at")
+        .order("created_at", { ascending: false });
+
+    if (error) {
+        console.error("Could not load users:", error.message);
+        savedUsersCache = [];
+        return;
+    }
+
+    savedUsersCache = (data || []).map((savedUser) => ({
+        name: savedUser.name,
+        normalizedName: savedUser.normalized_name,
+        createdAt: savedUser.created_at
+    }));
+}
+
+function formatSavedUserTime(createdAt) {
+    const now = Date.now();
+    const createdTime = createdAt ? new Date(createdAt).getTime() : now;
+    const elapsedMs = Math.max(0, now - createdTime);
+    const elapsedSeconds = Math.floor(elapsedMs / 1000);
+
+    if (elapsedSeconds < 60) {
+        return `${elapsedSeconds}s ago`;
+    }
+
+    const elapsedMinutes = Math.floor(elapsedSeconds / 60);
+
+    if (elapsedMinutes < 60) {
+        return `${elapsedMinutes}m ago`;
+    }
+
+    const elapsedHours = Math.floor(elapsedMinutes / 60);
+
+    if (elapsedHours < 24) {
+        return `${elapsedHours}h ago`;
+    }
+
+    const elapsedDays = Math.floor(elapsedHours / 24);
+    return `${elapsedDays}d ago`;
+}
+
+function renderSavedUsers() {
+    if (!savedUserList) {
+        return;
+    }
+
+    savedUserList.innerHTML = "";
+    const savedUsers = savedUsersCache;
+
+    if (savedUsers.length === 0) {
+        const emptyState = document.createElement("div");
+        emptyState.className = "saved-user-empty";
+        emptyState.textContent = "No saved users yet.";
+        savedUserList.appendChild(emptyState);
+        return;
+    }
+
+    savedUsers.forEach((savedUser) => {
+        const item = document.createElement("div");
+        item.className = "saved-user-item";
+
+        const nameText = document.createElement("span");
+        nameText.className = "saved-user-name";
+        nameText.textContent = savedUser.name;
+
+        const timeText = document.createElement("span");
+        timeText.className = "saved-user-time";
+        timeText.textContent = formatSavedUserTime(savedUser.createdAt);
+
+        const removeButton = document.createElement("button");
+        removeButton.type = "button";
+        removeButton.className = "saved-user-remove";
+        removeButton.textContent = "X";
+        removeButton.addEventListener("click", async () => {
+            await removeSavedUser(savedUser.name);
+            renderSavedUsers();
+        });
+
+        const infoWrap = document.createElement("div");
+        infoWrap.className = "saved-user-info";
+        infoWrap.appendChild(nameText);
+        infoWrap.appendChild(timeText);
+
+        item.appendChild(infoWrap);
+        item.appendChild(removeButton);
+        savedUserList.appendChild(item);
+    });
+}
+
+async function updateAdminSettingsView() {
+    const adminIsActive = isAdminUser();
+
+    userAdminTab.classList.toggle("visible", adminIsActive);
+    userAdminSection.classList.toggle("admin-active", adminIsActive);
+
+    if (!adminIsActive && userAdminSection.classList.contains("active")) {
+        setSettingsSection("settings");
+    }
+
+    if (adminIsActive) {
+        await loadSavedUsers();
+        renderSavedUsers();
+    }
+}
+
+// EASY EDIT:
+// Add or remove bouncing texts here.
 const bouncingTexts = `
 RELAX
 WAG ISIPIN ANG PROBLEMA
@@ -237,6 +435,7 @@ YOU ARE SPECIAL
     .map((text) => text.trim())
     .filter(Boolean);
 
+// Creates the floating dots in the background.
 function buildParticles(total) {
     for (let index = 0; index < total; index += 1) {
         const dot = document.createElement("span");
@@ -257,8 +456,9 @@ function buildParticles(total) {
     }
 }
 
+// Switches from one screen to another.
 function setActiveScreen(screenToShow) {
-    [lockScreen, quizScreen, landscapeScreen, mainPage].forEach((screen) => {
+    [lockScreen, quizScreen, adminPasswordScreen, landscapeScreen, mainPage].forEach((screen) => {
         screen.classList.add("hidden");
         screen.classList.remove("active");
     });
@@ -289,6 +489,7 @@ function setActiveScreen(screenToShow) {
     }
 }
 
+// Picks a random song from the loaded songs.
 function chooseRandomSong() {
     if (songs.length === 0) {
         return false;
@@ -332,6 +533,7 @@ async function requestLandscapeFullscreenIfMobile() {
     }
 }
 
+// Formats seconds like 1:23.
 function formatTime(totalSeconds) {
     if (!Number.isFinite(totalSeconds) || totalSeconds < 0) {
         return "0:00";
@@ -342,6 +544,7 @@ function formatTime(totalSeconds) {
     return `${minutes}:${String(seconds).padStart(2, "0")}`;
 }
 
+// Changes the volume icon based on the current volume.
 function updateVolumeButton() {
     if (audioPlayer.volume <= 0.01) {
         playerVolumeToggle.textContent = "🔇";
@@ -352,11 +555,13 @@ function updateVolumeButton() {
     }
 }
 
+// Updates the center idle music text.
 function updateFloatingNowPlaying() {
     floatingNowPlayingTitle.textContent = nowPlayingTitle.textContent || "Loading songs...";
     floatingNowPlayingTime.textContent = `${formatTime(audioPlayer.currentTime)} / ${formatTime(audioPlayer.duration)}`;
 }
 
+// Draws the playlist items inside the music player.
 function renderPlayerPlaylist(filterText = "") {
     const normalizedFilter = filterText.trim().toLowerCase();
     playerPlaylistList.innerHTML = "";
@@ -643,23 +848,27 @@ function applyTheme(fileName) {
     );
 }
 
+// Highlights the currently selected theme card.
 function setActiveThemeCard(fileName) {
     themeCards.forEach((card) => {
         card.classList.toggle("active", card.dataset.themeFile === fileName);
     });
 }
 
+// Applies the background and updates the active theme card.
 function applyThemeSelection(fileName) {
     applyTheme(fileName);
     setActiveThemeCard(fileName);
 }
 
+// Uses the special theme if the current user is special.
 function applyUserSpecificTheme() {
     const specialConfig = getSpecialPersonConfig();
     const themeFile = specialConfig ? specialConfig.themeFile : "background.jpg";
     applyThemeSelection(themeFile);
 }
 
+// Tries to find the special person's preferred song.
 function findPreferredSongIndex() {
     const specialConfig = getSpecialPersonConfig();
 
@@ -675,6 +884,7 @@ function findPreferredSongIndex() {
     });
 }
 
+// Theme button click behavior.
 function setupThemes() {
     themeCards.forEach((card) => {
         card.addEventListener("click", () => {
@@ -683,6 +893,7 @@ function setupThemes() {
     });
 }
 
+// Adds one loaded song into the playlist array.
 function addSongToPlayer(song) {
     const alreadyExists = songs.some((item) => item.file === song.file);
 
@@ -692,12 +903,24 @@ function addSongToPlayer(song) {
     }
 }
 
+// Makes the player hide into its idle state after some time.
+function closePlayerUi() {
+    clearTimeout(playerAutoCloseTimeout);
+    playerWrap.classList.remove("open", "song-list-open", "volume-open", "idle-ui");
+    floatingNowPlaying.classList.remove("visible");
+    playerToggle.classList.remove("hidden");
+}
+
 function resetPlayerAutoCloseTimer() {
     clearTimeout(playerAutoCloseTimeout);
     playerWrap.classList.remove("idle-ui");
     floatingNowPlaying.classList.remove("visible");
 
     if (!mainPage.classList.contains("active") || !playerWrap.classList.contains("open")) {
+        return;
+    }
+
+    if (isMobilePlayerLayout()) {
         return;
     }
 
@@ -710,6 +933,7 @@ function resetPlayerAutoCloseTimer() {
     }, 5200);
 }
 
+// Loads songs from the Supabase bucket.
 async function loadSupabaseSongs() {
     if (!supabaseClient) {
         setAudioStatus("Supabase client did not load.", "error");
@@ -763,6 +987,7 @@ async function loadSupabaseSongs() {
     }
 }
 
+// Uploads one MP3 file to Supabase.
 async function uploadSongToSupabase(file) {
     if (!supabaseClient) {
         setAudioStatus("Supabase client did not load.", "error");
@@ -796,17 +1021,25 @@ async function uploadSongToSupabase(file) {
     };
 }
 
+// Switches the visible tab inside the settings panel.
 function setSettingsSection(sectionName) {
     settingsTabs.forEach((tab) => {
-        tab.classList.toggle("active", tab.dataset.settingsTab === sectionName);
+        const matchesCurrentSection = tab.dataset.settingsTab === sectionName;
+        const isHiddenAdminTab = tab === userAdminTab && !userAdminTab.classList.contains("visible");
+        tab.classList.toggle("active", matchesCurrentSection && !isHiddenAdminTab);
     });
 
     settingsSections.forEach((section) => {
-        section.classList.toggle("active", section.dataset.settingsSection === sectionName);
+        const matchesCurrentSection = section.dataset.settingsSection === sectionName;
+        const isHiddenAdminSection = section === userAdminSection && !userAdminTab.classList.contains("visible");
+        section.classList.toggle("active", matchesCurrentSection && !isHiddenAdminSection);
     });
 }
 
+// Wires all settings controls.
 function setupSettingsPanel() {
+    updateAdminSettingsView();
+
     settingsTabs.forEach((tab) => {
         tab.addEventListener("click", () => {
             setSettingsSection(tab.dataset.settingsTab);
@@ -855,6 +1088,7 @@ function setupSettingsPanel() {
     });
 }
 
+// Wires all music player controls.
 function setupSongs() {
     nowPlayingTitle.textContent = "Loading songs...";
     playerCurrentTime.textContent = "0:00";
@@ -968,20 +1202,38 @@ function setupSongs() {
     });
 
     document.addEventListener("pointerdown", (event) => {
-        if (!isMobilePlayerLayout() || !playerWrap.classList.contains("song-list-open")) {
+        if (!isMobilePlayerLayout()) {
+            if (!playerWrap.classList.contains("song-list-open")) {
+                return;
+            }
+
+            const clickedInsidePlaylist = playerPlaylistPanel.contains(event.target);
+            const clickedPlaylistButton = playerListToggle.contains(event.target);
+
+            if (!clickedInsidePlaylist && !clickedPlaylistButton) {
+                playerWrap.classList.remove("song-list-open");
+                resetPlayerAutoCloseTimer();
+            }
+
             return;
         }
 
-        const clickedInsidePlaylist = playerPlaylistPanel.contains(event.target);
-        const clickedPlaylistButton = playerListToggle.contains(event.target);
+        if (!playerWrap.classList.contains("open")) {
+            return;
+        }
 
-        if (!clickedInsidePlaylist && !clickedPlaylistButton) {
-            playerWrap.classList.remove("song-list-open");
-            resetPlayerAutoCloseTimer();
+        const clickedInsidePlayer = playerWrap.contains(event.target);
+        const clickedPlayerToggle = playerToggle.contains(event.target);
+        const clickedSettings = settingsPanel.contains(event.target);
+        const clickedSettingsToggle = settingsToggle.contains(event.target);
+
+        if (!clickedInsidePlayer && !clickedPlayerToggle && !clickedSettings && !clickedSettingsToggle) {
+            closePlayerUi();
         }
     });
 }
 
+// Changes the active song.
 function setCurrentSong(index, shouldPlay) {
     if (!songs[index]) {
         return;
@@ -1004,6 +1256,7 @@ function setCurrentSong(index, shouldPlay) {
     updatePlayPauseButton();
 }
 
+// Updates the player progress bar and times.
 function updateProgressBar() {
     if (!audioPlayer.duration) {
         playerProgressFill.style.width = "0%";
@@ -1020,10 +1273,12 @@ function updateProgressBar() {
     updateFloatingNowPlaying();
 }
 
+// Updates the play / pause button icon.
 function updatePlayPauseButton() {
     playPauseButton.textContent = audioPlayer.paused ? "▶" : "❚❚";
 }
 
+// Moves to the next quiz question.
 function goToNextQuestion() {
     currentQuestionIndex += 1;
 
@@ -1035,6 +1290,7 @@ function goToNextQuestion() {
     renderQuestion();
 }
 
+// Used when the user clicked a correct answer.
 function handleCorrectAnswer() {
     quizMessage.textContent = "Correct.";
     quizMessage.className = "message success";
@@ -1045,6 +1301,7 @@ function handleCorrectAnswer() {
     }, 260);
 }
 
+// Builds one answer button row.
 function createChoiceContent(answer) {
     const label = document.createElement("span");
     label.className = "choice-label";
@@ -1056,6 +1313,7 @@ function createChoiceContent(answer) {
     return { label, text };
 }
 
+// Draws the current quiz question on screen.
 function renderQuestion() {
     const question = currentQuestions[currentQuestionIndex];
 
@@ -1094,6 +1352,7 @@ function renderQuestion() {
     });
 }
 
+// Starts the quiz after the name screen.
 function startQuiz() {
     currentQuestionIndex = 0;
     finalQuestionWarningIndex = 0;
@@ -1103,6 +1362,17 @@ function startQuiz() {
     renderQuestion();
 }
 
+// Starts the admin password step for Nico.
+function startAdminPasswordFlow() {
+    adminPasswordInput.value = "";
+    adminPasswordMessage.textContent = "";
+    adminPasswordMessage.className = "message";
+    document.body.classList.remove("unlocking");
+    setActiveScreen(adminPasswordScreen);
+    adminPasswordInput.focus();
+}
+
+// Opens the main page after the reminder screen.
 proceedMainButton.addEventListener("click", async () => {
     applyUserSpecificTheme();
 
@@ -1119,7 +1389,8 @@ proceedMainButton.addEventListener("click", async () => {
     setActiveScreen(mainPage);
 });
 
-lockForm.addEventListener("submit", (event) => {
+// Name form submit.
+lockForm.addEventListener("submit", async (event) => {
     event.preventDefault();
 
     const enteredName = nameInput.value.trim();
@@ -1131,7 +1402,9 @@ lockForm.addEventListener("submit", (event) => {
     }
 
     currentUser = enteredName;
+    await saveUserIfNew(currentUser);
     applyUserSpecificTheme();
+    await updateAdminSettingsView();
     lockMessage.textContent = `Welcome, ${currentUser}.`;
     lockMessage.className = "message success";
     nameInput.disabled = true;
@@ -1143,10 +1416,36 @@ lockForm.addEventListener("submit", (event) => {
     }, 160);
 
     setTimeout(() => {
+        if (isAdminUser(currentUser)) {
+            startAdminPasswordFlow();
+            return;
+        }
+
         startQuiz();
     }, 1180);
 });
 
+adminPasswordForm.addEventListener("submit", (event) => {
+    event.preventDefault();
+
+    const enteredPassword = adminPasswordInput.value.trim();
+
+    if (enteredPassword !== ADMIN_PASSWORD) {
+        adminPasswordMessage.textContent = "Wrong password.";
+        adminPasswordMessage.className = "message error";
+        return;
+    }
+
+    adminPasswordMessage.textContent = "Access granted.";
+    adminPasswordMessage.className = "message success";
+
+    setTimeout(() => {
+        adminPasswordMessage.textContent = "";
+        setActiveScreen(landscapeScreen);
+    }, 260);
+});
+
+// Start everything when the page loads.
 buildParticles(60);
 setupSongs();
 setupAudioUnlock();
