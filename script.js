@@ -364,6 +364,14 @@ function formatSavedUserTime(enteredAt) {
     return `${elapsedDays}d ago`;
 }
 
+function updateSavedUserTimestamps() {
+    const timestampElements = savedUserList.querySelectorAll("[data-entered-at]");
+
+    timestampElements.forEach((element) => {
+        element.textContent = formatSavedUserTime(element.dataset.enteredAt);
+    });
+}
+
 function renderSavedUsers() {
     if (!savedUserList) {
         return;
@@ -390,6 +398,7 @@ function renderSavedUsers() {
 
         const timeText = document.createElement("span");
         timeText.className = "saved-user-time";
+        timeText.dataset.enteredAt = savedUser.enteredAt || "";
         timeText.textContent = formatSavedUserTime(savedUser.enteredAt);
 
         const removeButton = document.createElement("button");
@@ -447,11 +456,11 @@ function startAdminUsersLiveRefresh() {
     clearInterval(adminUsersSyncInterval);
 
     adminUsersClockInterval = setInterval(() => {
-        if (!isAdminUser()) {
+        if (!isAdminUser() || !settingsPanel.classList.contains("open") || !userAdminSection.classList.contains("active")) {
             return;
         }
 
-        renderSavedUsers();
+        updateSavedUserTimestamps();
     }, 1000);
 
     adminUsersSyncInterval = setInterval(async () => {
