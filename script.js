@@ -448,7 +448,7 @@ function startAdminUsersLiveRefresh() {
     clearInterval(adminUsersSyncInterval);
 
     adminUsersClockInterval = setInterval(() => {
-        if (!isAdminUser() || !settingsPanel.classList.contains("open") || !userAdminSection.classList.contains("active")) {
+        if (!isAdminUser()) {
             return;
         }
 
