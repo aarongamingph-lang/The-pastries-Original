@@ -159,7 +159,8 @@ let mobileBouncingTextTimeout = null;
 let mobileNowPlayingTimeout = null;
 let savedUsersCache = [];
 let lastNameProceedAt = null;
-let adminUsersLiveInterval = null;
+let adminUsersClockInterval = null;
+let adminUsersSyncInterval = null;
 let adminUsersRealtimeChannel = null;
 
 const finalQuestionWarnings = [
@@ -443,26 +444,24 @@ function startAdminUsersRealtime() {
 }
 
 function startAdminUsersLiveRefresh() {
-    clearInterval(adminUsersLiveInterval);
-    adminUsersLiveInterval = setInterval(() => {
+    clearInterval(adminUsersClockInterval);
+    clearInterval(adminUsersSyncInterval);
+
+    adminUsersClockInterval = setInterval(() => {
         if (!isAdminUser() || !settingsPanel.classList.contains("open") || !userAdminSection.classList.contains("active")) {
-            return;
-        }
-
-        const now = Date.now();
-        const shouldReloadFromSupabase = savedUsersCache.some((savedUser) => {
-            const sourceTime = savedUser.enteredAt ? new Date(savedUser.enteredAt).getTime() : now;
-            const elapsedSeconds = Math.floor(Math.max(0, now - sourceTime) / 1000);
-            return elapsedSeconds > 0 && elapsedSeconds % 15 === 0;
-        });
-
-        if (shouldReloadFromSupabase) {
-            refreshAdminUsersView();
             return;
         }
 
         renderSavedUsers();
     }, 1000);
+
+    adminUsersSyncInterval = setInterval(async () => {
+        if (!isAdminUser() || !settingsPanel.classList.contains("open") || !userAdminSection.classList.contains("active")) {
+            return;
+        }
+
+        await refreshAdminUsersView();
+    }, 15000);
 }
 
 async function updateAdminSettingsView() {
