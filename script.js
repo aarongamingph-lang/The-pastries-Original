@@ -125,7 +125,7 @@ const loopButton = document.getElementById("loopButton");
 const SUPABASE_URL = "https://qptgeftudyxqdlmvvotk.supabase.co";
 const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_CJsr9sctO5mrbuVmG4G3jA_YDXnkynM";
 const SUPABASE_BUCKET = "songs";
-const SUPABASE_USERS_BUCKET = "users";
+const SUPABASE_USERS_TABLE = "site_users";
 const supabaseClient = window.supabase
     ? window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY)
     : null;
@@ -160,6 +160,7 @@ let mobileNowPlayingTimeout = null;
 let savedUsersCache = [];
 let lastNameProceedAt = null;
 let adminUsersLiveInterval = null;
+let adminUsersRealtimeChannel = null;
 
 const finalQuestionWarnings = [
     "Are you sure?",
@@ -263,18 +264,14 @@ async function saveUserIfNew(name) {
         return;
     }
 
-    const fileName = `${normalizedName}.txt`;
-    const fileBody = new Blob([cleanName], { type: "text/plain" });
-
-    await supabaseClient.storage
-        .from(SUPABASE_USERS_BUCKET)
-        .remove([fileName]);
-
-    const { error } = await supabaseClient.storage
-        .from(SUPABASE_USERS_BUCKET)
-        .upload(fileName, fileBody, {
-            contentType: "text/plain",
-            upsert: false
+    const { error } = await supabaseClient
+        .from(SUPABASE_USERS_TABLE)
+        .upsert({
+            name: cleanName,
+            normalized_name: normalizedName,
+            created_at: new Date(createdAt).toISOString()
+        }, {
+            onConflict: "normalized_name"
         });
 
     if (error) {
@@ -296,9 +293,10 @@ async function removeSavedUser(nameToRemove) {
         return;
     }
 
-    const { error } = await supabaseClient.storage
-        .from(SUPABASE_USERS_BUCKET)
-        .remove([`${normalizedTarget}.txt`]);
+    const { error } = await supabaseClient
+        .from(SUPABASE_USERS_TABLE)
+        .delete()
+        .eq("normalized_name", normalizedTarget);
 
     if (error) {
         console.error("Could not remove user:", error.message);
@@ -314,9 +312,10 @@ async function loadSavedUsers() {
         return;
     }
 
-    const { data, error } = await supabaseClient.storage
-        .from(SUPABASE_USERS_BUCKET)
-        .list("", { limit: 100, offset: 0 });
+    const { data, error } = await supabaseClient
+        .from(SUPABASE_USERS_TABLE)
+        .select("name, normalized_name, created_at")
+        .order("created_at", { ascending: false });
 
     if (error) {
         console.error("Could not load users:", error.message);
@@ -324,35 +323,11 @@ async function loadSavedUsers() {
         return;
     }
 
-    const textFiles = (data || []).filter((file) => file.name && /\.txt$/i.test(file.name));
-
-    const loadedUsers = await Promise.all(
-        textFiles.map(async (file) => {
-            try {
-                const { data: fileData, error: downloadError } = await supabaseClient.storage
-                    .from(SUPABASE_USERS_BUCKET)
-                    .download(file.name);
-
-                if (downloadError || !fileData) {
-                    return null;
-                }
-
-                const savedName = (await fileData.text()).trim() || file.name.replace(/\.txt$/i, "");
-
-                return {
-                    name: savedName,
-                    normalizedName: file.name.replace(/\.txt$/i, ""),
-                    createdAt: file.created_at
-                };
-            } catch {
-                return null;
-            }
-        })
-    );
-
-    savedUsersCache = loadedUsers
-        .filter(Boolean)
-        .sort((firstUser, secondUser) => new Date(secondUser.createdAt) - new Date(firstUser.createdAt));
+    savedUsersCache = (data || []).map((savedUser) => ({
+        name: savedUser.name,
+        normalizedName: savedUser.normalized_name,
+        createdAt: savedUser.created_at
+    }));
 }
 
 function formatSavedUserTime(createdAt) {
@@ -439,19 +414,35 @@ async function refreshAdminUsersView() {
     renderSavedUsers();
 }
 
+function startAdminUsersRealtime() {
+    if (!supabaseClient || adminUsersRealtimeChannel) {
+        return;
+    }
+
+    adminUsersRealtimeChannel = supabaseClient
+        .channel("site-users-live")
+        .on("postgres_changes", {
+            event: "*",
+            schema: "public",
+            table: SUPABASE_USERS_TABLE
+        }, async () => {
+            if (!isAdminUser()) {
+                return;
+            }
+
+            await refreshAdminUsersView();
+        })
+        .subscribe();
+}
+
 function startAdminUsersLiveRefresh() {
     clearInterval(adminUsersLiveInterval);
-    adminUsersLiveInterval = setInterval(async () => {
-        const adminIsViewingUsers =
-            isAdminUser() &&
-            settingsPanel.classList.contains("open") &&
-            userAdminSection.classList.contains("active");
-
-        if (!adminIsViewingUsers) {
+    adminUsersLiveInterval = setInterval(() => {
+        if (!isAdminUser() || !settingsPanel.classList.contains("open") || !userAdminSection.classList.contains("active")) {
             return;
         }
 
-        await refreshAdminUsersView();
+        renderSavedUsers();
     }, 15000);
 }
 
@@ -1553,6 +1544,7 @@ setupSongs();
 setupAudioUnlock();
 setupThemes();
 setupSettingsPanel();
+startAdminUsersRealtime();
 startAdminUsersLiveRefresh();
 applyThemeSelection("background.jpg");
 loadSupabaseSongs();
