@@ -144,7 +144,10 @@ const finalQuestionWarnings = [
     "Are you really sure?",
     "You suree???",
     "Still sure?",
-    "Maybe choose the one that helps you relax."
+    "Try the first one.",
+    "you'l like the first one",
+    "You really sure????",
+    "Come on atleast try??"
 ];
 
 function setAudioStatus(message, tone = "neutral", autoClearMs = 0) {
@@ -227,6 +230,7 @@ T-T
 HAKDOG
 HALOWBLOCK
 ALDEAN NEILL
+YOU ARE SPECIAL
 `
     .trim()
     .split("\n")
