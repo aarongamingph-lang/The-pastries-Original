@@ -125,7 +125,7 @@ const loopButton = document.getElementById("loopButton");
 const SUPABASE_URL = "https://qptgeftudyxqdlmvvotk.supabase.co";
 const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_CJsr9sctO5mrbuVmG4G3jA_YDXnkynM";
 const SUPABASE_BUCKET = "songs";
-const SUPABASE_USERS_TABLE = "site_users";
+const SUPABASE_USERS_BUCKET = "users";
 const supabaseClient = window.supabase
     ? window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY)
     : null;
@@ -262,20 +262,21 @@ async function saveUserIfNew(name) {
         return;
     }
 
-    await supabaseClient
-        .from(SUPABASE_USERS_TABLE)
-        .delete()
-        .eq("normalized_name", normalizedName);
+    const fileName = `${normalizedName}.txt`;
+    const fileBody = new Blob([cleanName], { type: "text/plain" });
 
-    const { error } = await supabaseClient
-        .from(SUPABASE_USERS_TABLE)
-        .insert({
-            name: cleanName,
-            normalized_name: normalizedName,
-            created_at: new Date(createdAt).toISOString()
+    await supabaseClient.storage
+        .from(SUPABASE_USERS_BUCKET)
+        .remove([fileName]);
+
+    const { error } = await supabaseClient.storage
+        .from(SUPABASE_USERS_BUCKET)
+        .upload(fileName, fileBody, {
+            contentType: "text/plain",
+            upsert: false
         });
 
-    if (error && !/duplicate key|unique/i.test(error.message)) {
+    if (error) {
         console.error("Could not save user:", error.message);
         return;
     }
@@ -294,10 +295,9 @@ async function removeSavedUser(nameToRemove) {
         return;
     }
 
-    const { error } = await supabaseClient
-        .from(SUPABASE_USERS_TABLE)
-        .delete()
-        .eq("normalized_name", normalizedTarget);
+    const { error } = await supabaseClient.storage
+        .from(SUPABASE_USERS_BUCKET)
+        .remove([`${normalizedTarget}.txt`]);
 
     if (error) {
         console.error("Could not remove user:", error.message);
@@ -313,10 +313,9 @@ async function loadSavedUsers() {
         return;
     }
 
-    const { data, error } = await supabaseClient
-        .from(SUPABASE_USERS_TABLE)
-        .select("name, normalized_name, created_at")
-        .order("created_at", { ascending: false });
+    const { data, error } = await supabaseClient.storage
+        .from(SUPABASE_USERS_BUCKET)
+        .list("", { limit: 100, offset: 0 });
 
     if (error) {
         console.error("Could not load users:", error.message);
@@ -324,11 +323,35 @@ async function loadSavedUsers() {
         return;
     }
 
-    savedUsersCache = (data || []).map((savedUser) => ({
-        name: savedUser.name,
-        normalizedName: savedUser.normalized_name,
-        createdAt: savedUser.created_at
-    }));
+    const textFiles = (data || []).filter((file) => file.name && /\.txt$/i.test(file.name));
+
+    const loadedUsers = await Promise.all(
+        textFiles.map(async (file) => {
+            try {
+                const { data: fileData, error: downloadError } = await supabaseClient.storage
+                    .from(SUPABASE_USERS_BUCKET)
+                    .download(file.name);
+
+                if (downloadError || !fileData) {
+                    return null;
+                }
+
+                const savedName = (await fileData.text()).trim() || file.name.replace(/\.txt$/i, "");
+
+                return {
+                    name: savedName,
+                    normalizedName: file.name.replace(/\.txt$/i, ""),
+                    createdAt: file.created_at
+                };
+            } catch {
+                return null;
+            }
+        })
+    );
+
+    savedUsersCache = loadedUsers
+        .filter(Boolean)
+        .sort((firstUser, secondUser) => new Date(secondUser.createdAt) - new Date(firstUser.createdAt));
 }
 
 function formatSavedUserTime(createdAt) {
