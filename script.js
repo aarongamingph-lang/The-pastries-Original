@@ -123,6 +123,17 @@ const playPauseButton = document.getElementById("playPauseButton");
 const nextButton = document.getElementById("nextButton");
 const loopButton = document.getElementById("loopButton");
 
+if (mainPageVideo) {
+    mainPageVideo.addEventListener("loadeddata", () => {
+        mainPageVideo.classList.add("loaded");
+    });
+
+    mainPageVideo.addEventListener("error", () => {
+        console.error("Could not load main page video background:", mainPageVideo.currentSrc || mainPageVideo.src);
+        mainPageVideo.classList.remove("loaded");
+    });
+}
+
 const SUPABASE_URL = "https://qptgeftudyxqdlmvvotk.supabase.co";
 const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_CJsr9sctO5mrbuVmG4G3jA_YDXnkynM";
 const SUPABASE_BUCKET = "songs";
@@ -924,9 +935,11 @@ function applyTheme(fileName) {
     mainPage.classList.toggle("video-theme", usesVideoTheme);
 
     if (usesVideoTheme) {
+        mainPageVideo.classList.remove("loaded");
         mainPageVideo.src = fileName;
         mainPageVideo.muted = true;
         mainPageVideo.volume = 0;
+        mainPageVideo.defaultMuted = true;
         mainPageVideo.load();
 
         const playAttempt = mainPageVideo.play();
@@ -940,6 +953,7 @@ function applyTheme(fileName) {
     }
 
     mainPageVideo.pause();
+    mainPageVideo.classList.remove("loaded");
     mainPageVideo.removeAttribute("src");
     mainPageVideo.load();
     document.documentElement.style.setProperty(
