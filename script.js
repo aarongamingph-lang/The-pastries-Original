@@ -264,19 +264,26 @@ async function saveUserIfNew(name) {
         return;
     }
 
-    const { error } = await supabaseClient
-        .from(SUPABASE_USERS_TABLE)
-        .upsert({
-            name: cleanName,
-            normalized_name: normalizedName,
-            created_at: new Date(createdAt).toISOString()
-        }, {
-            onConflict: "normalized_name"
-        });
+    const { error: rpcError } = await supabaseClient.rpc("upsert_site_user", {
+        p_name: cleanName,
+        p_normalized_name: normalizedName
+    });
 
-    if (error) {
-        console.error("Could not save user:", error.message);
-        return;
+    if (rpcError) {
+        const { error: fallbackError } = await supabaseClient
+            .from(SUPABASE_USERS_TABLE)
+            .upsert({
+                name: cleanName,
+                normalized_name: normalizedName,
+                entered_at: new Date(createdAt).toISOString()
+            }, {
+                onConflict: "normalized_name"
+            });
+
+        if (fallbackError) {
+            console.error("Could not save user:", fallbackError.message);
+            return;
+        }
     }
 
     await loadSavedUsers();
@@ -314,8 +321,8 @@ async function loadSavedUsers() {
 
     const { data, error } = await supabaseClient
         .from(SUPABASE_USERS_TABLE)
-        .select("name, normalized_name, created_at")
-        .order("created_at", { ascending: false });
+        .select("name, normalized_name, entered_at, created_at")
+        .order("entered_at", { ascending: false });
 
     if (error) {
         console.error("Could not load users:", error.message);
@@ -326,14 +333,14 @@ async function loadSavedUsers() {
     savedUsersCache = (data || []).map((savedUser) => ({
         name: savedUser.name,
         normalizedName: savedUser.normalized_name,
-        createdAt: savedUser.created_at
+        enteredAt: savedUser.entered_at || savedUser.created_at
     }));
 }
 
-function formatSavedUserTime(createdAt) {
+function formatSavedUserTime(enteredAt) {
     const now = Date.now();
-    const createdTime = createdAt ? new Date(createdAt).getTime() : now;
-    const elapsedMs = Math.max(0, now - createdTime);
+    const sourceTime = enteredAt ? new Date(enteredAt).getTime() : now;
+    const elapsedMs = Math.max(0, now - sourceTime);
     const elapsedSeconds = Math.floor(elapsedMs / 1000);
     const snappedSeconds = Math.floor(elapsedSeconds / 15) * 15;
 
@@ -383,7 +390,7 @@ function renderSavedUsers() {
 
         const timeText = document.createElement("span");
         timeText.className = "saved-user-time";
-        timeText.textContent = formatSavedUserTime(savedUser.createdAt);
+        timeText.textContent = formatSavedUserTime(savedUser.enteredAt);
 
         const removeButton = document.createElement("button");
         removeButton.type = "button";
@@ -442,8 +449,20 @@ function startAdminUsersLiveRefresh() {
             return;
         }
 
+        const now = Date.now();
+        const shouldReloadFromSupabase = savedUsersCache.some((savedUser) => {
+            const sourceTime = savedUser.enteredAt ? new Date(savedUser.enteredAt).getTime() : now;
+            const elapsedSeconds = Math.floor(Math.max(0, now - sourceTime) / 1000);
+            return elapsedSeconds > 0 && elapsedSeconds % 15 === 0;
+        });
+
+        if (shouldReloadFromSupabase) {
+            refreshAdminUsersView();
+            return;
+        }
+
         renderSavedUsers();
-    }, 15000);
+    }, 1000);
 }
 
 async function updateAdminSettingsView() {
