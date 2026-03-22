@@ -178,14 +178,26 @@ function getCurrentUserKey() {
     return currentUser.trim().toLowerCase();
 }
 
+function normalizeSpecialName(name) {
+    return String(name || "")
+        .trim()
+        .toLowerCase()
+        .replace(/[^a-z]/g, "");
+}
+
+function isSpecialPersonName(name) {
+    const normalizedName = normalizeSpecialName(name);
+    return normalizedName.startsWith("v");
+}
+
 function getSpecialPersonConfig() {
-    const normalizedName = getCurrentUserKey();
+    const normalizedName = normalizeSpecialName(currentUser);
 
     if (!normalizedName) {
         return null;
     }
 
-    if (normalizedName.startsWith("v")) {
+    if (isSpecialPersonName(normalizedName)) {
         return SPECIAL_PERSON_CONFIG.valerie;
     }
 
