@@ -159,7 +159,6 @@ let mobileBouncingTextTimeout = null;
 let mobileNowPlayingTimeout = null;
 let savedUsersCache = [];
 let lastNameProceedAt = null;
-let adminUsersClockInterval = null;
 let adminUsersSyncInterval = null;
 let adminUsersRealtimeChannel = null;
 
@@ -338,46 +337,16 @@ async function loadSavedUsers() {
     }));
 }
 
-function formatSavedUserTime(enteredAt) {
-    const now = Date.now();
-    const parsedTime = enteredAt ? new Date(enteredAt).getTime() : NaN;
-    const sourceTime = Number.isFinite(parsedTime) ? parsedTime : now;
-    const elapsedSeconds = Math.max(0, Math.floor((now - sourceTime) / 1000));
+function formatSavedUserEnteredTime(enteredAt) {
+    const parsedTime = enteredAt ? new Date(enteredAt) : null;
 
-    if (elapsedSeconds < 60) {
-        return `${elapsedSeconds}s ago`;
+    if (!parsedTime || Number.isNaN(parsedTime.getTime())) {
+        return "Time unavailable";
     }
 
-    const elapsedMinutes = Math.floor(elapsedSeconds / 60);
-
-    if (elapsedMinutes < 60) {
-        return `${elapsedMinutes}m ago`;
-    }
-
-    const elapsedHours = Math.floor(elapsedMinutes / 60);
-
-    if (elapsedHours < 24) {
-        return `${elapsedHours}h ago`;
-    }
-
-    const elapsedDays = Math.floor(elapsedHours / 24);
-    return `${elapsedDays}d ago`;
-}
-
-function updateSavedUserTimers() {
-    if (!savedUserList) {
-        return;
-    }
-
-    const savedUsersByKey = new Map(
-        savedUsersCache.map((savedUser) => [savedUser.normalizedName, savedUser.enteredAt || ""])
-    );
-
-    savedUserList.querySelectorAll("[data-user-key]").forEach((element) => {
-        const savedUserKey = element.dataset.userKey || "";
-        const enteredAt = savedUsersByKey.get(savedUserKey) || element.dataset.enteredAt || "";
-        element.dataset.enteredAt = enteredAt;
-        element.textContent = formatSavedUserTime(enteredAt);
+    return parsedTime.toLocaleTimeString([], {
+        hour: "numeric",
+        minute: "2-digit"
     });
 }
 
@@ -407,9 +376,7 @@ function renderSavedUsers() {
 
         const timeText = document.createElement("span");
         timeText.className = "saved-user-time";
-        timeText.dataset.userKey = savedUser.normalizedName;
-        timeText.dataset.enteredAt = savedUser.enteredAt || "";
-        timeText.textContent = formatSavedUserTime(savedUser.enteredAt);
+        timeText.textContent = formatSavedUserEnteredTime(savedUser.enteredAt);
 
         const removeButton = document.createElement("button");
         removeButton.type = "button";
@@ -438,7 +405,6 @@ async function refreshAdminUsersView() {
 
     await loadSavedUsers();
     renderSavedUsers();
-    updateSavedUserTimers();
 }
 
 function startAdminUsersRealtime() {
@@ -463,16 +429,7 @@ function startAdminUsersRealtime() {
 }
 
 function startAdminUsersLiveRefresh() {
-    clearInterval(adminUsersClockInterval);
     clearInterval(adminUsersSyncInterval);
-
-    adminUsersClockInterval = setInterval(() => {
-        if (!isAdminUser() || !settingsPanel.classList.contains("open") || !userAdminSection.classList.contains("active")) {
-            return;
-        }
-
-        updateSavedUserTimers();
-    }, 1000);
 
     adminUsersSyncInterval = setInterval(async () => {
         if (!isAdminUser() || !settingsPanel.classList.contains("open") || !userAdminSection.classList.contains("active")) {
