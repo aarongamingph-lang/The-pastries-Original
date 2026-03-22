@@ -117,10 +117,8 @@ const supabaseClient = window.supabase
     : null;
 
 const SPECIAL_PERSON_CONFIG = {
-    valerie: {
-        themeFile: "special.jpg",
-        preferredSongMatches: ["i like you so much"]
-    }
+    themeFile: "special.jpg",
+    preferredSongMatches: ["i like you so much"]
 };
 
 let currentQuestionIndex = 0;
@@ -198,10 +196,10 @@ function getSpecialPersonConfig() {
     }
 
     if (isSpecialPersonName(normalizedName)) {
-        return SPECIAL_PERSON_CONFIG.valerie;
+        return SPECIAL_PERSON_CONFIG;
     }
-
-    return SPECIAL_PERSON_CONFIG[normalizedName] || null;
+    
+    return null;
 }
 
 const bouncingTexts = `
