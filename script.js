@@ -158,7 +158,6 @@ let playerAutoCloseTimeout = null;
 let mobileBouncingTextTimeout = null;
 let mobileNowPlayingTimeout = null;
 let savedUsersCache = [];
-let savedUsersClockInterval = null;
 let lastNameProceedAt = null;
 
 const finalQuestionWarnings = [
@@ -414,21 +413,6 @@ async function refreshAdminUsersView() {
 
     await loadSavedUsers();
     renderSavedUsers();
-}
-
-function startSavedUsersClock() {
-    clearInterval(savedUsersClockInterval);
-    savedUsersClockInterval = setInterval(async () => {
-        if (!isAdminUser()) {
-            return;
-        }
-
-        await loadSavedUsers();
-
-        if (userAdminSection.classList.contains("active")) {
-            renderSavedUsers();
-        }
-    }, 15000);
 }
 
 async function updateAdminSettingsView() {
@@ -1172,8 +1156,13 @@ function setupSongs() {
         resetPlayerAutoCloseTimer();
     });
 
-    settingsToggle.addEventListener("click", () => {
+    settingsToggle.addEventListener("click", async () => {
+        const willOpen = !settingsPanel.classList.contains("open");
         settingsPanel.classList.toggle("open");
+
+        if (willOpen && isAdminUser()) {
+            await refreshAdminUsersView();
+        }
     });
 
     settingsClose.addEventListener("click", () => {
@@ -1462,6 +1451,7 @@ proceedMainButton.addEventListener("click", async () => {
 // Name form submit.
 lockForm.addEventListener("submit", async (event) => {
     event.preventDefault();
+    lastNameProceedAt = lastNameProceedAt || Date.now();
 
     const enteredName = nameInput.value.trim();
 
@@ -1523,6 +1513,5 @@ setupSongs();
 setupAudioUnlock();
 setupThemes();
 setupSettingsPanel();
-startSavedUsersClock();
 applyThemeSelection("background.jpg");
 loadSupabaseSongs();
