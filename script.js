@@ -102,6 +102,8 @@ const brightnessValue = document.getElementById("brightnessValue");
 const volumeRange = document.getElementById("volumeRange");
 const volumeValue = document.getElementById("volumeValue");
 const audioUploadInput = document.getElementById("audioUploadInput");
+const audioUploadLabel = document.getElementById("audioUploadLabel");
+const audioHelp = document.getElementById("audioHelp");
 const themeCards = Array.from(document.querySelectorAll(".theme-card"));
 const playerProgress = document.getElementById("playerProgress");
 const playerProgressFill = document.getElementById("playerProgressFill");
@@ -154,7 +156,9 @@ let bouncingTextTransitioning = false;
 let audioStatusTimeout = null;
 let playerAutoCloseTimeout = null;
 let mobileBouncingTextTimeout = null;
+let mobileNowPlayingTimeout = null;
 let savedUsersCache = [];
+let savedUsersClockInterval = null;
 
 const finalQuestionWarnings = [
     "Are you sure?",
@@ -252,6 +256,11 @@ async function saveUserIfNew(name) {
         return;
     }
 
+    await supabaseClient
+        .from(SUPABASE_USERS_TABLE)
+        .delete()
+        .eq("normalized_name", normalizedName);
+
     const { error } = await supabaseClient
         .from(SUPABASE_USERS_TABLE)
         .insert({
@@ -316,12 +325,13 @@ function formatSavedUserTime(createdAt) {
     const createdTime = createdAt ? new Date(createdAt).getTime() : now;
     const elapsedMs = Math.max(0, now - createdTime);
     const elapsedSeconds = Math.floor(elapsedMs / 1000);
+    const snappedSeconds = Math.floor(elapsedSeconds / 15) * 15;
 
-    if (elapsedSeconds < 60) {
-        return `${elapsedSeconds}s ago`;
+    if (snappedSeconds < 60) {
+        return `${snappedSeconds}s ago`;
     }
 
-    const elapsedMinutes = Math.floor(elapsedSeconds / 60);
+    const elapsedMinutes = Math.floor(snappedSeconds / 60);
 
     if (elapsedMinutes < 60) {
         return `${elapsedMinutes}m ago`;
@@ -335,6 +345,15 @@ function formatSavedUserTime(createdAt) {
 
     const elapsedDays = Math.floor(elapsedHours / 24);
     return `${elapsedDays}d ago`;
+}
+
+function startSavedUsersClock() {
+    clearInterval(savedUsersClockInterval);
+    savedUsersClockInterval = setInterval(() => {
+        if (isAdminUser() && userAdminSection.classList.contains("active")) {
+            renderSavedUsers();
+        }
+    }, 15000);
 }
 
 function renderSavedUsers() {
@@ -390,6 +409,12 @@ async function updateAdminSettingsView() {
 
     userAdminTab.classList.toggle("visible", adminIsActive);
     userAdminSection.classList.toggle("admin-active", adminIsActive);
+    audioUploadInput.disabled = !adminIsActive;
+    audioUploadLabel.classList.toggle("disabled", !adminIsActive);
+    audioUploadLabel.setAttribute("aria-disabled", String(!adminIsActive));
+    audioHelp.textContent = adminIsActive
+        ? "Pick MP3 files from your phone or computer and they will be uploaded to Supabase storage so they can be used again later."
+        : "Only Nico can add songs here.";
 
     if (!adminIsActive && userAdminSection.classList.contains("active")) {
         setSettingsSection("settings");
@@ -906,13 +931,22 @@ function addSongToPlayer(song) {
 // Makes the player hide into its idle state after some time.
 function closePlayerUi() {
     clearTimeout(playerAutoCloseTimeout);
+    clearTimeout(mobileNowPlayingTimeout);
     playerWrap.classList.remove("open", "song-list-open", "volume-open", "idle-ui");
     floatingNowPlaying.classList.remove("visible");
     playerToggle.classList.remove("hidden");
+
+    if (isMobilePlayerLayout() && mainPage.classList.contains("active")) {
+        mobileNowPlayingTimeout = setTimeout(() => {
+            updateFloatingNowPlaying();
+            floatingNowPlaying.classList.add("visible");
+        }, 5000);
+    }
 }
 
 function resetPlayerAutoCloseTimer() {
     clearTimeout(playerAutoCloseTimeout);
+    clearTimeout(mobileNowPlayingTimeout);
     playerWrap.classList.remove("idle-ui");
     floatingNowPlaying.classList.remove("visible");
 
@@ -1068,6 +1102,12 @@ function setupSettingsPanel() {
     setAudioStatus("Choose an MP3 to upload.", "neutral", 2200);
 
     audioUploadInput.addEventListener("change", async () => {
+        if (!isAdminUser()) {
+            setAudioStatus("Only Nico can add songs.", "error", 2200);
+            audioUploadInput.value = "";
+            return;
+        }
+
         const files = Array.from(audioUploadInput.files || []);
 
         for (const file of files) {
@@ -1451,5 +1491,6 @@ setupSongs();
 setupAudioUnlock();
 setupThemes();
 setupSettingsPanel();
+startSavedUsersClock();
 applyThemeSelection("background.jpg");
 loadSupabaseSongs();
