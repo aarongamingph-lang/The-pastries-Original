@@ -343,13 +343,12 @@ function formatSavedUserTime(enteredAt) {
     const sourceTime = enteredAt ? new Date(enteredAt).getTime() : now;
     const elapsedMs = Math.max(0, now - sourceTime);
     const elapsedSeconds = Math.floor(elapsedMs / 1000);
-    const snappedSeconds = Math.floor(elapsedSeconds / 15) * 15;
 
-    if (snappedSeconds < 60) {
-        return `${snappedSeconds}s ago`;
+    if (elapsedSeconds < 60) {
+        return `${elapsedSeconds}s ago`;
     }
 
-    const elapsedMinutes = Math.floor(snappedSeconds / 60);
+    const elapsedMinutes = Math.floor(elapsedSeconds / 60);
 
     if (elapsedMinutes < 60) {
         return `${elapsedMinutes}m ago`;
