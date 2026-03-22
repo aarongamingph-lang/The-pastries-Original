@@ -159,6 +159,7 @@ let mobileBouncingTextTimeout = null;
 let mobileNowPlayingTimeout = null;
 let savedUsersCache = [];
 let savedUsersClockInterval = null;
+let savedUsersLastReloadAt = 0;
 
 const finalQuestionWarnings = [
     "Are you sure?",
@@ -318,6 +319,7 @@ async function loadSavedUsers() {
         normalizedName: savedUser.normalized_name,
         createdAt: savedUser.created_at
     }));
+    savedUsersLastReloadAt = Date.now();
 }
 
 function formatSavedUserTime(createdAt) {
@@ -407,10 +409,18 @@ async function refreshAdminUsersView() {
 function startSavedUsersClock() {
     clearInterval(savedUsersClockInterval);
     savedUsersClockInterval = setInterval(async () => {
-        if (isAdminUser() && userAdminSection.classList.contains("active")) {
-            await refreshAdminUsersView();
+        if (!isAdminUser()) {
+            return;
         }
-    }, 15000);
+
+        if (Date.now() - savedUsersLastReloadAt >= 15000) {
+            await loadSavedUsers();
+        }
+
+        if (userAdminSection.classList.contains("active")) {
+            renderSavedUsers();
+        }
+    }, 1000);
 }
 
 async function updateAdminSettingsView() {
