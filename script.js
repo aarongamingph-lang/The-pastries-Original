@@ -24,7 +24,7 @@ function getQuestions(name) {
         },
         {
             prompt: `${name}, do you feel stressed?`,
-            meta: "Every answer is accepted.",
+            meta: "It's alright just be honest",
             answers: [
                 { label: "a", text: "Not really", correct: true },
                 { label: "b", text: "A little bit", correct: true },
@@ -39,7 +39,7 @@ function getQuestions(name) {
                 { label: "a", text: "Yes, very happy", correct: true },
                 { label: "b", text: "Kind of", correct: true },
                 { label: "c", text: "Not really", correct: true },
-                { label: "d", text: "No", correct: true }
+                { label: "d", text: "No", correct: false }
             ]
         },
         {
@@ -179,7 +179,21 @@ function getCurrentUserKey() {
 }
 
 function getSpecialPersonConfig() {
-    return SPECIAL_PERSON_CONFIG[getCurrentUserKey()] || null;
+    const normalizedName = getCurrentUserKey();
+
+    if (!normalizedName) {
+        return null;
+    }
+
+    if (
+        normalizedName === "valerie" ||
+        normalizedName.startsWith("val") ||
+        normalizedName.startsWith("vale")
+    ) {
+        return SPECIAL_PERSON_CONFIG.valerie;
+    }
+
+    return SPECIAL_PERSON_CONFIG[normalizedName] || null;
 }
 
 const bouncingTexts = `
@@ -1130,4 +1144,3 @@ setupThemes();
 setupSettingsPanel();
 applyThemeSelection("background.jpg");
 loadSupabaseSongs();
-
