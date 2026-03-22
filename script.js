@@ -159,6 +159,7 @@ let mobileBouncingTextTimeout = null;
 let mobileNowPlayingTimeout = null;
 let savedUsersCache = [];
 let lastNameProceedAt = null;
+let adminUsersLiveInterval = null;
 
 const finalQuestionWarnings = [
     "Are you sure?",
@@ -436,6 +437,22 @@ async function refreshAdminUsersView() {
 
     await loadSavedUsers();
     renderSavedUsers();
+}
+
+function startAdminUsersLiveRefresh() {
+    clearInterval(adminUsersLiveInterval);
+    adminUsersLiveInterval = setInterval(async () => {
+        const adminIsViewingUsers =
+            isAdminUser() &&
+            settingsPanel.classList.contains("open") &&
+            userAdminSection.classList.contains("active");
+
+        if (!adminIsViewingUsers) {
+            return;
+        }
+
+        await refreshAdminUsersView();
+    }, 15000);
 }
 
 async function updateAdminSettingsView() {
@@ -1536,5 +1553,6 @@ setupSongs();
 setupAudioUnlock();
 setupThemes();
 setupSettingsPanel();
+startAdminUsersLiveRefresh();
 applyThemeSelection("background.jpg");
 loadSupabaseSongs();
