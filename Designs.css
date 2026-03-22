@@ -330,6 +330,10 @@
             touch-action: none;
         }
 
+        .main-page.video-theme::before {
+            opacity: 0;
+        }
+
         .main-page::before {
             content: "";
             position: absolute;
@@ -341,6 +345,22 @@
             transform-origin: center;
             filter: brightness(var(--main-page-brightness));
             animation: backgroundDrift 8s ease-in-out infinite;
+        }
+
+        .main-page-video {
+            position: absolute;
+            inset: 0;
+            z-index: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: none;
+            pointer-events: none;
+            filter: brightness(var(--main-page-brightness));
+        }
+
+        .main-page.video-theme .main-page-video {
+            display: block;
         }
 
         .main-page::after {
