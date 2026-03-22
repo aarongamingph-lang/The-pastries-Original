@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>THE PASTRIES SPECIAL</title>
-    <link rel="stylesheet" href="Designs.css?v=7">
+    <link rel="stylesheet" href="Designs.css?v=14">
 </head>
 <body>
     <!-- Background dots used on the opening screens -->
@@ -80,6 +80,8 @@
 
     <!-- Screen 5: final main page -->
     <section class="screen hidden main-page" id="mainPage">
+        <video class="main-page-video" id="mainPageVideo" autoplay muted loop playsinline aria-hidden="true"></video>
+
         <div class="main-page-content">
             <!-- Main page text -->
             <h2 class="main-page-title">Welcome Since You're Here Take A Sit And Relax</h2>
@@ -150,7 +152,7 @@
                             <p class="theme-label">Night</p>
                         </button>
 
-                        <button class="theme-card" type="button" data-theme-file="special.jpg">
+                        <button class="theme-card" type="button" data-theme-file="special.mp4">
                             <div class="theme-preview special"></div>
                             <p class="theme-label">Special</p>
                         </button>
@@ -251,6 +253,6 @@
     </section>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="script.js?v=7"></script>
+    <script src="script.js?v=14"></script>
 </body>
 </html>
