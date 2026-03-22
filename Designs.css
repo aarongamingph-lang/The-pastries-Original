@@ -1,4 +1,7 @@
 @import url("https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap");
+
+        /* EASY EDIT:
+           Change the main background image here. */
         :root {
             color-scheme: dark;
             --bg: #050505;
@@ -12,6 +15,8 @@
             --main-page-background: url("background.jpg");
             --main-page-brightness: 1;
         }
+
+        /* Basic page setup */
         * {
             box-sizing: border-box;
         }
@@ -33,6 +38,8 @@
         body.unlocking {
             animation: unlockZoom 1.15s ease forwards;
         }
+
+        /* Opening screen background dots */
         .particles {
             position: fixed;
             inset: 0;
@@ -49,6 +56,8 @@
             animation: floatUp linear infinite;
             box-shadow: 0 0 10px rgba(255, 255, 255, 0.14);
         }
+
+        /* Reusable card used by the lock, quiz, and reminder screens */
         .screen {
             position: relative;
             z-index: 1;
@@ -90,6 +99,8 @@
         body.main-page-active .particles {
             display: none;
         }
+
+        /* Shared text and form styles */
         .lock-icon {
             width: 68px;
             height: 68px;
@@ -102,6 +113,13 @@
             font-weight: 700;
             letter-spacing: 0.08em;
             background: rgba(255, 255, 255, 0.04);
+        }
+
+        #adminPasswordScreen .lock-icon {
+            width: 110px;
+            font-size: 15px;
+            letter-spacing: 0.06em;
+            padding: 0 8px;
         }
 
         h1,
@@ -226,6 +244,8 @@
             color: rgba(255, 255, 255, 0.58);
             text-transform: uppercase;
         }
+
+        /* Reminder screen before the main page */
         .orientation-screen {
             display: grid;
             gap: 20px;
@@ -537,6 +557,14 @@
             border-color: rgba(255, 255, 255, 0.32);
         }
 
+        .hidden-admin-tab {
+            display: none;
+        }
+
+        .hidden-admin-tab.visible {
+            display: inline-flex;
+        }
+
         .settings-section {
             display: none;
         }
@@ -628,6 +656,75 @@
 
         .audio-status.error {
             color: var(--danger);
+        }
+
+        .saved-user-list {
+            display: grid;
+            gap: 10px;
+            margin-top: 12px;
+            text-align: center;
+        }
+
+        .saved-user-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            padding: 12px 14px;
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.04);
+            color: rgba(255, 255, 255, 0.88);
+            font-size: 0.92rem;
+            line-height: 1.4;
+            text-align: left;
+        }
+
+        .saved-user-info {
+            flex: 1;
+            min-width: 0;
+            display: grid;
+            gap: 3px;
+            text-align: left;
+        }
+
+        .saved-user-name {
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .saved-user-time {
+            font-size: 0.78rem;
+            color: rgba(255, 255, 255, 0.58);
+            letter-spacing: 0.04em;
+        }
+
+        .saved-user-remove {
+            width: 34px;
+            min-width: 34px;
+            height: 34px;
+            padding: 0;
+            border-radius: 10px;
+            background: rgba(255, 107, 107, 0.16);
+            color: #fff;
+            font-size: 0.9rem;
+            letter-spacing: 0.04em;
+        }
+
+        .saved-user-remove:hover {
+            transform: none;
+            background: rgba(255, 107, 107, 0.28);
+        }
+
+        .saved-user-empty {
+            padding: 12px 14px;
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.04);
+            color: rgba(255, 255, 255, 0.66);
+            font-size: 0.9rem;
+            text-align: center;
         }
 
         .theme-card {
@@ -1394,6 +1491,27 @@
                 font-size: 1.6rem;
             }
 
+            .floating-now-playing {
+                width: min(86vw, 300px);
+                top: 50%;
+            }
+
+            .floating-now-playing-label {
+                margin-bottom: 6px;
+                font-size: 0.68rem;
+                letter-spacing: 0.14em;
+            }
+
+            .floating-now-playing-title {
+                font-size: clamp(1rem, 4.8vw, 1.55rem);
+                line-height: 1.2;
+            }
+
+            .floating-now-playing-time {
+                margin-top: 8px;
+                font-size: 0.82rem;
+            }
+
             .settings-panel {
                 width: min(92vw, 420px);
                 max-height: calc(100dvh - 34px);
@@ -1416,7 +1534,8 @@
             }
 
             .player-wrap {
-                width: min(92vw, 380px);
+                width: min(94vw, 340px);
+                max-width: 340px;
                 bottom: max(12px, env(safe-area-inset-bottom));
                 padding: 14px 12px;
             }
@@ -1591,6 +1710,27 @@
                 line-height: 1.32;
             }
 
+            .floating-now-playing {
+                width: min(56vw, 320px);
+                top: 50%;
+            }
+
+            .floating-now-playing-label {
+                margin-bottom: 6px;
+                font-size: 0.64rem;
+                letter-spacing: 0.12em;
+            }
+
+            .floating-now-playing-title {
+                font-size: clamp(0.95rem, 2.4vw, 1.45rem);
+                line-height: 1.18;
+            }
+
+            .floating-now-playing-time {
+                margin-top: 7px;
+                font-size: 0.78rem;
+            }
+
             @keyframes titleMove {
                 0% {
                     top: 50%;
@@ -1649,8 +1789,8 @@
             .player-wrap {
                 left: 50%;
                 bottom: max(10px, env(safe-area-inset-bottom));
-                width: min(62vw, 360px);
-                max-width: 360px;
+                width: min(56vw, 320px);
+                max-width: 320px;
                 padding: 12px 12px;
                 transform: translateX(-50%) translateY(calc(100% + 18px));
             }
@@ -1746,9 +1886,21 @@
                 font-size: clamp(0.76rem, 1.85vw, 1rem);
             }
 
+            .floating-now-playing {
+                width: min(58vw, 260px);
+            }
+
+            .floating-now-playing-title {
+                font-size: clamp(0.88rem, 2.1vw, 1.2rem);
+            }
+
+            .floating-now-playing-time {
+                font-size: 0.72rem;
+            }
+
             .player-wrap {
-                width: min(60vw, 320px);
-                max-width: 320px;
+                width: min(56vw, 290px);
+                max-width: 290px;
                 padding: 10px 10px;
             }
 
