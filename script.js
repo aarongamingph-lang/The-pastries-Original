@@ -333,21 +333,37 @@ async function loadSavedUsers() {
     savedUsersCache = (data || []).map((savedUser) => ({
         name: savedUser.name,
         normalizedName: savedUser.normalized_name,
+        createdAt: savedUser.created_at,
         enteredAt: savedUser.entered_at || savedUser.created_at
     }));
 }
 
-function formatSavedUserEnteredTime(enteredAt) {
-    const parsedTime = enteredAt ? new Date(enteredAt) : null;
+function formatClockTime(dateValue) {
+    const parsedTime = dateValue ? new Date(dateValue) : null;
 
     if (!parsedTime || Number.isNaN(parsedTime.getTime())) {
-        return "Time unavailable";
+        return "";
     }
 
     return parsedTime.toLocaleTimeString([], {
         hour: "numeric",
         minute: "2-digit"
     });
+}
+
+function formatSavedUserEnteredTime(createdAt, enteredAt) {
+    const firstTime = formatClockTime(createdAt);
+    const latestTime = formatClockTime(enteredAt);
+
+    if (!latestTime) {
+        return "Time unavailable";
+    }
+
+    if (!firstTime || firstTime === latestTime) {
+        return latestTime;
+    }
+
+    return `${firstTime} - ${latestTime}`;
 }
 
 function renderSavedUsers() {
@@ -376,7 +392,7 @@ function renderSavedUsers() {
 
         const timeText = document.createElement("span");
         timeText.className = "saved-user-time";
-        timeText.textContent = formatSavedUserEnteredTime(savedUser.enteredAt);
+        timeText.textContent = formatSavedUserEnteredTime(savedUser.createdAt, savedUser.enteredAt);
 
         const removeButton = document.createElement("button");
         removeButton.type = "button";
