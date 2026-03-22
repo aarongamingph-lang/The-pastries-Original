@@ -347,15 +347,6 @@ function formatSavedUserTime(createdAt) {
     return `${elapsedDays}d ago`;
 }
 
-function startSavedUsersClock() {
-    clearInterval(savedUsersClockInterval);
-    savedUsersClockInterval = setInterval(() => {
-        if (isAdminUser() && userAdminSection.classList.contains("active")) {
-            renderSavedUsers();
-        }
-    }, 15000);
-}
-
 function renderSavedUsers() {
     if (!savedUserList) {
         return;
@@ -404,6 +395,24 @@ function renderSavedUsers() {
     });
 }
 
+async function refreshAdminUsersView() {
+    if (!isAdminUser()) {
+        return;
+    }
+
+    await loadSavedUsers();
+    renderSavedUsers();
+}
+
+function startSavedUsersClock() {
+    clearInterval(savedUsersClockInterval);
+    savedUsersClockInterval = setInterval(async () => {
+        if (isAdminUser() && userAdminSection.classList.contains("active")) {
+            await refreshAdminUsersView();
+        }
+    }, 15000);
+}
+
 async function updateAdminSettingsView() {
     const adminIsActive = isAdminUser();
 
@@ -421,8 +430,7 @@ async function updateAdminSettingsView() {
     }
 
     if (adminIsActive) {
-        await loadSavedUsers();
-        renderSavedUsers();
+        await refreshAdminUsersView();
     }
 }
 
@@ -1075,8 +1083,12 @@ function setupSettingsPanel() {
     updateAdminSettingsView();
 
     settingsTabs.forEach((tab) => {
-        tab.addEventListener("click", () => {
+        tab.addEventListener("click", async () => {
             setSettingsSection(tab.dataset.settingsTab);
+
+            if (tab.dataset.settingsTab === "users" && isAdminUser()) {
+                await refreshAdminUsersView();
+            }
         });
     });
 
