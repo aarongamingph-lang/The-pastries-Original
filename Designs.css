@@ -357,10 +357,16 @@
             display: none;
             pointer-events: none;
             filter: brightness(var(--main-page-brightness));
+            opacity: 0;
+            transition: opacity 0.28s ease;
         }
 
         .main-page.video-theme .main-page-video {
             display: block;
+        }
+
+        .main-page.video-theme .main-page-video.loaded {
+            opacity: 1;
         }
 
         .main-page::after {
