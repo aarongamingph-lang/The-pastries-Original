@@ -340,9 +340,9 @@ async function loadSavedUsers() {
 
 function formatSavedUserTime(enteredAt) {
     const now = Date.now();
-    const sourceTime = enteredAt ? new Date(enteredAt).getTime() : now;
-    const elapsedMs = Math.max(0, now - sourceTime);
-    const elapsedSeconds = Math.floor(elapsedMs / 1000);
+    const parsedTime = enteredAt ? new Date(enteredAt).getTime() : NaN;
+    const sourceTime = Number.isFinite(parsedTime) ? parsedTime : now;
+    const elapsedSeconds = Math.max(0, Math.floor((now - sourceTime) / 1000));
 
     if (elapsedSeconds < 60) {
         return `${elapsedSeconds}s ago`;
@@ -364,11 +364,20 @@ function formatSavedUserTime(enteredAt) {
     return `${elapsedDays}d ago`;
 }
 
-function updateSavedUserTimestamps() {
-    const timestampElements = savedUserList.querySelectorAll("[data-entered-at]");
+function updateSavedUserTimers() {
+    if (!savedUserList) {
+        return;
+    }
 
-    timestampElements.forEach((element) => {
-        element.textContent = formatSavedUserTime(element.dataset.enteredAt);
+    const savedUsersByKey = new Map(
+        savedUsersCache.map((savedUser) => [savedUser.normalizedName, savedUser.enteredAt || ""])
+    );
+
+    savedUserList.querySelectorAll("[data-user-key]").forEach((element) => {
+        const savedUserKey = element.dataset.userKey || "";
+        const enteredAt = savedUsersByKey.get(savedUserKey) || element.dataset.enteredAt || "";
+        element.dataset.enteredAt = enteredAt;
+        element.textContent = formatSavedUserTime(enteredAt);
     });
 }
 
@@ -398,6 +407,7 @@ function renderSavedUsers() {
 
         const timeText = document.createElement("span");
         timeText.className = "saved-user-time";
+        timeText.dataset.userKey = savedUser.normalizedName;
         timeText.dataset.enteredAt = savedUser.enteredAt || "";
         timeText.textContent = formatSavedUserTime(savedUser.enteredAt);
 
@@ -428,6 +438,7 @@ async function refreshAdminUsersView() {
 
     await loadSavedUsers();
     renderSavedUsers();
+    updateSavedUserTimers();
 }
 
 function startAdminUsersRealtime() {
@@ -460,7 +471,7 @@ function startAdminUsersLiveRefresh() {
             return;
         }
 
-        updateSavedUserTimestamps();
+        updateSavedUserTimers();
     }, 1000);
 
     adminUsersSyncInterval = setInterval(async () => {
