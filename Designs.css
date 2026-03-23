@@ -12,6 +12,7 @@
             --accent: #ffffff;
             --danger: #ff6b6b;
             --success: #7dffb3;
+            --app-viewport-height: 100dvh;
             --main-page-background: url("background.jpg");
             --main-page-brightness: 1;
         }
@@ -680,12 +681,13 @@
         .notes-list-panel,
         .notes-panel,
         .note-viewer-panel {
-            position: absolute;
+            position: fixed;
             top: 50%;
             left: 50%;
             z-index: 4;
             width: min(92vw, 520px);
             padding: 20px;
+            max-height: min(82vh, 760px);
             border: 1px solid rgba(255, 255, 255, 0.16);
             border-radius: 28px;
             background: rgba(12, 12, 12, 0.28);
@@ -802,6 +804,7 @@
             position: relative;
             z-index: 1;
             min-height: 420px;
+            max-height: min(58vh, 520px);
             padding: 22px 22px 18px;
             border-radius: 18px;
             border: 1px solid rgba(210, 210, 210, 0.84);
@@ -809,6 +812,7 @@
             box-shadow:
                 inset 0 1px 0 rgba(255, 255, 255, 0.9),
                 12px 16px 24px rgba(0, 0, 0, 0.18);
+            overflow: auto;
         }
 
         .notes-paper::before,
@@ -830,6 +834,7 @@
             line-height: 1.6;
             outline: none;
             text-align: left;
+            overflow-y: auto;
         }
 
         .notes-submit-button {
@@ -871,6 +876,68 @@
             color: rgba(26, 26, 26, 0.72);
             font-size: 0.86rem;
             letter-spacing: 0.04em;
+        }
+
+        .note-viewer-actions {
+            position: relative;
+            z-index: 1;
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 10px;
+            margin-top: 14px;
+        }
+
+        .note-replies {
+            display: grid;
+            gap: 10px;
+            margin-top: 18px;
+        }
+
+        .note-reply-item {
+            padding: 12px 14px;
+            border: 1px solid rgba(26, 26, 26, 0.08);
+            border-radius: 14px;
+            background: rgba(17, 17, 17, 0.045);
+        }
+
+        .note-reply-text {
+            margin: 0;
+            color: #1a1a1a;
+            line-height: 1.55;
+            white-space: pre-wrap;
+            text-align: left;
+        }
+
+        .note-reply-meta {
+            margin: 10px 0 0;
+            color: rgba(26, 26, 26, 0.64);
+            font-size: 0.76rem;
+            letter-spacing: 0.04em;
+            text-align: left;
+        }
+
+        .note-reply-composer {
+            display: grid;
+            gap: 10px;
+            margin-top: 18px;
+        }
+
+        .note-reply-textarea {
+            width: 100%;
+            min-height: 110px;
+            resize: none;
+            padding: 12px 14px;
+            border: 1px solid rgba(26, 26, 26, 0.12);
+            border-radius: 14px;
+            background: rgba(255, 255, 255, 0.96);
+            color: #1a1a1a;
+            font-size: 16px;
+            line-height: 1.5;
+            outline: none;
+        }
+
+        .note-reply-submit {
+            margin-top: 0;
         }
 
         .pinned-notes-layer {
@@ -2761,14 +2828,14 @@
             .note-viewer-panel {
                 position: fixed;
                 left: 50%;
-                top: 50%;
+                top: 48%;
                 transform: translate(-50%, -50%);
                 width: min(94vw, 520px);
                 max-width: 94vw;
-                max-height: min(88dvh, 760px);
+                max-height: min(76dvh, 680px);
                 overflow: auto;
                 border-radius: 20px;
-                padding: 14px;
+                padding: 12px;
                 touch-action: pan-y;
             }
 
@@ -2804,12 +2871,22 @@
 
             .notes-paper,
             .note-viewer-paper {
-                min-height: min(48dvh, 340px);
+                min-height: min(34dvh, 250px);
+                max-height: min(44dvh, 320px);
+                padding: 16px 16px 14px;
             }
 
             .notes-textarea {
-                min-height: min(44dvh, 300px);
+                min-height: min(28dvh, 190px);
                 font-size: 16px;
+            }
+
+            .note-viewer-actions {
+                grid-template-columns: 1fr;
+            }
+
+            .note-reply-textarea {
+                min-height: 96px;
             }
 
             .pinned-note {
@@ -2899,6 +2976,7 @@
             .notes-panel,
             .note-viewer-panel {
                 width: min(84vw, 520px);
+                max-height: calc(var(--app-viewport-height) - 20px);
             }
 
             .settings-info {
@@ -2909,4 +2987,25 @@
             .player-wrap {
                 width: min(36vw, 260px);
             }
+        }
+
+        body.mobile-keyboard-open .notes-panel.open,
+        body.mobile-keyboard-open .note-viewer-panel.open,
+        body.mobile-keyboard-open .notes-list-panel.open,
+        body.mobile-keyboard-open .notes-menu-panel.open,
+        body.mobile-keyboard-open .leaderboard-panel.open,
+        body.mobile-keyboard-open .settings-panel.open {
+            top: max(8px, env(safe-area-inset-top));
+            transform: translateX(-50%);
+            max-height: calc(var(--app-viewport-height) - max(16px, env(safe-area-inset-top)) - max(16px, env(safe-area-inset-bottom)));
+        }
+
+        body.mobile-keyboard-open .notes-paper,
+        body.mobile-keyboard-open .note-viewer-paper {
+            min-height: auto;
+            max-height: calc(var(--app-viewport-height) - 200px);
+        }
+
+        body.mobile-keyboard-open .notes-textarea {
+            min-height: 150px;
         }
