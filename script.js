@@ -66,7 +66,14 @@ const adminPasswordScreen = document.getElementById("adminPasswordScreen");
 const landscapeScreen = document.getElementById("landscapeScreen");
 const mainPage = document.getElementById("mainPage");
 const lockForm = document.getElementById("lockForm");
+const authTitle = document.getElementById("authTitle");
+const authDescription = document.getElementById("authDescription");
 const nameInput = document.getElementById("nameInput");
+const passwordInput = document.getElementById("passwordInput");
+const confirmPasswordWrap = document.getElementById("confirmPasswordWrap");
+const confirmPasswordInput = document.getElementById("confirmPasswordInput");
+const loginModeButton = document.getElementById("loginModeButton");
+const signupModeButton = document.getElementById("signupModeButton");
 const unlockButton = document.getElementById("unlockButton");
 const lockMessage = document.getElementById("lockMessage");
 const adminPasswordForm = document.getElementById("adminPasswordForm");
@@ -88,9 +95,12 @@ const mainPageTitle = document.querySelector(".main-page-title");
 const bouncingMessage = document.getElementById("bouncingMessage");
 const audioPlayer = document.getElementById("audioPlayer");
 const audioStatus = document.getElementById("audioStatus");
-const playerToggle = document.getElementById("playerToggle");
 const playerWrap = document.getElementById("playerWrap");
+const settingsLauncher = document.getElementById("settingsLauncher");
+const settingsMenuToggle = document.getElementById("settingsMenuToggle");
 const settingsToggle = document.getElementById("settingsToggle");
+const leaderboardToggle = document.getElementById("leaderboardToggle");
+const logoutButton = document.getElementById("logoutButton");
 const settingsPanel = document.getElementById("settingsPanel");
 const settingsClose = document.getElementById("settingsClose");
 const settingsTabs = Array.from(document.querySelectorAll(".settings-tab"));
@@ -105,6 +115,10 @@ const volumeValue = document.getElementById("volumeValue");
 const audioUploadInput = document.getElementById("audioUploadInput");
 const audioUploadLabel = document.getElementById("audioUploadLabel");
 const audioHelp = document.getElementById("audioHelp");
+const leaderboardPanel = document.getElementById("leaderboardPanel");
+const leaderboardClose = document.getElementById("leaderboardClose");
+const leaderboardList = document.getElementById("leaderboardList");
+const presenceNotifications = document.getElementById("presenceNotifications");
 const themeCards = Array.from(document.querySelectorAll(".theme-card"));
 const playerProgress = document.getElementById("playerProgress");
 const playerProgressFill = document.getElementById("playerProgressFill");
@@ -137,11 +151,11 @@ if (mainPageVideo) {
 const SUPABASE_URL = "https://qptgeftudyxqdlmvvotk.supabase.co";
 const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_CJsr9sctO5mrbuVmG4G3jA_YDXnkynM";
 const SUPABASE_BUCKET = "songs";
-const SUPABASE_USERS_TABLE = "site_users";
+const PROFILE_TABLE = "profiles";
+const ENTRY_LOG_TABLE = "entry_logs";
 const supabaseClient = window.supabase
     ? window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY)
     : null;
-const ADMIN_PASSWORD = "1234";
 
 // Special-person settings.
 // Any name starting with V uses this.
@@ -169,10 +183,16 @@ let audioStatusTimeout = null;
 let playerAutoCloseTimeout = null;
 let mobileBouncingTextTimeout = null;
 let mobileNowPlayingTimeout = null;
+let mainPageNowPlayingTimeout = null;
 let savedUsersCache = [];
 let lastNameProceedAt = null;
-let adminUsersSyncInterval = null;
-let adminUsersRealtimeChannel = null;
+let authMode = "login";
+let profileData = null;
+let leaderboardEntries = [];
+let presenceChannel = null;
+let presenceSyncStarted = false;
+let welcomeNowPlayingTimeout = null;
+const LOCAL_SESSION_KEY = "pastries_active_profile";
 
 const finalQuestionWarnings = [
     "Are you sure?",
@@ -232,14 +252,8 @@ function normalizeSavedUserName(name) {
         .replace(/\s+/g, " ");
 }
 
-// Nico is the admin who can open the user list.
-function isAdminUser(name = currentUser) {
-    return normalizeSavedUserName(name) === "nico";
-}
-
-// Admin names are not saved into the user list.
-function shouldSaveUser(name) {
-    return !isAdminUser(name);
+function isAuthenticatedUser() {
+    return Boolean(profileData && profileData.id);
 }
 
 // Any name starting with V becomes a special person.
@@ -265,40 +279,26 @@ function getSpecialPersonConfig() {
 
 async function saveUserIfNew(name) {
     const cleanName = String(name || "").trim();
-    const normalizedName = normalizeSavedUserName(cleanName);
-    const createdAt = lastNameProceedAt || Date.now();
+    const userId = profileData?.id;
 
-    if (!cleanName || !normalizedName || !shouldSaveUser(cleanName)) {
+    if (!cleanName || !userId || !supabaseClient) {
         return;
     }
 
-    if (!supabaseClient) {
+    const { error } = await supabaseClient
+        .from(ENTRY_LOG_TABLE)
+        .insert({
+            user_id: userId,
+            username: cleanName,
+            entered_at: new Date(lastNameProceedAt || Date.now()).toISOString()
+        });
+
+    if (error) {
+        console.error("Could not save entry log:", error.message);
         return;
     }
 
-    const { error: rpcError } = await supabaseClient.rpc("upsert_site_user", {
-        p_name: cleanName,
-        p_normalized_name: normalizedName
-    });
-
-    if (rpcError) {
-        const { error: fallbackError } = await supabaseClient
-            .from(SUPABASE_USERS_TABLE)
-            .upsert({
-                name: cleanName,
-                normalized_name: normalizedName,
-                entered_at: new Date(createdAt).toISOString()
-            }, {
-                onConflict: "normalized_name"
-            });
-
-        if (fallbackError) {
-            console.error("Could not save user:", fallbackError.message);
-            return;
-        }
-    }
-
-    await loadSavedUsers();
+    await loadLeaderboard();
 }
 
 unlockButton.addEventListener("click", () => {
@@ -306,48 +306,27 @@ unlockButton.addEventListener("click", () => {
 });
 
 async function removeSavedUser(nameToRemove) {
-    const normalizedTarget = normalizeSavedUserName(nameToRemove);
-
-    if (!normalizedTarget || !supabaseClient) {
-        return;
-    }
-
-    const { error } = await supabaseClient
-        .from(SUPABASE_USERS_TABLE)
-        .delete()
-        .eq("normalized_name", normalizedTarget);
-
-    if (error) {
-        console.error("Could not remove user:", error.message);
-        return;
-    }
-
-    await loadSavedUsers();
+    return nameToRemove;
 }
 
-async function loadSavedUsers() {
+async function loadLeaderboard() {
     if (!supabaseClient) {
-        savedUsersCache = [];
+        leaderboardEntries = [];
         return;
     }
 
     const { data, error } = await supabaseClient
-        .from(SUPABASE_USERS_TABLE)
-        .select("name, normalized_name, entered_at, created_at")
+        .from(ENTRY_LOG_TABLE)
+        .select("id, username, entered_at")
         .order("entered_at", { ascending: false });
 
     if (error) {
-        console.error("Could not load users:", error.message);
-        savedUsersCache = [];
+        console.error("Could not load leaderboard:", error.message);
+        leaderboardEntries = [];
         return;
     }
 
-    savedUsersCache = (data || []).map((savedUser) => ({
-        name: savedUser.name,
-        normalizedName: savedUser.normalized_name,
-        createdAt: savedUser.created_at,
-        enteredAt: savedUser.entered_at || savedUser.created_at
-    }));
+    leaderboardEntries = data || [];
 }
 
 function formatClockTime(dateValue) {
@@ -384,7 +363,7 @@ function renderSavedUsers() {
     }
 
     savedUserList.innerHTML = "";
-    const savedUsers = savedUsersCache;
+    const savedUsers = leaderboardEntries;
 
     if (savedUsers.length === 0) {
         const emptyState = document.createElement("div");
@@ -400,20 +379,11 @@ function renderSavedUsers() {
 
         const nameText = document.createElement("span");
         nameText.className = "saved-user-name";
-        nameText.textContent = savedUser.name;
+        nameText.textContent = savedUser.username;
 
         const timeText = document.createElement("span");
         timeText.className = "saved-user-time";
-        timeText.textContent = formatSavedUserEnteredTime(savedUser.createdAt, savedUser.enteredAt);
-
-        const removeButton = document.createElement("button");
-        removeButton.type = "button";
-        removeButton.className = "saved-user-remove";
-        removeButton.textContent = "X";
-        removeButton.addEventListener("click", async () => {
-            await removeSavedUser(savedUser.name);
-            renderSavedUsers();
-        });
+        timeText.textContent = formatClockTime(savedUser.entered_at);
 
         const infoWrap = document.createElement("div");
         infoWrap.className = "saved-user-info";
@@ -421,72 +391,239 @@ function renderSavedUsers() {
         infoWrap.appendChild(timeText);
 
         item.appendChild(infoWrap);
-        item.appendChild(removeButton);
         savedUserList.appendChild(item);
     });
 }
 
 async function refreshAdminUsersView() {
-    if (!isAdminUser()) {
-        return;
-    }
-
-    await loadSavedUsers();
+    await loadLeaderboard();
     renderSavedUsers();
 }
 
 function startAdminUsersRealtime() {
-    if (!supabaseClient || adminUsersRealtimeChannel) {
-        return;
-    }
-
-    adminUsersRealtimeChannel = supabaseClient
-        .channel("site-users-live")
-        .on("postgres_changes", {
-            event: "*",
-            schema: "public",
-            table: SUPABASE_USERS_TABLE
-        }, async () => {
-            if (!isAdminUser()) {
-                return;
-            }
-
-            await refreshAdminUsersView();
-        })
-        .subscribe();
+    return;
 }
 
 function startAdminUsersLiveRefresh() {
-    clearInterval(adminUsersSyncInterval);
-
-    adminUsersSyncInterval = setInterval(async () => {
-        if (!isAdminUser() || !settingsPanel.classList.contains("open") || !userAdminSection.classList.contains("active")) {
-            return;
-        }
-
-        await refreshAdminUsersView();
-    }, 15000);
+    return;
 }
 
 async function updateAdminSettingsView() {
-    const adminIsActive = isAdminUser();
-
-    userAdminTab.classList.toggle("visible", adminIsActive);
-    userAdminSection.classList.toggle("admin-active", adminIsActive);
-    audioUploadInput.disabled = !adminIsActive;
-    audioUploadLabel.classList.toggle("disabled", !adminIsActive);
-    audioUploadLabel.setAttribute("aria-disabled", String(!adminIsActive));
-    audioHelp.textContent = adminIsActive
+    userAdminTab.classList.remove("visible");
+    userAdminSection.classList.remove("admin-active");
+    audioUploadInput.disabled = !isAuthenticatedUser();
+    audioUploadLabel.classList.toggle("disabled", !isAuthenticatedUser());
+    audioUploadLabel.setAttribute("aria-disabled", String(!isAuthenticatedUser()));
+    audioHelp.textContent = isAuthenticatedUser()
         ? "Pick MP3 files from your phone or computer and they will be uploaded to Supabase storage so they can be used again later."
-        : "Only Nico can add songs here.";
+        : "Log in first to upload songs.";
+}
 
-    if (!adminIsActive && userAdminSection.classList.contains("active")) {
-        setSettingsSection("settings");
+function setAuthMode(mode) {
+    authMode = mode === "signup" ? "signup" : "login";
+    loginModeButton.classList.toggle("active", authMode === "login");
+    signupModeButton.classList.toggle("active", authMode === "signup");
+    confirmPasswordWrap.classList.toggle("hidden", authMode !== "signup");
+    confirmPasswordInput.required = authMode === "signup";
+    authTitle.textContent = authMode === "signup" ? "Sign Up" : "Log In";
+    authDescription.textContent = authMode === "signup"
+        ? "Create a username and password first, then log in with that account."
+        : "Enter your username and password to continue.";
+    nameInput.placeholder = authMode === "signup" ? "Create username" : "Username";
+    passwordInput.placeholder = authMode === "signup" ? "Create password" : "Password";
+    passwordInput.autocomplete = authMode === "signup" ? "new-password" : "current-password";
+    confirmPasswordInput.placeholder = "Confirm password";
+    unlockButton.textContent = authMode === "signup" ? "CREATE ACCOUNT" : "LOG IN";
+    lockMessage.textContent = "";
+    lockMessage.className = "message";
+}
+
+function showAuthMessage(message, tone = "neutral") {
+    lockMessage.textContent = message;
+    lockMessage.className = tone === "error"
+        ? "message error"
+        : tone === "success"
+            ? "message success"
+            : "message";
+}
+
+async function hashPassword(password) {
+    const data = new TextEncoder().encode(password);
+    const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+    return Array.from(new Uint8Array(hashBuffer))
+        .map((value) => value.toString(16).padStart(2, "0"))
+        .join("");
+}
+
+async function getProfileByUsername(username) {
+    const { data, error } = await supabaseClient
+        .from(PROFILE_TABLE)
+        .select("id, username, password_hash, created_at")
+        .eq("username", username)
+        .maybeSingle();
+
+    if (error) {
+        console.error("Could not fetch profile:", error.message);
+        return null;
     }
 
-    if (adminIsActive) {
-        await refreshAdminUsersView();
+    return data;
+}
+
+async function ensureProfile(session, usernameOverride = "") {
+    if (!session?.id) {
+        return null;
     }
+
+    profileData = {
+        id: session.id,
+        username: usernameOverride.trim() || session.username || "Guest"
+    };
+
+    currentUser = profileData.username;
+    return profileData;
+}
+
+function formatEntryTime(dateValue) {
+    const parsed = dateValue ? new Date(dateValue) : null;
+
+    if (!parsed || Number.isNaN(parsed.getTime())) {
+        return "Unknown time";
+    }
+
+    return parsed.toLocaleString([], {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+        hour: "numeric",
+        minute: "2-digit"
+    });
+}
+
+function renderLeaderboard() {
+    leaderboardList.innerHTML = "";
+
+    if (leaderboardEntries.length === 0) {
+        const empty = document.createElement("div");
+        empty.className = "leaderboard-empty";
+        empty.textContent = "No one has entered yet.";
+        leaderboardList.appendChild(empty);
+        return;
+    }
+
+    leaderboardEntries.forEach((entry) => {
+        const item = document.createElement("div");
+        item.className = "leaderboard-item";
+
+        const name = document.createElement("p");
+        name.className = "leaderboard-name";
+        name.textContent = entry.username;
+
+        const time = document.createElement("p");
+        time.className = "leaderboard-time";
+        time.textContent = formatEntryTime(entry.entered_at);
+
+        item.appendChild(name);
+        item.appendChild(time);
+        leaderboardList.appendChild(item);
+    });
+}
+
+async function refreshLeaderboard() {
+    await loadLeaderboard();
+    renderLeaderboard();
+}
+
+function showPresenceToast(message) {
+    const toast = document.createElement("div");
+    toast.className = "presence-toast";
+    toast.textContent = message;
+    presenceNotifications.appendChild(toast);
+
+    setTimeout(() => {
+        toast.remove();
+    }, 3600);
+}
+
+async function connectPresence() {
+    if (!supabaseClient || !profileData?.id || !currentUser) {
+        return;
+    }
+
+    if (presenceChannel) {
+        await supabaseClient.removeChannel(presenceChannel);
+        presenceChannel = null;
+    }
+
+    presenceSyncStarted = false;
+    presenceChannel = supabaseClient.channel("main-room", {
+        config: {
+            presence: {
+                key: profileData.id
+            }
+        }
+    });
+
+    presenceChannel
+        .on("presence", { event: "join" }, ({ newPresences }) => {
+            if (!presenceSyncStarted) {
+                return;
+            }
+
+            newPresences.forEach((presence) => {
+                if (presence.user_id === profileData.id) {
+                    return;
+                }
+
+                showPresenceToast(`User ${presence.username} has entered.`);
+            });
+        })
+        .on("presence", { event: "leave" }, ({ leftPresences }) => {
+            if (!presenceSyncStarted) {
+                return;
+            }
+
+            leftPresences.forEach((presence) => {
+                if (presence.user_id === profileData.id) {
+                    return;
+                }
+
+                showPresenceToast(`User ${presence.username} has left.`);
+            });
+        })
+        .subscribe(async (status) => {
+            if (status !== "SUBSCRIBED") {
+                return;
+            }
+
+            await presenceChannel.track({
+                user_id: profileData.id,
+                username: currentUser
+            });
+
+            presenceSyncStarted = true;
+        });
+}
+
+async function openPostAuthFlow() {
+    await updateAdminSettingsView();
+    await refreshLeaderboard();
+    applyUserSpecificTheme();
+    await connectPresence();
+    setActiveScreen(landscapeScreen);
+}
+
+async function handleAuthenticatedSession(session, usernameOverride = "") {
+    if (!session?.id) {
+        return;
+    }
+    await ensureProfile(session, usernameOverride);
+    await saveUserIfNew(currentUser);
+    localStorage.setItem(LOCAL_SESSION_KEY, JSON.stringify({
+        id: profileData.id,
+        username: profileData.username
+    }));
+    await openPostAuthFlow();
 }
 
 // EASY EDIT:
@@ -553,6 +690,7 @@ function setActiveScreen(screenToShow) {
 
     document.body.classList.remove("main-page-active");
     stopBouncingTextSequence();
+    clearTimeout(mainPageNowPlayingTimeout);
     screenToShow.classList.remove("hidden");
     screenToShow.classList.add("active");
 
@@ -565,7 +703,8 @@ function setActiveScreen(screenToShow) {
         playerWrap.classList.remove("idle-ui");
         floatingNowPlaying.classList.remove("visible");
         settingsPanel.classList.remove("open");
-        playerToggle.classList.remove("hidden");
+        leaderboardPanel.classList.remove("open");
+        settingsLauncher.classList.remove("open");
 
         if (songs.length > 0) {
             setCurrentSong(currentSongIndex < songs.length ? currentSongIndex : 0, true);
@@ -574,6 +713,13 @@ function setActiveScreen(screenToShow) {
         } else {
             nowPlayingTitle.textContent = "Loading songs...";
         }
+
+        mainPageNowPlayingTimeout = setTimeout(() => {
+            if (!playerWrap.classList.contains("open") && mainPage.classList.contains("active")) {
+                updateFloatingNowPlaying();
+                floatingNowPlaying.classList.add("visible");
+            }
+        }, 5000);
     }
 }
 
@@ -1023,7 +1169,6 @@ function closePlayerUi() {
     clearTimeout(mobileNowPlayingTimeout);
     playerWrap.classList.remove("open", "song-list-open", "volume-open", "idle-ui");
     floatingNowPlaying.classList.remove("visible");
-    playerToggle.classList.remove("hidden");
 
     if (isMobilePlayerLayout() && mainPage.classList.contains("active")) {
         mobileNowPlayingTimeout = setTimeout(() => {
@@ -1164,12 +1309,8 @@ function setupSettingsPanel() {
     updateAdminSettingsView();
 
     settingsTabs.forEach((tab) => {
-        tab.addEventListener("click", async () => {
+        tab.addEventListener("click", () => {
             setSettingsSection(tab.dataset.settingsTab);
-
-            if (tab.dataset.settingsTab === "users" && isAdminUser()) {
-                await refreshAdminUsersView();
-            }
         });
     });
 
@@ -1195,8 +1336,8 @@ function setupSettingsPanel() {
     setAudioStatus("Choose an MP3 to upload.", "neutral", 2200);
 
     audioUploadInput.addEventListener("change", async () => {
-        if (!isAdminUser()) {
-            setAudioStatus("Only Nico can add songs.", "error", 2200);
+        if (!isAuthenticatedUser()) {
+            setAudioStatus("Log in first to add songs.", "error", 2200);
             audioUploadInput.value = "";
             return;
         }
@@ -1228,24 +1369,60 @@ function setupSongs() {
     playerDuration.textContent = "0:00";
     updateVolumeButton();
 
-    playerToggle.addEventListener("click", () => {
+    floatingNowPlaying.addEventListener("click", () => {
         playerWrap.classList.add("open");
         playerWrap.classList.remove("idle-ui");
-        playerToggle.classList.add("hidden");
+        floatingNowPlaying.classList.remove("visible");
         resetPlayerAutoCloseTimer();
     });
 
     settingsToggle.addEventListener("click", async () => {
+        settingsLauncher.classList.remove("open");
+        leaderboardPanel.classList.remove("open");
         const willOpen = !settingsPanel.classList.contains("open");
         settingsPanel.classList.toggle("open");
 
-        if (willOpen && isAdminUser()) {
-            await refreshAdminUsersView();
+        if (willOpen) {
+            await updateAdminSettingsView();
+        }
+    });
+
+    settingsMenuToggle.addEventListener("click", () => {
+        settingsLauncher.classList.toggle("open");
+    });
+
+    leaderboardToggle.addEventListener("click", async () => {
+        settingsLauncher.classList.remove("open");
+        settingsPanel.classList.remove("open");
+        const willOpen = !leaderboardPanel.classList.contains("open");
+        leaderboardPanel.classList.toggle("open");
+
+        if (willOpen) {
+            await refreshLeaderboard();
         }
     });
 
     settingsClose.addEventListener("click", () => {
         settingsPanel.classList.remove("open");
+    });
+
+    leaderboardClose.addEventListener("click", () => {
+        leaderboardPanel.classList.remove("open");
+    });
+
+    logoutButton.addEventListener("click", async () => {
+        settingsLauncher.classList.remove("open");
+        if (presenceChannel) {
+            await supabaseClient.removeChannel(presenceChannel);
+            presenceChannel = null;
+        }
+        profileData = null;
+        currentUser = "";
+        localStorage.removeItem(LOCAL_SESSION_KEY);
+        settingsPanel.classList.remove("open");
+        leaderboardPanel.classList.remove("open");
+        showAuthMessage("Logged out.", "success");
+        setActiveScreen(lockScreen);
     });
 
     playerListToggle.addEventListener("click", () => {
@@ -1361,12 +1538,21 @@ function setupSongs() {
         }
 
         const clickedInsidePlayer = playerWrap.contains(event.target);
-        const clickedPlayerToggle = playerToggle.contains(event.target);
+        const clickedNowPlaying = floatingNowPlaying.contains(event.target);
         const clickedSettings = settingsPanel.contains(event.target);
-        const clickedSettingsToggle = settingsToggle.contains(event.target);
+        const clickedLeaderboard = leaderboardPanel.contains(event.target);
+        const clickedSettingsLauncher = settingsLauncher.contains(event.target);
 
-        if (!clickedInsidePlayer && !clickedPlayerToggle && !clickedSettings && !clickedSettingsToggle) {
+        if (!clickedInsidePlayer && !clickedNowPlaying && !clickedSettings && !clickedLeaderboard && !clickedSettingsLauncher) {
             closePlayerUi();
+        }
+
+        if (!clickedSettings && !clickedSettingsLauncher) {
+            settingsLauncher.classList.remove("open");
+        }
+
+        if (!clickedLeaderboard && event.target !== leaderboardToggle) {
+            leaderboardPanel.classList.remove("open");
         }
     });
 }
@@ -1527,63 +1713,92 @@ proceedMainButton.addEventListener("click", async () => {
     setActiveScreen(mainPage);
 });
 
-// Name form submit.
+loginModeButton.addEventListener("click", () => {
+    setAuthMode("login");
+});
+
+signupModeButton.addEventListener("click", () => {
+    setAuthMode("signup");
+});
+
 lockForm.addEventListener("submit", async (event) => {
     event.preventDefault();
-    lastNameProceedAt = lastNameProceedAt || Date.now();
+    lastNameProceedAt = Date.now();
 
-    const enteredName = nameInput.value.trim();
+    const enteredUsername = nameInput.value.trim();
+    const enteredPassword = passwordInput.value;
+    const confirmedPassword = confirmPasswordInput.value;
 
-    if (!enteredName) {
-        lockMessage.textContent = "Please enter your name.";
-        lockMessage.className = "message error";
+    if (!enteredUsername || !enteredPassword) {
+        showAuthMessage("Fill in username and password.", "error");
         return;
     }
 
-    currentUser = enteredName;
-    await saveUserIfNew(currentUser);
-    applyUserSpecificTheme();
-    await updateAdminSettingsView();
-    lockMessage.textContent = `Welcome, ${currentUser}.`;
-    lockMessage.className = "message success";
-    nameInput.disabled = true;
+    if (authMode === "signup" && enteredPassword !== confirmedPassword) {
+        showAuthMessage("Passwords do not match.", "error");
+        return;
+    }
+
     unlockButton.disabled = true;
-    lockScreen.style.pointerEvents = "none";
 
-    setTimeout(() => {
-        document.body.classList.add("unlocking");
-    }, 160);
+    if (authMode === "signup") {
+        const existingProfile = await getProfileByUsername(enteredUsername);
 
-    setTimeout(() => {
-        if (isAdminUser(currentUser)) {
-            startAdminPasswordFlow();
+        if (existingProfile) {
+            showAuthMessage("That username already exists.", "error");
+            unlockButton.disabled = false;
             return;
         }
 
-        startQuiz();
-    }, 1180);
+        const passwordHash = await hashPassword(enteredPassword);
+        const userId = crypto.randomUUID();
+        const { error } = await supabaseClient
+            .from(PROFILE_TABLE)
+            .insert({
+                id: userId,
+                username: enteredUsername,
+                password_hash: passwordHash
+            });
 
-    lastNameProceedAt = null;
-});
+        if (error) {
+            showAuthMessage(error.message, "error");
+            unlockButton.disabled = false;
+            return;
+        }
 
-adminPasswordForm.addEventListener("submit", (event) => {
-    event.preventDefault();
+        showAuthMessage("Account created. Signing you in...", "success");
+        await handleAuthenticatedSession({
+            id: userId,
+            username: enteredUsername
+        });
+    } else {
+        const profile = await getProfileByUsername(enteredUsername);
 
-    const enteredPassword = adminPasswordInput.value.trim();
+        if (!profile) {
+            showAuthMessage("Account not found. Create one first.", "error");
+            unlockButton.disabled = false;
+            return;
+        }
 
-    if (enteredPassword !== ADMIN_PASSWORD) {
-        adminPasswordMessage.textContent = "Wrong password.";
-        adminPasswordMessage.className = "message error";
-        return;
+        const passwordHash = await hashPassword(enteredPassword);
+
+        if (profile.password_hash !== passwordHash) {
+            showAuthMessage("Wrong password.", "error");
+            unlockButton.disabled = false;
+            return;
+        }
+
+        showAuthMessage("Login successful.", "success");
+        await handleAuthenticatedSession({
+            id: profile.id,
+            username: profile.username
+        });
     }
 
-    adminPasswordMessage.textContent = "Access granted.";
-    adminPasswordMessage.className = "message success";
-
-    setTimeout(() => {
-        adminPasswordMessage.textContent = "";
-        setActiveScreen(landscapeScreen);
-    }, 260);
+    unlockButton.disabled = false;
+    passwordInput.value = "";
+    confirmPasswordInput.value = "";
+    lastNameProceedAt = null;
 });
 
 // Start everything when the page loads.
@@ -1592,7 +1807,20 @@ setupSongs();
 setupAudioUnlock();
 setupThemes();
 setupSettingsPanel();
-startAdminUsersRealtime();
-startAdminUsersLiveRefresh();
 applyThemeSelection("default.mp4");
 loadSupabaseSongs();
+setAuthMode("login");
+
+const storedProfile = localStorage.getItem(LOCAL_SESSION_KEY);
+
+if (storedProfile) {
+    try {
+        const parsedProfile = JSON.parse(storedProfile);
+
+        if (parsedProfile?.id && parsedProfile?.username) {
+            handleAuthenticatedSession(parsedProfile);
+        }
+    } catch {
+        localStorage.removeItem(LOCAL_SESSION_KEY);
+    }
+}
