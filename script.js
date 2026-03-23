@@ -1331,10 +1331,10 @@ function restartMainPageTextSequence() {
     clearTimeout(notesRevealTimeout);
     notesRevealTimeout = setTimeout(() => {
         mainPage.classList.add("notes-visible");
-    }, 5350);
+    }, 5000);
     bouncingTextStartTimeout = setTimeout(() => {
         startBouncingTextSequence();
-    }, 5350);
+    }, 5000);
 }
 
 function stopBouncingTextSequence() {
