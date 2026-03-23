@@ -151,12 +151,13 @@ let profileData = null;
 let leaderboardEntries = [];
 let notesEntries = [];
 let noteRepliesEntries = [];
-let noteReadIds = new Set();
+let noteReadMap = new Map();
 let onlineUsers = [];
 let presenceChannel = null;
 let notesChannel = null;
 let noteRepliesChannel = null;
 let presenceSyncStarted = false;
+let knownPresenceUserIds = new Set();
 let welcomeNowPlayingTimeout = null;
 let editingNoteId = null;
 let activeViewerNoteId = null;
@@ -287,7 +288,7 @@ async function loadLeaderboard() {
 
     const { data, error } = await supabaseClient
         .from(PROFILE_TABLE)
-        .select("id, username, created_at")
+        .select("id, username, created_at, last_online")
         .order("created_at", { ascending: true });
 
     if (error) {
@@ -297,6 +298,34 @@ async function loadLeaderboard() {
     }
 
     leaderboardEntries = data || [];
+}
+
+function formatLastOnline(dateValue) {
+    const parsed = dateValue ? new Date(dateValue) : null;
+
+    if (!parsed || Number.isNaN(parsed.getTime())) {
+        return "Last online: unavailable";
+    }
+
+    return `Last online: ${parsed.toLocaleString([], {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+        hour: "numeric",
+        minute: "2-digit"
+    })}`;
+}
+
+function setLocalLastOnline(userId, dateValue = new Date().toISOString()) {
+    if (!userId) {
+        return;
+    }
+
+    leaderboardEntries = leaderboardEntries.map((entry) =>
+        entry.id === userId
+            ? { ...entry, last_online: dateValue }
+            : entry
+    );
 }
 
 function formatClockTime(dateValue) {
@@ -540,9 +569,21 @@ function renderLeaderboard() {
         const item = document.createElement("div");
         item.className = "leaderboard-item";
 
+        const identity = document.createElement("div");
+        identity.className = "leaderboard-identity";
+
         const name = document.createElement("p");
         name.className = "leaderboard-name";
         name.textContent = entry.username;
+
+        identity.appendChild(name);
+
+        if (!isOnline) {
+            const lastOnline = document.createElement("p");
+            lastOnline.className = "leaderboard-last-online";
+            lastOnline.textContent = formatLastOnline(entry.last_online);
+            identity.appendChild(lastOnline);
+        }
 
         const status = document.createElement("div");
         status.className = "leaderboard-status";
@@ -574,7 +615,7 @@ function renderLeaderboard() {
             status.appendChild(deleteButton);
         }
 
-        item.appendChild(name);
+        item.appendChild(identity);
         item.appendChild(status);
         leaderboardList.appendChild(item);
     });
@@ -614,15 +655,16 @@ function loadLocalNoteReads() {
     const storageKey = getLocalNoteReadsStorageKey();
 
     if (!storageKey) {
-        return new Set();
+        return new Map();
     }
 
     try {
         const rawValue = localStorage.getItem(storageKey);
-        const parsedValue = rawValue ? JSON.parse(rawValue) : [];
-        return new Set(Array.isArray(parsedValue) ? parsedValue.map((value) => getNoteReadKey(value)) : []);
+        const parsedValue = rawValue ? JSON.parse(rawValue) : {};
+        const entries = Object.entries(parsedValue || {}).map(([noteId, readAt]) => [getNoteReadKey(noteId), String(readAt || "")]);
+        return new Map(entries);
     } catch {
-        return new Set();
+        return new Map();
     }
 }
 
@@ -634,10 +676,41 @@ function saveLocalNoteReads() {
     }
 
     try {
-        localStorage.setItem(storageKey, JSON.stringify(Array.from(noteReadIds)));
+        localStorage.setItem(storageKey, JSON.stringify(Object.fromEntries(noteReadMap)));
     } catch {
         // Ignore localStorage write failures.
     }
+}
+
+function getLatestNoteActivityTime(note) {
+    const replyTimes = noteRepliesEntries
+        .filter((reply) => reply.note_id === note.id)
+        .map((reply) => new Date(reply.created_at).getTime())
+        .filter((time) => Number.isFinite(time));
+
+    const noteCreatedAt = new Date(note.created_at).getTime();
+    return Math.max(noteCreatedAt || 0, ...replyTimes);
+}
+
+function isNoteUnread(note) {
+    if (!note || note.user_id === profileData?.id) {
+        return false;
+    }
+
+    const readAt = noteReadMap.get(getNoteReadKey(note.id));
+
+    if (!readAt) {
+        return true;
+    }
+
+    const latestActivityTime = getLatestNoteActivityTime(note);
+    const readTime = new Date(readAt).getTime();
+
+    if (!Number.isFinite(readTime)) {
+        return true;
+    }
+
+    return latestActivityTime > readTime;
 }
 
 function getNoteLayout(index, noteId) {
@@ -785,11 +858,18 @@ function renderSubmittedNotes() {
 
 async function openNoteViewer(note) {
     const canEditNote = Boolean(profileData?.id && note.user_id === profileData.id);
+    const hasReplyFromOtherUser = noteRepliesEntries.some((reply) =>
+        reply.note_id === note.id && reply.user_id !== profileData?.id
+    );
+    const canReplyToNote = Boolean(
+        profileData?.id && (note.user_id !== profileData.id || hasReplyFromOtherUser)
+    );
     activeViewerNoteId = note.id;
 
     noteViewerText.textContent = note.content || "";
     noteViewerMeta.textContent = `${note.username || "Unknown"} | ${formatNoteDate(note.created_at)}`;
     noteEditButton.classList.toggle("hidden", !canEditNote);
+    noteReplyButton.classList.toggle("hidden", !canReplyToNote);
     noteEditButton.onclick = null;
     noteReplyComposer.classList.add("hidden");
     noteReplyTextarea.value = "";
@@ -801,17 +881,21 @@ async function openNoteViewer(note) {
         };
     }
 
-    noteReplyButton.onclick = () => {
-        if (!isAuthenticatedUser()) {
-            showPresenceToast("Log in first before replying.");
+    noteReplyButton.textContent = "Reply";
+    noteReplyButton.onclick = async () => {
+        if (!canReplyToNote) {
+            showPresenceToast("Wait for someone to reply first before replying to your own note.");
             return;
         }
 
-        noteReplyComposer.classList.toggle("hidden");
-
-        if (!noteReplyComposer.classList.contains("hidden")) {
+        if (noteReplyComposer.classList.contains("hidden")) {
+            noteReplyComposer.classList.remove("hidden");
+            noteReplyButton.textContent = "Post Reply";
             focusNoteInput(noteReplyTextarea);
+            return;
         }
+
+        await submitNoteReply();
     };
 
     noteViewerPanel.classList.add("open");
@@ -827,7 +911,7 @@ function renderPinnedNotes() {
 
     notesEntries.forEach((note, index) => {
         const isOwnNote = note.user_id === profileData?.id;
-        const isUnread = !isOwnNote && !noteReadIds.has(getNoteReadKey(note.id));
+        const isUnread = !isOwnNote && isNoteUnread(note);
         const pin = document.createElement("button");
         pin.type = "button";
         pin.className = "pinned-note";
@@ -900,6 +984,10 @@ function renderNoteReplies(noteId) {
         const item = document.createElement("div");
         item.className = "note-reply-item";
 
+        const label = document.createElement("p");
+        label.className = "note-reply-label";
+        label.textContent = "REPLY";
+
         const text = document.createElement("p");
         text.className = "note-reply-text";
         text.textContent = reply.content || "";
@@ -908,6 +996,7 @@ function renderNoteReplies(noteId) {
         meta.className = "note-reply-meta";
         meta.textContent = `${reply.username || "Unknown"} | ${formatNoteDate(reply.created_at)}`;
 
+        item.appendChild(label);
         item.appendChild(text);
         item.appendChild(meta);
         noteRepliesList.appendChild(item);
@@ -918,6 +1007,7 @@ async function loadNoteReplies() {
     if (!supabaseClient) {
         noteRepliesEntries = [];
         renderNoteReplies(activeViewerNoteId);
+        renderPinnedNotes();
         return;
     }
 
@@ -936,31 +1026,52 @@ async function loadNoteReplies() {
     if (activeViewerNoteId) {
         renderNoteReplies(activeViewerNoteId);
     }
+
+    renderPinnedNotes();
 }
 
 async function loadNoteReads() {
     if (!supabaseClient || !profileData?.id) {
-        noteReadIds = new Set();
+        noteReadMap = new Map();
         renderPinnedNotes();
         return;
     }
 
-    const localReadIds = loadLocalNoteReads();
+    const localReadMap = loadLocalNoteReads();
 
     const { data, error } = await supabaseClient
         .from(NOTE_READS_TABLE)
-        .select("note_id")
+        .select("note_id, created_at")
         .eq("user_id", profileData.id);
 
     if (error) {
         console.error("Could not load note reads:", error.message);
-        noteReadIds = localReadIds;
+        noteReadMap = localReadMap;
         renderPinnedNotes();
         return;
     }
 
-    const remoteReadIds = new Set((data || []).map((row) => getNoteReadKey(row.note_id)));
-    noteReadIds = new Set([...localReadIds, ...remoteReadIds]);
+    const remoteReadMap = new Map();
+
+    (data || []).forEach((row) => {
+        const key = getNoteReadKey(row.note_id);
+        const existing = remoteReadMap.get(key);
+
+        if (!existing || new Date(row.created_at).getTime() > new Date(existing).getTime()) {
+            remoteReadMap.set(key, row.created_at);
+        }
+    });
+
+    noteReadMap = new Map(localReadMap);
+
+    remoteReadMap.forEach((value, key) => {
+        const localValue = noteReadMap.get(key);
+
+        if (!localValue || new Date(value).getTime() > new Date(localValue).getTime()) {
+            noteReadMap.set(key, value);
+        }
+    });
+
     saveLocalNoteReads();
     renderPinnedNotes();
 }
@@ -971,12 +1082,16 @@ async function markNoteAsRead(note) {
     }
 
     const noteReadKey = getNoteReadKey(note.id);
+    const latestActivityTime = getLatestNoteActivityTime(note);
+    const currentReadAt = noteReadMap.get(noteReadKey);
+    const currentReadTime = currentReadAt ? new Date(currentReadAt).getTime() : 0;
 
-    if (note.user_id === profileData.id || noteReadIds.has(noteReadKey)) {
+    if (note.user_id === profileData.id || currentReadTime >= latestActivityTime) {
         return;
     }
 
-    noteReadIds.add(noteReadKey);
+    const readAt = new Date().toISOString();
+    noteReadMap.set(noteReadKey, readAt);
     saveLocalNoteReads();
     renderPinnedNotes();
 
@@ -984,7 +1099,8 @@ async function markNoteAsRead(note) {
         .from(NOTE_READS_TABLE)
         .insert({
             user_id: profileData.id,
-            note_id: note.id
+            note_id: note.id,
+            created_at: readAt
         });
 
     if (error) {
@@ -1049,6 +1165,16 @@ async function submitNoteReply() {
         return;
     }
 
+    const activeNote = notesEntries.find((note) => note.id === activeViewerNoteId);
+    const hasReplyFromOtherUser = noteRepliesEntries.some((reply) =>
+        reply.note_id === activeViewerNoteId && reply.user_id !== profileData?.id
+    );
+
+    if (!activeNote || (activeNote.user_id === profileData.id && !hasReplyFromOtherUser)) {
+        showPresenceToast("Wait for someone to reply first before replying to your own note.");
+        return;
+    }
+
     const replyContent = noteReplyTextarea.value.trim();
 
     if (!replyContent) {
@@ -1078,6 +1204,7 @@ async function submitNoteReply() {
 
     noteReplyTextarea.value = "";
     noteReplyComposer.classList.add("hidden");
+    noteReplyButton.textContent = "Reply";
     showPresenceToast("Reply posted.");
 }
 
@@ -1169,6 +1296,7 @@ async function connectPresence() {
     }
 
     presenceSyncStarted = false;
+    knownPresenceUserIds = new Set();
     presenceChannel = supabaseClient.channel("main-room", {
         config: {
             presence: {
@@ -1180,6 +1308,7 @@ async function connectPresence() {
     presenceChannel
         .on("presence", { event: "sync" }, () => {
             syncOnlineUsersFromPresence();
+            knownPresenceUserIds = new Set(onlineUsers.map((user) => user.id));
         })
         .on("presence", { event: "join" }, ({ newPresences }) => {
             if (!presenceSyncStarted) {
@@ -1187,10 +1316,13 @@ async function connectPresence() {
             }
 
             newPresences.forEach((presence) => {
-                if (presence.user_id === profileData.id) {
+                const presenceUserId = presence.user_id || "";
+
+                if (!presenceUserId || presenceUserId === profileData?.id || knownPresenceUserIds.has(presenceUserId)) {
                     return;
                 }
 
+                knownPresenceUserIds.add(presenceUserId);
                 showPresenceToast(`User ${presence.username} has entered.`);
             });
 
@@ -1201,11 +1333,17 @@ async function connectPresence() {
                 return;
             }
 
+            const leftAt = new Date().toISOString();
+
             leftPresences.forEach((presence) => {
-                if (presence.user_id === profileData.id) {
+                const presenceUserId = presence.user_id || "";
+
+                if (!presenceUserId) {
                     return;
                 }
 
+                knownPresenceUserIds.delete(presenceUserId);
+                setLocalLastOnline(presenceUserId, leftAt);
                 showPresenceToast(`User ${presence.username} has left.`);
             });
 
@@ -1218,6 +1356,8 @@ async function connectPresence() {
             presenceSyncStarted = true;
             await trackCurrentPresence();
             syncOnlineUsersFromPresence();
+            knownPresenceUserIds = new Set(onlineUsers.map((user) => user.id));
+            showPresenceToast(`User ${currentUser} has entered.`);
         });
 }
 
@@ -1232,8 +1372,27 @@ async function trackCurrentPresence() {
     });
 }
 
+async function updateProfileLastOnline() {
+    if (!supabaseClient || !profileData?.id) {
+        return;
+    }
+
+    const lastOnlineValue = new Date().toISOString();
+    setLocalLastOnline(profileData.id, lastOnlineValue);
+
+    try {
+        await supabaseClient
+            .from(PROFILE_TABLE)
+            .update({ last_online: lastOnlineValue })
+            .eq("id", profileData.id);
+    } catch {
+        // Ignore best-effort last-online updates.
+    }
+}
+
 async function untrackCurrentPresence() {
     if (!presenceChannel || typeof presenceChannel.untrack !== "function") {
+        await updateProfileLastOnline();
         return;
     }
 
@@ -1242,6 +1401,8 @@ async function untrackCurrentPresence() {
     } catch {
         // Ignore untrack failures during unload/visibility changes.
     }
+
+    await updateProfileLastOnline();
 }
 
 async function handlePresenceVisibilityChange() {
@@ -2211,6 +2372,7 @@ function setupSongs() {
         noteViewerPanel.classList.remove("open");
         noteReplyComposer.classList.add("hidden");
         noteReplyTextarea.value = "";
+        noteReplyButton.textContent = "Reply";
         activeViewerNoteId = null;
         document.body.classList.remove("mobile-keyboard-open");
     });
@@ -2236,7 +2398,7 @@ function setupSongs() {
         onlineUsers = [];
         notesEntries = [];
         noteRepliesEntries = [];
-        noteReadIds = new Set();
+        noteReadMap = new Map();
         renderPinnedNotes();
         renderSubmittedNotes();
         renderNoteReplies(null);
@@ -2409,6 +2571,7 @@ function setupSongs() {
             noteViewerPanel.classList.remove("open");
             noteReplyComposer.classList.add("hidden");
             noteReplyTextarea.value = "";
+            noteReplyButton.textContent = "Reply";
             activeViewerNoteId = null;
             document.body.classList.remove("mobile-keyboard-open");
         }
