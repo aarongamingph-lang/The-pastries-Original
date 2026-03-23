@@ -640,12 +640,24 @@
             background: rgba(255, 255, 255, 0.08);
         }
 
+        .leaderboard-identity {
+            min-width: 0;
+        }
+
         .leaderboard-name {
             margin: 0;
             font-size: 0.96rem;
             font-weight: 700;
             letter-spacing: 0.02em;
             color: #fff;
+        }
+
+        .leaderboard-last-online {
+            margin: 6px 0 0;
+            color: rgba(255, 255, 255, 0.62);
+            font-size: 0.72rem;
+            letter-spacing: 0.03em;
+            line-height: 1.35;
         }
 
         .leaderboard-status {
@@ -935,10 +947,18 @@
         }
 
         .note-reply-item {
-            padding: 12px 14px;
-            border: 1px solid rgba(26, 26, 26, 0.08);
-            border-radius: 14px;
-            background: rgba(17, 17, 17, 0.045);
+            padding: 12px 0 0;
+            border-top: 1px solid rgba(26, 26, 26, 0.18);
+            background: transparent;
+        }
+
+        .note-reply-label {
+            margin: 0 0 10px;
+            color: rgba(26, 26, 26, 0.78);
+            font-size: 0.76rem;
+            font-weight: 700;
+            letter-spacing: 0.12em;
+            text-align: left;
         }
 
         .note-reply-text {
@@ -2978,7 +2998,7 @@
             .player-wrap {
                 left: max(10px, env(safe-area-inset-left));
                 bottom: max(10px, env(safe-area-inset-bottom));
-                width: min(54vw, 250px);
+                width: min(60vw, 232px);
                 max-width: calc(100vw - 20px - env(safe-area-inset-left) - env(safe-area-inset-right));
             }
 
@@ -2996,29 +3016,112 @@
             }
 
             .player-wrap {
-                padding: 10px 10px;
+                padding: 9px 9px 8px;
+                border-radius: 18px;
+            }
+
+            .player-decor {
+                margin-bottom: 8px;
+                height: 4px;
+            }
+
+            .player-header {
+                gap: 8px;
+                margin-bottom: 6px;
+            }
+
+            .player-note {
+                font-size: 0.95rem;
+            }
+
+            .now-playing-title {
+                font-size: clamp(0.9rem, 3.5vw, 1.02rem);
+                line-height: 1.16;
+                white-space: nowrap;
+            }
+
+            .player-progress {
+                gap: 5px;
+                margin-top: 4px;
+            }
+
+            .player-progress-track {
+                height: 8px;
+            }
+
+            .player-time {
+                font-size: 0.7rem;
             }
 
             .player-controls {
-                gap: 6px;
-                flex-wrap: wrap;
-                justify-content: center;
+                gap: 4px;
+                flex-wrap: nowrap;
+                justify-content: space-between;
+                margin-top: 8px;
             }
 
             .player-button,
             .player-list-toggle {
-                width: 40px;
-                height: 40px;
-                min-height: 40px;
+                width: 32px;
+                height: 32px;
+                min-height: 32px;
+                font-size: 1.16rem;
             }
 
             .player-playlist-panel,
-            .player-volume-popover {
-                max-width: min(80vw, 280px);
+            .player-volume-panel {
+                width: 100%;
+                max-width: 100%;
+                margin-top: 8px;
+                border-radius: 16px;
+            }
+
+            .player-playlist-top {
+                padding: 10px 10px 8px;
+            }
+
+            .player-search {
+                padding: 8px 12px;
+                font-size: 0.86rem;
+            }
+
+            .player-playlist-titlebar {
+                gap: 8px;
+                padding: 0 10px 9px;
+            }
+
+            .player-playlist-title {
+                font-size: 1rem;
+            }
+
+            .player-playlist-subtitle {
+                padding-bottom: 4px;
+                border-bottom-width: 2px;
+                font-size: 0.78rem;
             }
 
             .player-playlist-list {
-                max-height: min(28dvh, 180px);
+                max-height: min(24dvh, 160px);
+                padding: 0 4px 6px;
+            }
+
+            .player-playlist-item {
+                padding: 10px 10px;
+                font-size: 0.76rem;
+                gap: 8px;
+            }
+
+            .player-playlist-heart {
+                font-size: 1.1rem;
+            }
+
+            .player-volume-panel {
+                padding: 12px 12px 14px;
+            }
+
+            .player-volume-label {
+                margin-bottom: 8px;
+                font-size: 0.74rem;
             }
 
             .presence-notifications {
@@ -3055,7 +3158,27 @@
 
             .floating-now-playing,
             .player-wrap {
-                width: min(36vw, 260px);
+                width: min(34vw, 220px);
+            }
+
+            .now-playing-title {
+                font-size: clamp(0.84rem, 1.9vw, 0.96rem);
+            }
+
+            .player-time {
+                font-size: 0.64rem;
+            }
+
+            .player-button,
+            .player-list-toggle {
+                width: 30px;
+                height: 30px;
+                min-height: 30px;
+                font-size: 1.02rem;
+            }
+
+            .player-playlist-list {
+                max-height: min(22dvh, 126px);
             }
         }
 
