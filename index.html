@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>THE PASTRIES SPECIAL</title>
-    <link rel="stylesheet" href="Designs.css?v=50">
+    <link rel="stylesheet" href="Designs.css?v=53">
 </head>
 <body>
     <!-- Background dots used on the opening screens -->
@@ -82,7 +82,13 @@
                 <div class="settings-quick-menu" id="settingsQuickMenu">
                     <button class="settings-toggle" id="settingsToggle" type="button" aria-label="Open settings" title="Settings">&#9881;</button>
                     <button class="settings-toggle" id="notesToggle" type="button" aria-label="Write a note" title="Notes">&#128221;</button>
-                    <button class="settings-toggle" id="leaderboardToggle" type="button" aria-label="Open online users" title="Online">&#128100;</button>
+                    <button class="settings-toggle settings-toggle-status" id="leaderboardToggle" type="button" aria-label="Open online users" title="Online">
+                        <span class="settings-toggle-icon">&#128100;</span>
+                        <span class="settings-toggle-presence">
+                            <span class="settings-toggle-presence-dot"></span>
+                            <span class="settings-toggle-presence-count" id="leaderboardToggleCount">0</span>
+                        </span>
+                    </button>
                 </div>
             </div>
 
@@ -229,8 +235,16 @@
                 <div class="note-viewer-paper">
                     <p class="note-viewer-text" id="noteViewerText"></p>
                     <p class="note-viewer-meta" id="noteViewerMeta"></p>
+                    <div class="note-replies" id="noteRepliesList"></div>
+                    <div class="note-reply-composer hidden" id="noteReplyComposer">
+                        <textarea class="note-reply-textarea" id="noteReplyTextarea" placeholder="Write a reply..."></textarea>
+                        <button class="notes-submit-button note-reply-submit" id="noteReplySubmitButton" type="button">Send Reply</button>
+                    </div>
                 </div>
-                <button class="notes-submit-button hidden" id="noteEditButton" type="button">Edit Note</button>
+                <div class="note-viewer-actions">
+                    <button class="notes-submit-button" id="noteReplyButton" type="button">Reply</button>
+                    <button class="notes-submit-button hidden" id="noteEditButton" type="button">Edit Note</button>
+                </div>
             </div>
 
             <div class="presence-notifications" id="presenceNotifications" aria-live="polite"></div>
@@ -305,6 +319,6 @@
     </section>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="script.js?v=50"></script>
+    <script src="script.js?v=53"></script>
 </body>
 </html>
