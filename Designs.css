@@ -140,6 +140,31 @@
             gap: 14px;
         }
 
+        .auth-mode-switch {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 10px;
+        }
+
+        .auth-mode-button {
+            padding: 12px 14px;
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 14px;
+            background: rgba(255, 255, 255, 0.06);
+            color: #fff;
+            font-size: 0.86rem;
+            letter-spacing: 0.08em;
+        }
+
+        .auth-mode-button.active {
+            background: rgba(255, 255, 255, 0.18);
+            border-color: rgba(255, 255, 255, 0.3);
+        }
+
+        .auth-confirm-wrap.hidden {
+            display: none;
+        }
+
         input {
             width: 100%;
             padding: 14px 16px;
@@ -429,10 +454,7 @@
         }
 
         .main-page.text-sequence-active .main-page-title {
-            animation:
-                titleMove 5s ease forwards,
-                titleFloatCorner 4.8s ease-in-out 5s infinite,
-                welcomeFade 2.4s ease forwards 8.8s;
+            animation: welcomeHoldFade 1.4s ease forwards 5s;
         }
 
         .bouncing-message {
@@ -460,11 +482,14 @@
             opacity: 1;
         }
 
-        .settings-toggle {
+        .settings-launcher {
             position: absolute;
             top: max(20px, env(safe-area-inset-top));
             left: max(20px, env(safe-area-inset-left));
             z-index: 4;
+        }
+
+        .settings-menu-toggle {
             width: 58px;
             height: 58px;
             border: 1px solid rgba(255, 255, 255, 0.16);
@@ -480,9 +505,156 @@
             -webkit-backdrop-filter: blur(14px);
         }
 
+        .settings-menu-toggle:hover,
         .settings-toggle:hover {
             transform: none;
             background: rgba(0, 0, 0, 0.4);
+        }
+
+        .settings-quick-menu {
+            position: absolute;
+            top: calc(100% + 10px);
+            left: 0;
+            min-width: 168px;
+            padding: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.14);
+            border-radius: 16px;
+            background: rgba(0, 0, 0, 0.32);
+            box-shadow: 0 14px 34px rgba(0, 0, 0, 0.24);
+            backdrop-filter: blur(14px);
+            -webkit-backdrop-filter: blur(14px);
+            opacity: 0;
+            pointer-events: none;
+            transform: translateY(-6px);
+            transition: opacity 0.22s ease, transform 0.22s ease;
+        }
+
+        .settings-launcher.open .settings-quick-menu {
+            opacity: 1;
+            pointer-events: auto;
+            transform: translateY(0);
+        }
+
+        .settings-toggle {
+            width: 100%;
+            min-height: 46px;
+            padding: 12px 14px;
+            border: 1px solid rgba(255, 255, 255, 0.14);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            background: rgba(255, 255, 255, 0.1);
+            color: #fff;
+            font-size: 0.92rem;
+            line-height: 1;
+            box-shadow: none;
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+        }
+
+        .leaderboard-panel {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            z-index: 4;
+            width: min(92vw, 540px);
+            max-height: min(74vh, 640px);
+            padding: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.16);
+            border-radius: 22px;
+            background: rgba(255, 255, 255, 0.16);
+            box-shadow: 0 14px 40px rgba(0, 0, 0, 0.18);
+            backdrop-filter: blur(18px);
+            -webkit-backdrop-filter: blur(18px);
+            opacity: 0;
+            pointer-events: none;
+            transform: translate(-50%, -50%) scale(0.96);
+            transition: opacity 0.25s ease, transform 0.25s ease;
+        }
+
+        .leaderboard-panel.open {
+            opacity: 1;
+            pointer-events: auto;
+            transform: translate(-50%, -50%) scale(1);
+        }
+
+        .leaderboard-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            margin-bottom: 14px;
+        }
+
+        .leaderboard-title {
+            margin: 0;
+            font-size: 1rem;
+            letter-spacing: 0.16em;
+            text-transform: uppercase;
+            color: #fff;
+        }
+
+        .leaderboard-list {
+            display: grid;
+            gap: 10px;
+            max-height: min(58vh, 500px);
+            overflow: auto;
+            padding-right: 4px;
+        }
+
+        .leaderboard-item {
+            padding: 12px 14px;
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 14px;
+            background: rgba(255, 255, 255, 0.08);
+        }
+
+        .leaderboard-name {
+            margin: 0;
+            font-size: 0.96rem;
+            color: #fff;
+        }
+
+        .leaderboard-time {
+            margin: 6px 0 0;
+            font-size: 0.8rem;
+            color: rgba(255, 255, 255, 0.62);
+            letter-spacing: 0.04em;
+        }
+
+        .leaderboard-empty {
+            padding: 16px;
+            border-radius: 14px;
+            background: rgba(255, 255, 255, 0.08);
+            color: rgba(255, 255, 255, 0.66);
+            text-align: center;
+        }
+
+        .presence-notifications {
+            position: absolute;
+            top: max(92px, env(safe-area-inset-top) + 82px);
+            right: max(16px, env(safe-area-inset-right));
+            z-index: 5;
+            width: min(84vw, 320px);
+            display: grid;
+            gap: 10px;
+            pointer-events: none;
+        }
+
+        .presence-toast {
+            padding: 12px 14px;
+            border: 1px solid rgba(255, 255, 255, 0.14);
+            border-radius: 14px;
+            background: rgba(0, 0, 0, 0.34);
+            color: #fff;
+            box-shadow: 0 16px 28px rgba(0, 0, 0, 0.2);
+            backdrop-filter: blur(14px);
+            -webkit-backdrop-filter: blur(14px);
+            opacity: 0;
+            transform: translateY(-8px);
+            animation: toastInOut 3.6s ease forwards;
         }
 
         .settings-panel {
@@ -899,12 +1071,6 @@
             opacity: 0;
         }
 
-        .player-toggle.hidden {
-            opacity: 0;
-            pointer-events: none;
-            transition: opacity 0.3s ease;
-        }
-
         .player-shell {
             position: relative;
             z-index: 1;
@@ -1004,11 +1170,13 @@
             transform: translate(-50%, -50%);
             opacity: 0;
             pointer-events: none;
+            cursor: pointer;
             transition: opacity 0.45s ease, transform 0.45s ease;
         }
 
         .floating-now-playing.visible {
             opacity: 1;
+            pointer-events: auto;
         }
 
         .floating-now-playing-label {
@@ -1321,6 +1489,19 @@
             }
         }
 
+        @keyframes welcomeHoldFade {
+            0%,
+            72% {
+                opacity: 1;
+                transform: translate(-50%, -50%) scale(1);
+            }
+
+            100% {
+                opacity: 0;
+                transform: translate(-50%, -50%) scale(1);
+            }
+        }
+
         @keyframes backgroundDrift {
             0%,
             100% {
@@ -1396,17 +1577,6 @@
             }
         }
 
-        @keyframes arrowFloat {
-            0%,
-            100% {
-                transform: translateX(-50%) translateY(0);
-            }
-
-            50% {
-                transform: translateX(-50%) translateY(-10px);
-            }
-        }
-
         @keyframes nowPlayingFloat {
             0%,
             100% {
@@ -1428,6 +1598,24 @@
             50% {
                 transform: scaleY(1.15);
                 opacity: 1;
+            }
+        }
+
+        @keyframes toastInOut {
+            0% {
+                opacity: 0;
+                transform: translateY(-8px);
+            }
+
+            12%,
+            78% {
+                opacity: 1;
+                transform: translateY(0);
+            }
+
+            100% {
+                opacity: 0;
+                transform: translateY(-8px);
             }
         }
         @media (max-width: 768px) and (orientation: portrait) {
@@ -1516,13 +1704,6 @@
                 }
             }
 
-            .player-toggle {
-                bottom: max(20px, env(safe-area-inset-bottom));
-                width: 58px;
-                height: 58px;
-                font-size: 1.6rem;
-            }
-
             .floating-now-playing {
                 width: min(86vw, 300px);
                 top: 50%;
@@ -1551,13 +1732,25 @@
                 padding: 16px;
             }
 
-            .settings-toggle {
+            .settings-launcher {
                 top: max(14px, env(safe-area-inset-top));
                 left: max(14px, env(safe-area-inset-left));
+            }
+
+            .settings-menu-toggle {
                 width: 50px;
                 height: 50px;
                 border-radius: 14px;
                 font-size: 1.15rem;
+            }
+
+            .settings-quick-menu {
+                min-width: 152px;
+            }
+
+            .settings-toggle {
+                min-height: 42px;
+                font-size: 0.86rem;
             }
 
             .settings-info {
@@ -1787,13 +1980,27 @@
                 }
             }
 
-            .settings-toggle {
+            .settings-launcher {
                 top: max(12px, env(safe-area-inset-top));
                 left: max(12px, env(safe-area-inset-left));
+            }
+
+            .settings-menu-toggle {
                 width: 48px;
                 height: 48px;
                 border-radius: 14px;
                 font-size: 1.15rem;
+            }
+
+            .settings-quick-menu {
+                min-width: 144px;
+                padding: 8px;
+            }
+
+            .settings-toggle {
+                min-height: 40px;
+                font-size: 0.82rem;
+                padding: 10px 12px;
             }
 
             .settings-panel {
@@ -1807,15 +2014,6 @@
             .settings-info {
                 grid-template-columns: repeat(3, minmax(0, 1fr));
                 gap: 10px;
-            }
-
-            .player-toggle {
-                left: 50%;
-                bottom: max(10px, env(safe-area-inset-bottom));
-                transform: translateX(-50%);
-                width: 54px;
-                height: 54px;
-                font-size: 1.55rem;
             }
 
             .player-wrap {
