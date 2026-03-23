@@ -978,7 +978,7 @@ function applyThemeSelection(fileName) {
 // Uses the special theme if the current user is special.
 function applyUserSpecificTheme() {
     const specialConfig = getSpecialPersonConfig();
-    const themeFile = specialConfig ? specialConfig.themeFile : "background.jpg";
+    const themeFile = specialConfig ? specialConfig.themeFile : "default.mp4";
     applyThemeSelection(themeFile);
 }
 
@@ -1594,5 +1594,5 @@ setupThemes();
 setupSettingsPanel();
 startAdminUsersRealtime();
 startAdminUsersLiveRefresh();
-applyThemeSelection("background.jpg");
+applyThemeSelection("default.mp4");
 loadSupabaseSongs();
