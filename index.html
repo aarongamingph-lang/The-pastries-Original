@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>THE PASTRIES SPECIAL</title>
-    <link rel="stylesheet" href="Designs.css?v=17">
+    <link rel="stylesheet" href="Designs.css?v=23">
 </head>
 <body>
     <!-- Background dots used on the opening screens -->
@@ -12,20 +12,41 @@
 
     <!-- Screen 1: name input -->
     <main class="screen active" id="lockScreen">
-        <div class="lock-icon">NAME</div>
-        <h1>Enter Your Name</h1>
-        <p>Type your name to continue.</p>
+        <div class="lock-icon">AUTH</div>
+        <h1 id="authTitle">Log In</h1>
+        <p id="authDescription">Enter your username and password to continue.</p>
 
         <form id="lockForm">
+            <div class="auth-mode-switch">
+                <button class="auth-mode-button active" id="loginModeButton" type="button">Log In</button>
+                <button class="auth-mode-button" id="signupModeButton" type="button">Sign Up</button>
+            </div>
             <input
                 id="nameInput"
                 type="text"
-                name="name"
-                placeholder="Enter your name"
+                name="username"
+                placeholder="Username"
                 autocomplete="off"
                 spellcheck="false"
                 required
             >
+            <input
+                id="passwordInput"
+                type="password"
+                name="password"
+                placeholder="Password"
+                autocomplete="current-password"
+                required
+            >
+            <div class="auth-confirm-wrap hidden" id="confirmPasswordWrap">
+                <input
+                    id="confirmPasswordInput"
+                    type="password"
+                    name="confirm-password"
+                    placeholder="Confirm password"
+                    autocomplete="new-password"
+                >
+            </div>
             <button type="submit" id="unlockButton">PROCEED</button>
         </form>
 
@@ -87,8 +108,14 @@
             <h2 class="main-page-title">Welcome Since You're Here Take A Sit And Relax</h2>
             <p class="bouncing-message" id="bouncingMessage"></p>
 
-            <!-- Settings button -->
-            <button class="settings-toggle" id="settingsToggle" type="button" aria-label="Open settings">&#9881;</button>
+            <div class="settings-launcher" id="settingsLauncher">
+                <button class="settings-menu-toggle" id="settingsMenuToggle" type="button" aria-label="Open menu">&#9776;</button>
+                <div class="settings-quick-menu" id="settingsQuickMenu">
+                    <button class="settings-toggle" id="settingsToggle" type="button" aria-label="Open settings">&#9881; Settings</button>
+                    <button class="settings-toggle" id="leaderboardToggle" type="button" aria-label="Open leaderboard">&#9733; Leaderboard</button>
+                    <button class="settings-toggle" id="logoutButton" type="button" aria-label="Log out">&#10162; Logout</button>
+                </div>
+            </div>
 
             <!-- Idle now-playing text shown in the center -->
             <div class="floating-now-playing" id="floatingNowPlaying" aria-hidden="true">
@@ -181,8 +208,15 @@
                 </div>
             </div>
 
-            <!-- Button that opens the music player -->
-            <button class="player-toggle" id="playerToggle" type="button" aria-label="Open media player">^</button>
+            <div class="leaderboard-panel" id="leaderboardPanel">
+                <div class="leaderboard-head">
+                    <p class="leaderboard-title">Entry Log</p>
+                    <button class="settings-close" id="leaderboardClose" type="button" aria-label="Close leaderboard">x</button>
+                </div>
+                <div class="leaderboard-list" id="leaderboardList"></div>
+            </div>
+
+            <div class="presence-notifications" id="presenceNotifications" aria-live="polite"></div>
 
             <!-- Music player -->
             <div class="player-wrap" id="playerWrap">
@@ -253,6 +287,6 @@
     </section>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="script.js?v=17"></script>
+    <script src="script.js?v=23"></script>
 </body>
 </html>
