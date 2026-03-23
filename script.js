@@ -1,68 +1,9 @@
 // This array holds all songs loaded from Supabase.
 const songs = [];
 
-// Questions shown after the name screen.
-function getQuestions(name) {
-    return [
-        {
-            prompt: `Hi, ${name}, how are you?`,
-            meta: "Any answer is okay here.",
-            answers: [
-                { label: "a", text: "I'm fine", correct: true },
-                { label: "b", text: "Good", correct: true },
-                { label: "c", text: "Not well", correct: true },
-                { label: "d", text: "I don't feel so good", correct: true }
-            ]
-        },
-        {
-            prompt: `${name}, do you feel tired?`,
-            meta: "Answer however you really feel.",
-            answers: [
-                { label: "a", text: "Not at all", correct: true },
-                { label: "b", text: "A little", correct: true },
-                { label: "c", text: "Yes, I am", correct: true },
-                { label: "d", text: "Very tired", correct: true }
-            ]
-        },
-        {
-            prompt: `${name}, do you feel stressed?`,
-            meta: "It's alright just be honest",
-            answers: [
-                { label: "a", text: "Not really", correct: true },
-                { label: "b", text: "A little bit", correct: true },
-                { label: "c", text: "Yes", correct: true },
-                { label: "d", text: "Very stressed", correct: true }
-            ]
-        },
-        {
-            prompt: `${name}, are you happy?`,
-            meta: "Choose the one that feels honest to you.",
-            answers: [
-                { label: "a", text: "Yes, very happy", correct: true },
-                { label: "b", text: "Kind of", correct: true },
-                { label: "c", text: "Not really", correct: true },
-                { label: "d", text: "No", correct: false }
-            ]
-        },
-        {
-            prompt: `${name}, do you wanna relax?`,
-            meta: "Pick the answer that lets you continue.",
-            finalQuestion: true,
-            answers: [
-                { label: "a", text: "Yes, I need it", correct: true },
-                { label: "b", text: "Maybe later", correct: false },
-                { label: "c", text: "Not really", correct: false },
-                { label: "d", text: "No", correct: false }
-            ]
-        }
-    ];
-}
-
 // HTML elements used by the JavaScript.
 const particles = document.getElementById("particles");
 const lockScreen = document.getElementById("lockScreen");
-const quizScreen = document.getElementById("quizScreen");
-const adminPasswordScreen = document.getElementById("adminPasswordScreen");
 const landscapeScreen = document.getElementById("landscapeScreen");
 const mainPage = document.getElementById("mainPage");
 const lockForm = document.getElementById("lockForm");
@@ -76,15 +17,6 @@ const loginModeButton = document.getElementById("loginModeButton");
 const signupModeButton = document.getElementById("signupModeButton");
 const unlockButton = document.getElementById("unlockButton");
 const lockMessage = document.getElementById("lockMessage");
-const adminPasswordForm = document.getElementById("adminPasswordForm");
-const adminPasswordInput = document.getElementById("adminPasswordInput");
-const adminPasswordButton = document.getElementById("adminPasswordButton");
-const adminPasswordMessage = document.getElementById("adminPasswordMessage");
-const questionTitle = document.getElementById("questionTitle");
-const questionMeta = document.getElementById("questionMeta");
-const quizProgress = document.getElementById("quizProgress");
-const choices = document.getElementById("choices");
-const quizMessage = document.getElementById("quizMessage");
 const proceedMainButton = document.getElementById("proceedMainButton");
 const floatingNowPlaying = document.getElementById("floatingNowPlaying");
 const floatingNowPlayingTitle = document.getElementById("floatingNowPlayingTitle");
@@ -99,6 +31,7 @@ const playerWrap = document.getElementById("playerWrap");
 const settingsLauncher = document.getElementById("settingsLauncher");
 const settingsMenuToggle = document.getElementById("settingsMenuToggle");
 const settingsToggle = document.getElementById("settingsToggle");
+const notesToggle = document.getElementById("notesToggle");
 const leaderboardToggle = document.getElementById("leaderboardToggle");
 const logoutButton = document.getElementById("logoutButton");
 const settingsPanel = document.getElementById("settingsPanel");
@@ -119,7 +52,26 @@ const leaderboardPanel = document.getElementById("leaderboardPanel");
 const leaderboardClose = document.getElementById("leaderboardClose");
 const leaderboardList = document.getElementById("leaderboardList");
 const leaderboardTitle = document.getElementById("leaderboardTitle");
+const notesMenuPanel = document.getElementById("notesMenuPanel");
+const notesMenuClose = document.getElementById("notesMenuClose");
+const notesViewToggle = document.getElementById("notesViewToggle");
+const notesAddToggle = document.getElementById("notesAddToggle");
+const notesListPanel = document.getElementById("notesListPanel");
+const notesListClose = document.getElementById("notesListClose");
+const notesSubmittedList = document.getElementById("notesSubmittedList");
+const notesPanel = document.getElementById("notesPanel");
+const notesPanelTitle = document.getElementById("notesPanelTitle");
+const notesClose = document.getElementById("notesClose");
+const notesTextarea = document.getElementById("notesTextarea");
+const notesSubmitButton = document.getElementById("notesSubmitButton");
+const notesEditorDeleteButton = document.getElementById("notesEditorDeleteButton");
+const noteViewerPanel = document.getElementById("noteViewerPanel");
+const noteViewerClose = document.getElementById("noteViewerClose");
+const noteViewerText = document.getElementById("noteViewerText");
+const noteViewerMeta = document.getElementById("noteViewerMeta");
+const noteEditButton = document.getElementById("noteEditButton");
 const presenceNotifications = document.getElementById("presenceNotifications");
+const pinnedNotesLayer = document.getElementById("pinnedNotesLayer");
 const themeCards = Array.from(document.querySelectorAll(".theme-card"));
 const playerProgress = document.getElementById("playerProgress");
 const playerProgressFill = document.getElementById("playerProgressFill");
@@ -154,6 +106,8 @@ const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_CJsr9sctO5mrbuVmG4G3jA_YDXnkynM
 const SUPABASE_BUCKET = "songs";
 const PROFILE_TABLE = "profiles";
 const ENTRY_LOG_TABLE = "entry_logs";
+const NOTES_TABLE = "notes";
+const NOTE_READS_TABLE = "note_reads";
 const supabaseClient = window.supabase
     ? window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY)
     : null;
@@ -166,11 +120,8 @@ const SPECIAL_PERSON_CONFIG = {
 };
 
 // App state values that change while the page is running.
-let currentQuestionIndex = 0;
 let currentUser = "";
 let currentSongIndex = 0;
-let currentQuestions = [];
-let finalQuestionWarningIndex = 0;
 let audioAutoplayPending = false;
 let bouncingTextIndex = 0;
 let bouncingTextStartTimeout = null;
@@ -185,27 +136,22 @@ let playerAutoCloseTimeout = null;
 let mobileBouncingTextTimeout = null;
 let mobileNowPlayingTimeout = null;
 let mainPageNowPlayingTimeout = null;
+let notesRevealTimeout = null;
 let savedUsersCache = [];
 let lastNameProceedAt = null;
 let authMode = "login";
 let profileData = null;
 let leaderboardEntries = [];
+let notesEntries = [];
+let noteReadIds = new Set();
 let onlineUsers = [];
 let presenceChannel = null;
+let notesChannel = null;
 let presenceSyncStarted = false;
 let welcomeNowPlayingTimeout = null;
+let editingNoteId = null;
 const LOCAL_SESSION_KEY = "pastries_active_profile";
-
-const finalQuestionWarnings = [
-    "Are you sure?",
-    "Are you really sure?",
-    "You suree???",
-    "Still sure?",
-    "Try the first one.",
-    "you'l like the first one",
-    "You really sure????",
-    "Come on atleast try??"
-];
+const LOCAL_NOTE_READS_PREFIX = "pastries_note_reads_";
 
 // Shows small text messages in the audio settings area.
 function setAudioStatus(message, tone = "neutral", autoClearMs = 0) {
@@ -252,6 +198,16 @@ function normalizeSavedUserName(name) {
         .trim()
         .toLowerCase()
         .replace(/\s+/g, " ");
+}
+
+function normalizeAuthUsername(username) {
+    return String(username || "")
+        .trim()
+        .toLowerCase();
+}
+
+function isAdminUser() {
+    return normalizeAuthUsername(currentUser) === "nico";
 }
 
 function isAuthenticatedUser() {
@@ -318,9 +274,9 @@ async function loadLeaderboard() {
     }
 
     const { data, error } = await supabaseClient
-        .from(ENTRY_LOG_TABLE)
-        .select("id, username, entered_at")
-        .order("entered_at", { ascending: false });
+        .from(PROFILE_TABLE)
+        .select("id, username, created_at")
+        .order("created_at", { ascending: true });
 
     if (error) {
         console.error("Could not load leaderboard:", error.message);
@@ -458,18 +414,25 @@ async function hashPassword(password) {
 }
 
 async function getProfileByUsername(username) {
+    const normalizedUsername = normalizeAuthUsername(username);
+
+    if (!normalizedUsername || !supabaseClient) {
+        return null;
+    }
+
     const { data, error } = await supabaseClient
         .from(PROFILE_TABLE)
         .select("id, username, password_hash, created_at")
-        .eq("username", username)
-        .maybeSingle();
+        .ilike("username", normalizedUsername)
+        .order("created_at", { ascending: true })
+        .limit(1);
 
     if (error) {
         console.error("Could not fetch profile:", error.message);
         return null;
     }
 
-    return data;
+    return Array.isArray(data) ? data[0] || null : null;
 }
 
 async function ensureProfile(session, usernameOverride = "") {
@@ -534,20 +497,30 @@ function syncOnlineUsersFromPresence() {
 function renderLeaderboard() {
     leaderboardList.innerHTML = "";
     const onlineCount = onlineUsers.length;
+    const onlineUserIds = new Set(onlineUsers.map((user) => user.id));
 
     if (leaderboardTitle) {
-        leaderboardTitle.textContent = `Online Now (${onlineCount})`;
+        leaderboardTitle.textContent = `User Status (${onlineCount} Online)`;
     }
 
-    if (onlineCount === 0) {
+    const boardHeader = document.createElement("div");
+    boardHeader.className = "leaderboard-columns";
+    boardHeader.innerHTML = `
+        <span>Name</span>
+        <span>Status</span>
+    `;
+    leaderboardList.appendChild(boardHeader);
+
+    if (leaderboardEntries.length === 0) {
         const empty = document.createElement("div");
         empty.className = "leaderboard-empty";
-        empty.textContent = "No users are online right now.";
+        empty.textContent = "No registered users yet.";
         leaderboardList.appendChild(empty);
         return;
     }
 
-    onlineUsers.forEach((entry) => {
+    leaderboardEntries.forEach((entry) => {
+        const isOnline = onlineUserIds.has(entry.id);
         const item = document.createElement("div");
         item.className = "leaderboard-item";
 
@@ -555,19 +528,426 @@ function renderLeaderboard() {
         name.className = "leaderboard-name";
         name.textContent = entry.username;
 
-        const time = document.createElement("p");
-        time.className = "leaderboard-time";
-        time.textContent = "Online";
+        const status = document.createElement("div");
+        status.className = "leaderboard-status";
+
+        const dot = document.createElement("span");
+        dot.className = "leaderboard-status-dot";
+
+        const statusText = document.createElement("span");
+        statusText.className = "leaderboard-status-text";
+        statusText.textContent = isOnline ? "Online" : "Offline";
+
+        if (!isOnline) {
+            status.classList.add("offline");
+        }
+
+        status.appendChild(dot);
+        status.appendChild(statusText);
+
+        if (isAdminUser()) {
+            const deleteButton = document.createElement("button");
+            deleteButton.type = "button";
+            deleteButton.className = "leaderboard-delete";
+            deleteButton.textContent = "x";
+            deleteButton.setAttribute("aria-label", `Delete ${entry.username}`);
+            deleteButton.addEventListener("click", (event) => {
+                event.stopPropagation();
+                deleteProfileAccount(entry.id, entry.username);
+            });
+            status.appendChild(deleteButton);
+        }
 
         item.appendChild(name);
-        item.appendChild(time);
+        item.appendChild(status);
         leaderboardList.appendChild(item);
     });
 }
 
 async function refreshLeaderboard() {
+    await loadLeaderboard();
     syncOnlineUsersFromPresence();
     renderLeaderboard();
+}
+
+function formatNoteDate(dateValue) {
+    const parsed = dateValue ? new Date(dateValue) : null;
+
+    if (!parsed || Number.isNaN(parsed.getTime())) {
+        return "";
+    }
+
+    return parsed.toLocaleString([], {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+        hour: "numeric",
+        minute: "2-digit"
+    });
+}
+
+function getNoteReadKey(noteId) {
+    return String(noteId ?? "");
+}
+
+function getLocalNoteReadsStorageKey() {
+    return profileData?.id ? `${LOCAL_NOTE_READS_PREFIX}${profileData.id}` : "";
+}
+
+function loadLocalNoteReads() {
+    const storageKey = getLocalNoteReadsStorageKey();
+
+    if (!storageKey) {
+        return new Set();
+    }
+
+    try {
+        const rawValue = localStorage.getItem(storageKey);
+        const parsedValue = rawValue ? JSON.parse(rawValue) : [];
+        return new Set(Array.isArray(parsedValue) ? parsedValue.map((value) => getNoteReadKey(value)) : []);
+    } catch {
+        return new Set();
+    }
+}
+
+function saveLocalNoteReads() {
+    const storageKey = getLocalNoteReadsStorageKey();
+
+    if (!storageKey) {
+        return;
+    }
+
+    try {
+        localStorage.setItem(storageKey, JSON.stringify(Array.from(noteReadIds)));
+    } catch {
+        // Ignore localStorage write failures.
+    }
+}
+
+function getNoteLayout(index, noteId) {
+    const safeId = Number(noteId) || index + 1;
+    const top = 14 + ((safeId * 17) % 50);
+    const left = 8 + ((safeId * 23) % 72);
+    const rotate = ((safeId * 11) % 9) - 4;
+
+    return { top, left, rotate };
+}
+
+function closeAllNotePanels() {
+    notesMenuPanel.classList.remove("open");
+    notesListPanel.classList.remove("open");
+    notesPanel.classList.remove("open");
+    noteViewerPanel.classList.remove("open");
+}
+
+function openNotesEditor(note = null) {
+    closeAllNotePanels();
+    editingNoteId = note?.id || null;
+    notesPanelTitle.textContent = editingNoteId ? "Edit Note" : "Write Note";
+    notesSubmitButton.textContent = editingNoteId ? "Update" : "Submit";
+    notesTextarea.value = note?.content || "";
+    notesEditorDeleteButton.classList.toggle("hidden", !editingNoteId);
+    notesEditorDeleteButton.onclick = null;
+
+    if (editingNoteId && note?.user_id === profileData?.id) {
+        notesEditorDeleteButton.onclick = async () => {
+            const { error } = await supabaseClient
+                .from(NOTES_TABLE)
+                .delete()
+                .eq("id", note.id)
+                .eq("user_id", profileData.id);
+
+            if (error) {
+                console.error("Could not delete note:", error.message);
+                showPresenceToast("Could not delete note.");
+                return;
+            }
+
+            editingNoteId = null;
+            notesPanel.classList.remove("open");
+            showPresenceToast("Note deleted.");
+        };
+    }
+
+    notesPanel.classList.add("open");
+    notesTextarea.focus();
+}
+
+function renderSubmittedNotes() {
+    notesSubmittedList.innerHTML = "";
+
+    const ownNotes = notesEntries
+        .filter((note) => note.user_id === profileData?.id)
+        .sort((left, right) => new Date(right.created_at) - new Date(left.created_at));
+
+    if (ownNotes.length === 0) {
+        const empty = document.createElement("div");
+        empty.className = "leaderboard-empty";
+        empty.textContent = "You haven't submitted any notes yet.";
+        notesSubmittedList.appendChild(empty);
+        return;
+    }
+
+    ownNotes.forEach((note) => {
+        const item = document.createElement("button");
+        item.type = "button";
+        item.className = "submitted-note-item";
+
+        const text = document.createElement("p");
+        text.className = "submitted-note-text";
+        text.textContent = note.content;
+
+        const meta = document.createElement("p");
+        meta.className = "submitted-note-meta";
+        meta.textContent = formatNoteDate(note.created_at);
+
+        item.appendChild(text);
+        item.appendChild(meta);
+        item.addEventListener("click", () => {
+            openNotesEditor(note);
+        });
+        notesSubmittedList.appendChild(item);
+    });
+}
+
+async function openNoteViewer(note) {
+    const canEditNote = Boolean(profileData?.id && note.user_id === profileData.id);
+
+    noteViewerText.textContent = note.content || "";
+    noteViewerMeta.textContent = `${note.username || "Unknown"} | ${formatNoteDate(note.created_at)}`;
+    noteEditButton.classList.toggle("hidden", !canEditNote);
+    noteEditButton.onclick = null;
+
+    if (canEditNote) {
+        noteEditButton.onclick = () => {
+            openNotesEditor(note);
+        };
+    }
+
+    noteViewerPanel.classList.add("open");
+    await markNoteAsRead(note);
+}
+
+function renderPinnedNotes() {
+    if (!pinnedNotesLayer) {
+        return;
+    }
+
+    pinnedNotesLayer.innerHTML = "";
+
+    notesEntries.forEach((note, index) => {
+        const isOwnNote = note.user_id === profileData?.id;
+        const isUnread = !isOwnNote && !noteReadIds.has(getNoteReadKey(note.id));
+        const pin = document.createElement("button");
+        pin.type = "button";
+        pin.className = "pinned-note";
+        pin.setAttribute("aria-label", `Open note from ${note.username || "Unknown"}`);
+
+        const layout = getNoteLayout(index, note.id);
+        pin.style.top = `${layout.top}%`;
+        pin.style.left = `${layout.left}%`;
+        pin.style.setProperty("--note-rotate", `${layout.rotate}deg`);
+
+        const icon = document.createElement("span");
+        icon.className = "pinned-note-icon";
+        icon.innerHTML = "<span></span>";
+
+        const name = document.createElement("span");
+        name.className = "pinned-note-name";
+        name.textContent = note.username || "Unknown";
+
+        if (isUnread) {
+            const unreadBadge = document.createElement("span");
+            unreadBadge.className = "pinned-note-unread";
+            unreadBadge.textContent = "Unread";
+            pin.appendChild(unreadBadge);
+        }
+
+        pin.appendChild(name);
+        pin.appendChild(icon);
+        pin.addEventListener("click", async () => {
+            await openNoteViewer(note);
+        });
+
+        pinnedNotesLayer.appendChild(pin);
+    });
+}
+
+async function loadNotes() {
+    if (!supabaseClient) {
+        notesEntries = [];
+        renderPinnedNotes();
+        return;
+    }
+
+    const { data, error } = await supabaseClient
+        .from(NOTES_TABLE)
+        .select("id, user_id, username, content, created_at")
+        .order("created_at", { ascending: false });
+
+    if (error) {
+        console.error("Could not load notes:", error.message);
+        return;
+    }
+
+    notesEntries = data || [];
+    renderPinnedNotes();
+    renderSubmittedNotes();
+}
+
+async function loadNoteReads() {
+    if (!supabaseClient || !profileData?.id) {
+        noteReadIds = new Set();
+        renderPinnedNotes();
+        return;
+    }
+
+    const localReadIds = loadLocalNoteReads();
+
+    const { data, error } = await supabaseClient
+        .from(NOTE_READS_TABLE)
+        .select("note_id")
+        .eq("user_id", profileData.id);
+
+    if (error) {
+        console.error("Could not load note reads:", error.message);
+        noteReadIds = localReadIds;
+        renderPinnedNotes();
+        return;
+    }
+
+    const remoteReadIds = new Set((data || []).map((row) => getNoteReadKey(row.note_id)));
+    noteReadIds = new Set([...localReadIds, ...remoteReadIds]);
+    saveLocalNoteReads();
+    renderPinnedNotes();
+}
+
+async function markNoteAsRead(note) {
+    if (!supabaseClient || !profileData?.id || !note?.id) {
+        return;
+    }
+
+    const noteReadKey = getNoteReadKey(note.id);
+
+    if (note.user_id === profileData.id || noteReadIds.has(noteReadKey)) {
+        return;
+    }
+
+    noteReadIds.add(noteReadKey);
+    saveLocalNoteReads();
+    renderPinnedNotes();
+
+    const { error } = await supabaseClient
+        .from(NOTE_READS_TABLE)
+        .insert({
+            user_id: profileData.id,
+            note_id: note.id
+        });
+
+    if (error) {
+        console.error("Could not save note read state:", error.message);
+    }
+}
+
+async function submitNote() {
+    if (!supabaseClient || !profileData?.id || !currentUser) {
+        showPresenceToast("Log in first before writing a note.");
+        return;
+    }
+
+    const noteContent = notesTextarea.value.trim();
+
+    if (!noteContent) {
+        showPresenceToast("Write a note first.");
+        return;
+    }
+
+    notesSubmitButton.disabled = true;
+
+    const notePayload = {
+        user_id: profileData.id,
+        username: currentUser,
+        content: noteContent
+    };
+
+    const noteQuery = editingNoteId
+        ? supabaseClient
+            .from(NOTES_TABLE)
+            .update(notePayload)
+            .eq("id", editingNoteId)
+            .eq("user_id", profileData.id)
+        : supabaseClient
+            .from(NOTES_TABLE)
+            .insert({
+                ...notePayload,
+                created_at: new Date().toISOString()
+            });
+
+    const { error } = await noteQuery;
+
+    notesSubmitButton.disabled = false;
+
+    if (error) {
+        console.error("Could not save note:", error.message);
+        showPresenceToast("Could not save note.");
+        return;
+    }
+
+    const wasEditing = Boolean(editingNoteId);
+    notesTextarea.value = "";
+    editingNoteId = null;
+    notesPanel.classList.remove("open");
+    showPresenceToast(wasEditing ? "Note updated." : "Note pinned.");
+}
+
+async function connectNotesRealtime() {
+    if (!supabaseClient || notesChannel) {
+        return;
+    }
+
+    notesChannel = supabaseClient
+        .channel("shared-notes")
+        .on(
+            "postgres_changes",
+            { event: "*", schema: "public", table: NOTES_TABLE },
+            () => {
+                loadNotes();
+            }
+        );
+
+    notesChannel.subscribe();
+}
+
+async function deleteProfileAccount(profileId, profileName) {
+    if (!supabaseClient || !profileId) {
+        return;
+    }
+
+    if (!isAdminUser()) {
+        showPresenceToast("Only Nico can delete accounts.");
+        return;
+    }
+
+    if (profileData?.id === profileId) {
+        showPresenceToast("You can't delete the account you're using right now.");
+        return;
+    }
+
+    const { error } = await supabaseClient
+        .from(PROFILE_TABLE)
+        .delete()
+        .eq("id", profileId);
+
+    if (error) {
+        console.error("Could not delete account:", error.message);
+        showPresenceToast(`Could not delete ${profileName}.`);
+        return;
+    }
+
+    leaderboardEntries = leaderboardEntries.filter((entry) => entry.id !== profileId);
+    onlineUsers = onlineUsers.filter((entry) => entry.id !== profileId);
+    renderLeaderboard();
+    showPresenceToast(`${profileName} was deleted.`);
 }
 
 function showPresenceToast(message) {
@@ -616,6 +996,8 @@ async function connectPresence() {
 
                 showPresenceToast(`User ${presence.username} has entered.`);
             });
+
+            refreshLeaderboard();
         })
         .on("presence", { event: "leave" }, ({ leftPresences }) => {
             if (!presenceSyncStarted) {
@@ -629,6 +1011,8 @@ async function connectPresence() {
 
                 showPresenceToast(`User ${presence.username} has left.`);
             });
+
+            renderLeaderboard();
         })
         .subscribe(async (status) => {
             if (status !== "SUBSCRIBED") {
@@ -687,6 +1071,8 @@ async function openPostAuthFlow() {
     applyUserSpecificTheme();
     onlineUsers = [];
     renderLeaderboard();
+    await Promise.all([loadNotes(), loadNoteReads()]);
+    await connectNotesRealtime();
     setActiveScreen(landscapeScreen);
 }
 
@@ -760,7 +1146,7 @@ function buildParticles(total) {
 
 // Switches from one screen to another.
 function setActiveScreen(screenToShow) {
-    [lockScreen, quizScreen, adminPasswordScreen, landscapeScreen, mainPage].forEach((screen) => {
+    [lockScreen, landscapeScreen, mainPage].forEach((screen) => {
         screen.classList.add("hidden");
         screen.classList.remove("active");
     });
@@ -781,6 +1167,10 @@ function setActiveScreen(screenToShow) {
         floatingNowPlaying.classList.remove("visible");
         settingsPanel.classList.remove("open");
         leaderboardPanel.classList.remove("open");
+        notesMenuPanel.classList.remove("open");
+        notesListPanel.classList.remove("open");
+        notesPanel.classList.remove("open");
+        noteViewerPanel.classList.remove("open");
         settingsLauncher.classList.remove("open");
 
         if (songs.length > 0) {
@@ -924,6 +1314,7 @@ function restartMainPageTextSequence() {
     const layout = getBouncingLayout();
 
     mainPage.classList.remove("text-sequence-active");
+    mainPage.classList.remove("notes-visible");
     bouncingMessage.classList.remove("visible");
     bouncingMessage.textContent = "";
     bouncingTextIndex = 0;
@@ -937,15 +1328,21 @@ function restartMainPageTextSequence() {
     mainPage.classList.add("text-sequence-active");
 
     clearTimeout(bouncingTextStartTimeout);
+    clearTimeout(notesRevealTimeout);
+    notesRevealTimeout = setTimeout(() => {
+        mainPage.classList.add("notes-visible");
+    }, 5350);
     bouncingTextStartTimeout = setTimeout(() => {
         startBouncingTextSequence();
-    }, 10800);
+    }, 5350);
 }
 
 function stopBouncingTextSequence() {
     clearTimeout(bouncingTextStartTimeout);
+    clearTimeout(notesRevealTimeout);
     clearTimeout(mobileBouncingTextTimeout);
     cancelAnimationFrame(bouncingTextAnimationFrame);
+    mainPage.classList.remove("notes-visible");
     bouncingMessage.classList.remove("visible");
     bouncingMessage.textContent = "";
 }
@@ -1455,6 +1852,10 @@ function setupSongs() {
 
     settingsToggle.addEventListener("click", async () => {
         settingsLauncher.classList.remove("open");
+        notesMenuPanel.classList.remove("open");
+        notesListPanel.classList.remove("open");
+        notesPanel.classList.remove("open");
+        noteViewerPanel.classList.remove("open");
         leaderboardPanel.classList.remove("open");
         const willOpen = !settingsPanel.classList.contains("open");
         settingsPanel.classList.toggle("open");
@@ -1468,9 +1869,34 @@ function setupSongs() {
         settingsLauncher.classList.toggle("open");
     });
 
+    notesToggle.addEventListener("click", () => {
+        settingsLauncher.classList.remove("open");
+        settingsPanel.classList.remove("open");
+        leaderboardPanel.classList.remove("open");
+        noteViewerPanel.classList.remove("open");
+        notesListPanel.classList.remove("open");
+        notesPanel.classList.remove("open");
+        notesMenuPanel.classList.toggle("open");
+    });
+
+    notesViewToggle.addEventListener("click", () => {
+        notesMenuPanel.classList.remove("open");
+        renderSubmittedNotes();
+        notesListPanel.classList.add("open");
+    });
+
+    notesAddToggle.addEventListener("click", () => {
+        notesMenuPanel.classList.remove("open");
+        openNotesEditor();
+    });
+
     leaderboardToggle.addEventListener("click", async () => {
         settingsLauncher.classList.remove("open");
         settingsPanel.classList.remove("open");
+        notesMenuPanel.classList.remove("open");
+        notesListPanel.classList.remove("open");
+        notesPanel.classList.remove("open");
+        noteViewerPanel.classList.remove("open");
         const willOpen = !leaderboardPanel.classList.contains("open");
         leaderboardPanel.classList.toggle("open");
 
@@ -1487,6 +1913,26 @@ function setupSongs() {
         leaderboardPanel.classList.remove("open");
     });
 
+    notesClose.addEventListener("click", () => {
+        notesPanel.classList.remove("open");
+        editingNoteId = null;
+        notesEditorDeleteButton.classList.add("hidden");
+    });
+
+    notesMenuClose.addEventListener("click", () => {
+        notesMenuPanel.classList.remove("open");
+    });
+
+    notesListClose.addEventListener("click", () => {
+        notesListPanel.classList.remove("open");
+    });
+
+    noteViewerClose.addEventListener("click", () => {
+        noteViewerPanel.classList.remove("open");
+    });
+
+    notesSubmitButton.addEventListener("click", submitNote);
+
     logoutButton.addEventListener("click", async () => {
         settingsLauncher.classList.remove("open");
         await untrackCurrentPresence();
@@ -1494,13 +1940,25 @@ function setupSongs() {
             await supabaseClient.removeChannel(presenceChannel);
             presenceChannel = null;
         }
+        if (notesChannel) {
+            await supabaseClient.removeChannel(notesChannel);
+            notesChannel = null;
+        }
         onlineUsers = [];
+        notesEntries = [];
+        noteReadIds = new Set();
+        renderPinnedNotes();
+        renderSubmittedNotes();
         renderLeaderboard();
         profileData = null;
         currentUser = "";
         localStorage.removeItem(LOCAL_SESSION_KEY);
         settingsPanel.classList.remove("open");
         leaderboardPanel.classList.remove("open");
+        notesMenuPanel.classList.remove("open");
+        notesListPanel.classList.remove("open");
+        notesPanel.classList.remove("open");
+        noteViewerPanel.classList.remove("open");
         showAuthMessage("Logged out.", "success");
         setActiveScreen(lockScreen);
     });
@@ -1621,9 +2079,13 @@ function setupSongs() {
         const clickedNowPlaying = floatingNowPlaying.contains(event.target);
         const clickedSettings = settingsPanel.contains(event.target);
         const clickedLeaderboard = leaderboardPanel.contains(event.target);
+        const clickedNotesMenu = notesMenuPanel.contains(event.target);
+        const clickedNotesList = notesListPanel.contains(event.target);
+        const clickedNotesPanel = notesPanel.contains(event.target);
+        const clickedNoteViewer = noteViewerPanel.contains(event.target);
         const clickedSettingsLauncher = settingsLauncher.contains(event.target);
 
-        if (!clickedInsidePlayer && !clickedNowPlaying && !clickedSettings && !clickedLeaderboard && !clickedSettingsLauncher) {
+        if (!clickedInsidePlayer && !clickedNowPlaying && !clickedSettings && !clickedLeaderboard && !clickedNotesMenu && !clickedNotesList && !clickedNotesPanel && !clickedNoteViewer && !clickedSettingsLauncher) {
             closePlayerUi();
         }
 
@@ -1633,6 +2095,23 @@ function setupSongs() {
 
         if (!clickedLeaderboard && event.target !== leaderboardToggle) {
             leaderboardPanel.classList.remove("open");
+        }
+
+        if (!clickedNotesMenu && event.target !== notesToggle) {
+            notesMenuPanel.classList.remove("open");
+        }
+
+        if (!clickedNotesList && event.target !== notesToggle && event.target !== notesViewToggle) {
+            notesListPanel.classList.remove("open");
+        }
+
+        if (!clickedNotesPanel && event.target !== notesToggle && event.target !== notesAddToggle) {
+            notesPanel.classList.remove("open");
+            editingNoteId = null;
+        }
+
+        if (!clickedNoteViewer && !event.target.closest(".pinned-note")) {
+            noteViewerPanel.classList.remove("open");
         }
     });
 }
@@ -1682,100 +2161,6 @@ function updatePlayPauseButton() {
     playPauseButton.textContent = audioPlayer.paused ? "▶" : "❚❚";
 }
 
-// Moves to the next quiz question.
-function goToNextQuestion() {
-    currentQuestionIndex += 1;
-
-    if (currentQuestionIndex >= currentQuestions.length) {
-        setActiveScreen(landscapeScreen);
-        return;
-    }
-
-    renderQuestion();
-}
-
-// Used when the user clicked a correct answer.
-function handleCorrectAnswer() {
-    quizMessage.textContent = "Correct.";
-    quizMessage.className = "message success";
-
-    setTimeout(() => {
-        quizMessage.textContent = "";
-        goToNextQuestion();
-    }, 260);
-}
-
-// Builds one answer button row.
-function createChoiceContent(answer) {
-    const label = document.createElement("span");
-    label.className = "choice-label";
-    label.textContent = `${answer.label}.`;
-
-    const text = document.createElement("span");
-    text.textContent = answer.text;
-
-    return { label, text };
-}
-
-// Draws the current quiz question on screen.
-function renderQuestion() {
-    const question = currentQuestions[currentQuestionIndex];
-
-    quizProgress.textContent = `Question ${currentQuestionIndex + 1} of ${currentQuestions.length}`;
-    questionTitle.textContent = question.prompt;
-    questionMeta.textContent = question.meta || "Choose the correct answer to continue.";
-    quizMessage.textContent = "";
-    quizMessage.className = "message";
-    choices.innerHTML = "";
-
-    question.answers.forEach((answer) => {
-        const button = document.createElement("button");
-        button.type = "button";
-        button.className = "choice";
-        button.dataset.correct = String(answer.correct);
-
-        const content = createChoiceContent(answer);
-        button.appendChild(content.label);
-        button.appendChild(content.text);
-
-        button.addEventListener("click", () => {
-            if (question.finalQuestion && !answer.correct) {
-                const warning = finalQuestionWarnings[
-                    Math.min(finalQuestionWarningIndex, finalQuestionWarnings.length - 1)
-                ];
-                finalQuestionWarningIndex += 1;
-                quizMessage.textContent = warning;
-                quizMessage.className = "message error";
-                return;
-            }
-
-            handleCorrectAnswer();
-        });
-
-        choices.appendChild(button);
-    });
-}
-
-// Starts the quiz after the name screen.
-function startQuiz() {
-    currentQuestionIndex = 0;
-    finalQuestionWarningIndex = 0;
-    currentQuestions = getQuestions(currentUser);
-    document.body.classList.remove("unlocking");
-    setActiveScreen(quizScreen);
-    renderQuestion();
-}
-
-// Starts the admin password step for Nico.
-function startAdminPasswordFlow() {
-    adminPasswordInput.value = "";
-    adminPasswordMessage.textContent = "";
-    adminPasswordMessage.className = "message";
-    document.body.classList.remove("unlocking");
-    setActiveScreen(adminPasswordScreen);
-    adminPasswordInput.focus();
-}
-
 // Opens the main page after the reminder screen.
 proceedMainButton.addEventListener("click", async () => {
     applyUserSpecificTheme();
@@ -1808,10 +2193,11 @@ lockForm.addEventListener("submit", async (event) => {
     lastNameProceedAt = Date.now();
 
     const enteredUsername = nameInput.value.trim();
+    const cleanUsername = normalizeAuthUsername(enteredUsername);
     const enteredPassword = passwordInput.value;
     const confirmedPassword = confirmPasswordInput.value;
 
-    if (!enteredUsername || !enteredPassword) {
+    if (!cleanUsername || !enteredPassword) {
         showAuthMessage("Fill in username and password.", "error");
         return;
     }
@@ -1824,10 +2210,10 @@ lockForm.addEventListener("submit", async (event) => {
     unlockButton.disabled = true;
 
     if (authMode === "signup") {
-        const existingProfile = await getProfileByUsername(enteredUsername);
+        const existingProfile = await getProfileByUsername(cleanUsername);
 
         if (existingProfile) {
-            showAuthMessage("That username already exists.", "error");
+            showAuthMessage("Username already taken.", "error");
             unlockButton.disabled = false;
             return;
         }
@@ -1838,7 +2224,7 @@ lockForm.addEventListener("submit", async (event) => {
             .from(PROFILE_TABLE)
             .insert({
                 id: userId,
-                username: enteredUsername,
+                username: cleanUsername,
                 password_hash: passwordHash
             });
 
@@ -1851,10 +2237,10 @@ lockForm.addEventListener("submit", async (event) => {
         showAuthMessage("Account created. Signing you in...", "success");
         await handleAuthenticatedSession({
             id: userId,
-            username: enteredUsername
+            username: cleanUsername
         });
     } else {
-        const profile = await getProfileByUsername(enteredUsername);
+        const profile = await getProfileByUsername(cleanUsername);
 
         if (!profile) {
             showAuthMessage("Account not found. Create one first.", "error");
