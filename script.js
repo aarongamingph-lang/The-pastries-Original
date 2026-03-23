@@ -118,6 +118,7 @@ const audioHelp = document.getElementById("audioHelp");
 const leaderboardPanel = document.getElementById("leaderboardPanel");
 const leaderboardClose = document.getElementById("leaderboardClose");
 const leaderboardList = document.getElementById("leaderboardList");
+const leaderboardTitle = document.getElementById("leaderboardTitle");
 const presenceNotifications = document.getElementById("presenceNotifications");
 const themeCards = Array.from(document.querySelectorAll(".theme-card"));
 const playerProgress = document.getElementById("playerProgress");
@@ -189,6 +190,7 @@ let lastNameProceedAt = null;
 let authMode = "login";
 let profileData = null;
 let leaderboardEntries = [];
+let onlineUsers = [];
 let presenceChannel = null;
 let presenceSyncStarted = false;
 let welcomeNowPlayingTimeout = null;
@@ -500,18 +502,52 @@ function formatEntryTime(dateValue) {
     });
 }
 
+function getPresenceUsers() {
+    if (!presenceChannel || typeof presenceChannel.presenceState !== "function") {
+        return [];
+    }
+
+    const presenceState = presenceChannel.presenceState();
+    const flattenedUsers = Object.values(presenceState)
+        .flat()
+        .map((presence) => ({
+            id: presence.user_id || presence.presence_ref || "",
+            username: presence.username || "Unknown"
+        }))
+        .filter((presence) => presence.id && presence.username);
+
+    const uniqueUsers = new Map();
+    flattenedUsers.forEach((presence) => {
+        uniqueUsers.set(presence.id, presence);
+    });
+
+    return Array.from(uniqueUsers.values()).sort((left, right) =>
+        left.username.localeCompare(right.username, undefined, { sensitivity: "base" })
+    );
+}
+
+function syncOnlineUsersFromPresence() {
+    onlineUsers = getPresenceUsers();
+    renderLeaderboard();
+}
+
 function renderLeaderboard() {
     leaderboardList.innerHTML = "";
+    const onlineCount = onlineUsers.length;
 
-    if (leaderboardEntries.length === 0) {
+    if (leaderboardTitle) {
+        leaderboardTitle.textContent = `Online Now (${onlineCount})`;
+    }
+
+    if (onlineCount === 0) {
         const empty = document.createElement("div");
         empty.className = "leaderboard-empty";
-        empty.textContent = "No one has entered yet.";
+        empty.textContent = "No users are online right now.";
         leaderboardList.appendChild(empty);
         return;
     }
 
-    leaderboardEntries.forEach((entry) => {
+    onlineUsers.forEach((entry) => {
         const item = document.createElement("div");
         item.className = "leaderboard-item";
 
@@ -521,7 +557,7 @@ function renderLeaderboard() {
 
         const time = document.createElement("p");
         time.className = "leaderboard-time";
-        time.textContent = formatEntryTime(entry.entered_at);
+        time.textContent = "Online";
 
         item.appendChild(name);
         item.appendChild(time);
@@ -530,7 +566,7 @@ function renderLeaderboard() {
 }
 
 async function refreshLeaderboard() {
-    await loadLeaderboard();
+    syncOnlineUsersFromPresence();
     renderLeaderboard();
 }
 
@@ -565,6 +601,9 @@ async function connectPresence() {
     });
 
     presenceChannel
+        .on("presence", { event: "sync" }, () => {
+            syncOnlineUsersFromPresence();
+        })
         .on("presence", { event: "join" }, ({ newPresences }) => {
             if (!presenceSyncStarted) {
                 return;
@@ -595,21 +634,59 @@ async function connectPresence() {
             if (status !== "SUBSCRIBED") {
                 return;
             }
-
-            await presenceChannel.track({
-                user_id: profileData.id,
-                username: currentUser
-            });
-
             presenceSyncStarted = true;
+            await trackCurrentPresence();
+            syncOnlineUsersFromPresence();
         });
+}
+
+async function trackCurrentPresence() {
+    if (!presenceChannel || !profileData?.id || !currentUser) {
+        return;
+    }
+
+    await presenceChannel.track({
+        user_id: profileData.id,
+        username: currentUser
+    });
+}
+
+async function untrackCurrentPresence() {
+    if (!presenceChannel || typeof presenceChannel.untrack !== "function") {
+        return;
+    }
+
+    try {
+        await presenceChannel.untrack();
+    } catch {
+        // Ignore untrack failures during unload/visibility changes.
+    }
+}
+
+async function handlePresenceVisibilityChange() {
+    if (!profileData?.id || !presenceChannel) {
+        return;
+    }
+
+    if (document.visibilityState === "hidden") {
+        await untrackCurrentPresence();
+        return;
+    }
+
+    if (mainPage.classList.contains("active")) {
+        await trackCurrentPresence();
+    }
+}
+
+async function handlePresencePageLeave() {
+    await untrackCurrentPresence();
 }
 
 async function openPostAuthFlow() {
     await updateAdminSettingsView();
-    await refreshLeaderboard();
     applyUserSpecificTheme();
-    await connectPresence();
+    onlineUsers = [];
+    renderLeaderboard();
     setActiveScreen(landscapeScreen);
 }
 
@@ -1412,10 +1489,13 @@ function setupSongs() {
 
     logoutButton.addEventListener("click", async () => {
         settingsLauncher.classList.remove("open");
+        await untrackCurrentPresence();
         if (presenceChannel) {
             await supabaseClient.removeChannel(presenceChannel);
             presenceChannel = null;
         }
+        onlineUsers = [];
+        renderLeaderboard();
         profileData = null;
         currentUser = "";
         localStorage.removeItem(LOCAL_SESSION_KEY);
@@ -1711,6 +1791,8 @@ proceedMainButton.addEventListener("click", async () => {
 
     await requestLandscapeFullscreenIfMobile();
     setActiveScreen(mainPage);
+    await connectPresence();
+    await refreshLeaderboard();
 });
 
 loginModeButton.addEventListener("click", () => {
@@ -1824,3 +1906,7 @@ if (storedProfile) {
         localStorage.removeItem(LOCAL_SESSION_KEY);
     }
 }
+
+document.addEventListener("visibilitychange", handlePresenceVisibilityChange);
+window.addEventListener("pagehide", handlePresencePageLeave);
+window.addEventListener("beforeunload", handlePresencePageLeave);
