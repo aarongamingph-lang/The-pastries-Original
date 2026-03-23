@@ -33,6 +33,7 @@ const settingsMenuToggle = document.getElementById("settingsMenuToggle");
 const settingsToggle = document.getElementById("settingsToggle");
 const notesToggle = document.getElementById("notesToggle");
 const leaderboardToggle = document.getElementById("leaderboardToggle");
+const leaderboardToggleCount = document.getElementById("leaderboardToggleCount");
 const logoutButton = document.getElementById("logoutButton");
 const settingsPanel = document.getElementById("settingsPanel");
 const settingsClose = document.getElementById("settingsClose");
@@ -69,6 +70,11 @@ const noteViewerPanel = document.getElementById("noteViewerPanel");
 const noteViewerClose = document.getElementById("noteViewerClose");
 const noteViewerText = document.getElementById("noteViewerText");
 const noteViewerMeta = document.getElementById("noteViewerMeta");
+const noteRepliesList = document.getElementById("noteRepliesList");
+const noteReplyComposer = document.getElementById("noteReplyComposer");
+const noteReplyTextarea = document.getElementById("noteReplyTextarea");
+const noteReplySubmitButton = document.getElementById("noteReplySubmitButton");
+const noteReplyButton = document.getElementById("noteReplyButton");
 const noteEditButton = document.getElementById("noteEditButton");
 const presenceNotifications = document.getElementById("presenceNotifications");
 const pinnedNotesLayer = document.getElementById("pinnedNotesLayer");
@@ -108,6 +114,7 @@ const PROFILE_TABLE = "profiles";
 const ENTRY_LOG_TABLE = "entry_logs";
 const NOTES_TABLE = "notes";
 const NOTE_READS_TABLE = "note_reads";
+const NOTE_REPLIES_TABLE = "note_replies";
 const supabaseClient = window.supabase
     ? window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY)
     : null;
@@ -143,13 +150,18 @@ let authMode = "login";
 let profileData = null;
 let leaderboardEntries = [];
 let notesEntries = [];
+let noteRepliesEntries = [];
 let noteReadIds = new Set();
 let onlineUsers = [];
 let presenceChannel = null;
 let notesChannel = null;
+let noteRepliesChannel = null;
 let presenceSyncStarted = false;
 let welcomeNowPlayingTimeout = null;
 let editingNoteId = null;
+let activeViewerNoteId = null;
+let remainingBouncingTextIndices = [];
+let remainingSongIndices = [];
 const LOCAL_SESSION_KEY = "pastries_active_profile";
 const LOCAL_NOTE_READS_PREFIX = "pastries_note_reads_";
 
@@ -499,6 +511,10 @@ function renderLeaderboard() {
     const onlineCount = onlineUsers.length;
     const onlineUserIds = new Set(onlineUsers.map((user) => user.id));
 
+    if (leaderboardToggleCount) {
+        leaderboardToggleCount.textContent = String(onlineCount);
+    }
+
     if (leaderboardTitle) {
         leaderboardTitle.textContent = `User Status (${onlineCount} Online)`;
     }
@@ -638,6 +654,63 @@ function closeAllNotePanels() {
     notesListPanel.classList.remove("open");
     notesPanel.classList.remove("open");
     noteViewerPanel.classList.remove("open");
+    noteReplyComposer.classList.add("hidden");
+    noteReplyTextarea.value = "";
+    activeViewerNoteId = null;
+    document.body.classList.remove("mobile-keyboard-open");
+}
+
+function getOpenOverlayPanels() {
+    return [
+        settingsPanel,
+        leaderboardPanel,
+        notesMenuPanel,
+        notesListPanel,
+        notesPanel,
+        noteViewerPanel
+    ].filter((panel) => panel.classList.contains("open"));
+}
+
+function updateViewportHeightVariable() {
+    const viewportHeight = window.visualViewport
+        ? window.visualViewport.height
+        : window.innerHeight;
+
+    document.documentElement.style.setProperty("--app-viewport-height", `${viewportHeight}px`);
+}
+
+function syncMobileKeyboardState() {
+    updateViewportHeightVariable();
+
+    if (!window.visualViewport) {
+        return;
+    }
+
+    const keyboardOpen = window.innerHeight - window.visualViewport.height > 140;
+    document.body.classList.toggle("mobile-keyboard-open", keyboardOpen);
+
+    if (!keyboardOpen) {
+        return;
+    }
+
+    const openPanels = getOpenOverlayPanels();
+
+    openPanels.forEach((panel) => {
+        panel.scrollTop = 0;
+    });
+}
+
+function focusNoteInput(input) {
+    if (!input) {
+        return;
+    }
+
+    input.focus({ preventScroll: true });
+
+    window.setTimeout(() => {
+        input.scrollIntoView({ block: "center", inline: "nearest" });
+        syncMobileKeyboardState();
+    }, 120);
 }
 
 function openNotesEditor(note = null) {
@@ -670,7 +743,7 @@ function openNotesEditor(note = null) {
     }
 
     notesPanel.classList.add("open");
-    notesTextarea.focus();
+    focusNoteInput(notesTextarea);
 }
 
 function renderSubmittedNotes() {
@@ -712,17 +785,34 @@ function renderSubmittedNotes() {
 
 async function openNoteViewer(note) {
     const canEditNote = Boolean(profileData?.id && note.user_id === profileData.id);
+    activeViewerNoteId = note.id;
 
     noteViewerText.textContent = note.content || "";
     noteViewerMeta.textContent = `${note.username || "Unknown"} | ${formatNoteDate(note.created_at)}`;
     noteEditButton.classList.toggle("hidden", !canEditNote);
     noteEditButton.onclick = null;
+    noteReplyComposer.classList.add("hidden");
+    noteReplyTextarea.value = "";
+    renderNoteReplies(note.id);
 
     if (canEditNote) {
         noteEditButton.onclick = () => {
             openNotesEditor(note);
         };
     }
+
+    noteReplyButton.onclick = () => {
+        if (!isAuthenticatedUser()) {
+            showPresenceToast("Log in first before replying.");
+            return;
+        }
+
+        noteReplyComposer.classList.toggle("hidden");
+
+        if (!noteReplyComposer.classList.contains("hidden")) {
+            focusNoteInput(noteReplyTextarea);
+        }
+    };
 
     noteViewerPanel.classList.add("open");
     await markNoteAsRead(note);
@@ -793,6 +883,59 @@ async function loadNotes() {
     notesEntries = data || [];
     renderPinnedNotes();
     renderSubmittedNotes();
+}
+
+function renderNoteReplies(noteId) {
+    noteRepliesList.innerHTML = "";
+
+    const replies = noteRepliesEntries
+        .filter((reply) => reply.note_id === noteId)
+        .sort((left, right) => new Date(left.created_at) - new Date(right.created_at));
+
+    if (replies.length === 0) {
+        return;
+    }
+
+    replies.forEach((reply) => {
+        const item = document.createElement("div");
+        item.className = "note-reply-item";
+
+        const text = document.createElement("p");
+        text.className = "note-reply-text";
+        text.textContent = reply.content || "";
+
+        const meta = document.createElement("p");
+        meta.className = "note-reply-meta";
+        meta.textContent = `${reply.username || "Unknown"} | ${formatNoteDate(reply.created_at)}`;
+
+        item.appendChild(text);
+        item.appendChild(meta);
+        noteRepliesList.appendChild(item);
+    });
+}
+
+async function loadNoteReplies() {
+    if (!supabaseClient) {
+        noteRepliesEntries = [];
+        renderNoteReplies(activeViewerNoteId);
+        return;
+    }
+
+    const { data, error } = await supabaseClient
+        .from(NOTE_REPLIES_TABLE)
+        .select("id, note_id, user_id, username, content, created_at")
+        .order("created_at", { ascending: true });
+
+    if (error) {
+        console.error("Could not load note replies:", error.message);
+        return;
+    }
+
+    noteRepliesEntries = data || [];
+
+    if (activeViewerNoteId) {
+        renderNoteReplies(activeViewerNoteId);
+    }
 }
 
 async function loadNoteReads() {
@@ -900,22 +1043,76 @@ async function submitNote() {
     showPresenceToast(wasEditing ? "Note updated." : "Note pinned.");
 }
 
-async function connectNotesRealtime() {
-    if (!supabaseClient || notesChannel) {
+async function submitNoteReply() {
+    if (!supabaseClient || !profileData?.id || !currentUser || !activeViewerNoteId) {
+        showPresenceToast("Open a note first before replying.");
         return;
     }
 
-    notesChannel = supabaseClient
-        .channel("shared-notes")
-        .on(
-            "postgres_changes",
-            { event: "*", schema: "public", table: NOTES_TABLE },
-            () => {
-                loadNotes();
-            }
-        );
+    const replyContent = noteReplyTextarea.value.trim();
 
-    notesChannel.subscribe();
+    if (!replyContent) {
+        showPresenceToast("Write a reply first.");
+        return;
+    }
+
+    noteReplySubmitButton.disabled = true;
+
+    const { error } = await supabaseClient
+        .from(NOTE_REPLIES_TABLE)
+        .insert({
+            note_id: activeViewerNoteId,
+            user_id: profileData.id,
+            username: currentUser,
+            content: replyContent,
+            created_at: new Date().toISOString()
+        });
+
+    noteReplySubmitButton.disabled = false;
+
+    if (error) {
+        console.error("Could not save reply:", error.message);
+        showPresenceToast("Could not save reply.");
+        return;
+    }
+
+    noteReplyTextarea.value = "";
+    noteReplyComposer.classList.add("hidden");
+    showPresenceToast("Reply posted.");
+}
+
+async function connectNotesRealtime() {
+    if (!supabaseClient) {
+        return;
+    }
+
+    if (!notesChannel) {
+        notesChannel = supabaseClient
+            .channel("shared-notes")
+            .on(
+                "postgres_changes",
+                { event: "*", schema: "public", table: NOTES_TABLE },
+                () => {
+                    loadNotes();
+                }
+            );
+
+        notesChannel.subscribe();
+    }
+
+    if (!noteRepliesChannel) {
+        noteRepliesChannel = supabaseClient
+            .channel("shared-note-replies")
+            .on(
+                "postgres_changes",
+                { event: "*", schema: "public", table: NOTE_REPLIES_TABLE },
+                () => {
+                    loadNoteReplies();
+                }
+            );
+
+        noteRepliesChannel.subscribe();
+    }
 }
 
 async function deleteProfileAccount(profileId, profileName) {
@@ -1071,7 +1268,7 @@ async function openPostAuthFlow() {
     applyUserSpecificTheme();
     onlineUsers = [];
     renderLeaderboard();
-    await Promise.all([loadNotes(), loadNoteReads()]);
+    await Promise.all([loadNotes(), loadNoteReads(), loadNoteReplies()]);
     await connectNotesRealtime();
     setActiveScreen(landscapeScreen);
 }
@@ -1122,6 +1319,80 @@ YOU ARE SPECIAL
     .split("\n")
     .map((text) => text.trim())
     .filter(Boolean);
+
+function takeRandomIndexWithoutReplacement(pool, total) {
+    if (total <= 0) {
+        return -1;
+    }
+
+    if (!Array.isArray(pool) || pool.length === 0) {
+        pool = Array.from({ length: total }, (_, index) => index);
+    }
+
+    const randomIndex = Math.floor(Math.random() * pool.length);
+    const [selected] = pool.splice(randomIndex, 1);
+    return { selected, pool };
+}
+
+function resetBouncingTextPool(excludeIndex = -1) {
+    remainingBouncingTextIndices = bouncingTexts
+        .map((_, index) => index)
+        .filter((index) => index !== excludeIndex);
+}
+
+function getNextBouncingTextIndex() {
+    if (bouncingTexts.length === 0) {
+        return -1;
+    }
+
+    if (bouncingTexts.length === 1) {
+        return 0;
+    }
+
+    if (remainingBouncingTextIndices.length === 0) {
+        resetBouncingTextPool(bouncingTextIndex);
+    }
+
+    const result = takeRandomIndexWithoutReplacement(remainingBouncingTextIndices, bouncingTexts.length);
+    remainingBouncingTextIndices = result.pool;
+    return result.selected;
+}
+
+function resetSongPool(excludeIndex = -1) {
+    remainingSongIndices = songs
+        .map((_, index) => index)
+        .filter((index) => index !== excludeIndex);
+}
+
+function markSongAsUsed(index) {
+    remainingSongIndices = remainingSongIndices.filter((songIndex) => songIndex !== index);
+}
+
+function getNextRandomSongIndex(excludeIndex = -1) {
+    if (songs.length === 0) {
+        return -1;
+    }
+
+    if (songs.length === 1) {
+        return 0;
+    }
+
+    if (remainingSongIndices.length === 0) {
+        resetSongPool(excludeIndex);
+    }
+
+    const availablePool = remainingSongIndices.filter((songIndex) => songIndex !== excludeIndex);
+
+    if (availablePool.length === 0) {
+        resetSongPool(excludeIndex);
+    } else if (availablePool.length !== remainingSongIndices.length) {
+        remainingSongIndices = availablePool;
+    }
+
+    const result = takeRandomIndexWithoutReplacement(remainingSongIndices, songs.length);
+    remainingSongIndices = result.pool;
+    return result.selected;
+}
 
 // Creates the floating dots in the background.
 function buildParticles(total) {
@@ -1196,7 +1467,13 @@ function chooseRandomSong() {
         return false;
     }
 
-    currentSongIndex = Math.floor(Math.random() * songs.length);
+    const nextSongIndex = getNextRandomSongIndex(currentSongIndex);
+
+    if (nextSongIndex < 0) {
+        return false;
+    }
+
+    currentSongIndex = nextSongIndex;
     return true;
 }
 
@@ -1317,7 +1594,8 @@ function restartMainPageTextSequence() {
     mainPage.classList.remove("notes-visible");
     bouncingMessage.classList.remove("visible");
     bouncingMessage.textContent = "";
-    bouncingTextIndex = 0;
+    bouncingTextIndex = -1;
+    resetBouncingTextPool(-1);
     bouncingTextX = layout.startX;
     bouncingTextY = layout.startY;
     bouncingVelocityX = layout.velocityX;
@@ -1351,6 +1629,10 @@ function startBouncingTextSequence() {
     if (window.matchMedia("(max-width: 932px)").matches) {
         startMobileRandomTextSequence();
         return;
+    }
+
+    if (bouncingTextIndex < 0 || !bouncingTexts[bouncingTextIndex]) {
+        bouncingTextIndex = getNextBouncingTextIndex();
     }
 
     showBouncingText(bouncingTexts[bouncingTextIndex]);
@@ -1421,14 +1703,10 @@ function startMobileRandomTextSequence() {
             return;
         }
 
-        if (bouncingTexts.length > 1) {
-            let nextIndex = bouncingTextIndex;
+        bouncingTextIndex = getNextBouncingTextIndex();
 
-            while (nextIndex === bouncingTextIndex) {
-                nextIndex = Math.floor(Math.random() * bouncingTexts.length);
-            }
-
-            bouncingTextIndex = nextIndex;
+        if (bouncingTextIndex < 0) {
+            return;
         }
 
         bouncingMessage.textContent = bouncingTexts[bouncingTextIndex];
@@ -1454,14 +1732,11 @@ function cycleBouncingText() {
     bouncingMessage.classList.remove("visible");
 
     setTimeout(() => {
-        if (bouncingTexts.length > 1) {
-            let nextIndex = bouncingTextIndex;
+        bouncingTextIndex = getNextBouncingTextIndex();
 
-            while (nextIndex === bouncingTextIndex) {
-                nextIndex = Math.floor(Math.random() * bouncingTexts.length);
-            }
-
-            bouncingTextIndex = nextIndex;
+        if (bouncingTextIndex < 0) {
+            bouncingTextTransitioning = false;
+            return;
         }
 
         bouncingMessage.textContent = bouncingTexts[bouncingTextIndex];
@@ -1633,6 +1908,7 @@ function addSongToPlayer(song) {
 
     if (!alreadyExists) {
         songs.push(song);
+        resetSongPool(currentSongIndex);
         renderPlayerPlaylist(playerSearchInput.value);
     }
 }
@@ -1683,6 +1959,7 @@ async function loadSupabaseSongs() {
     }
 
     songs.length = 0;
+    resetSongPool(-1);
     audioPlayer.removeAttribute("src");
     audioPlayer.load();
     nowPlayingTitle.textContent = "Loading songs...";
@@ -1719,7 +1996,7 @@ async function loadSupabaseSongs() {
     if (loadedCount > 0) {
         if (songs.length > 0) {
             const preferredSongIndex = findPreferredSongIndex();
-            currentSongIndex = preferredSongIndex >= 0 ? preferredSongIndex : 0;
+            currentSongIndex = preferredSongIndex >= 0 ? preferredSongIndex : getNextRandomSongIndex(-1);
             setCurrentSong(currentSongIndex, mainPage.classList.contains("active"));
         }
         setAudioStatus("Online songs loaded.", "success", 2200);
@@ -1917,21 +2194,29 @@ function setupSongs() {
         notesPanel.classList.remove("open");
         editingNoteId = null;
         notesEditorDeleteButton.classList.add("hidden");
+        document.body.classList.remove("mobile-keyboard-open");
     });
 
     notesMenuClose.addEventListener("click", () => {
         notesMenuPanel.classList.remove("open");
+        document.body.classList.remove("mobile-keyboard-open");
     });
 
     notesListClose.addEventListener("click", () => {
         notesListPanel.classList.remove("open");
+        document.body.classList.remove("mobile-keyboard-open");
     });
 
     noteViewerClose.addEventListener("click", () => {
         noteViewerPanel.classList.remove("open");
+        noteReplyComposer.classList.add("hidden");
+        noteReplyTextarea.value = "";
+        activeViewerNoteId = null;
+        document.body.classList.remove("mobile-keyboard-open");
     });
 
     notesSubmitButton.addEventListener("click", submitNote);
+    noteReplySubmitButton.addEventListener("click", submitNoteReply);
 
     logoutButton.addEventListener("click", async () => {
         settingsLauncher.classList.remove("open");
@@ -1944,11 +2229,17 @@ function setupSongs() {
             await supabaseClient.removeChannel(notesChannel);
             notesChannel = null;
         }
+        if (noteRepliesChannel) {
+            await supabaseClient.removeChannel(noteRepliesChannel);
+            noteRepliesChannel = null;
+        }
         onlineUsers = [];
         notesEntries = [];
+        noteRepliesEntries = [];
         noteReadIds = new Set();
         renderPinnedNotes();
         renderSubmittedNotes();
+        renderNoteReplies(null);
         renderLeaderboard();
         profileData = null;
         currentUser = "";
@@ -1959,6 +2250,9 @@ function setupSongs() {
         notesListPanel.classList.remove("open");
         notesPanel.classList.remove("open");
         noteViewerPanel.classList.remove("open");
+        noteReplyComposer.classList.add("hidden");
+        noteReplyTextarea.value = "";
+        activeViewerNoteId = null;
         showAuthMessage("Logged out.", "success");
         setActiveScreen(lockScreen);
     });
@@ -2015,8 +2309,9 @@ function setupSongs() {
             return;
         }
 
-        currentSongIndex = (currentSongIndex + 1) % songs.length;
-        setCurrentSong(currentSongIndex, true);
+        if (chooseRandomSong()) {
+            setCurrentSong(currentSongIndex, true);
+        }
         resetPlayerAutoCloseTimer();
     });
 
@@ -2031,8 +2326,7 @@ function setupSongs() {
     audioPlayer.addEventListener("play", updatePlayPauseButton);
     audioPlayer.addEventListener("pause", updatePlayPauseButton);
     audioPlayer.addEventListener("ended", () => {
-        if (!audioPlayer.loop && songs.length > 0) {
-            currentSongIndex = (currentSongIndex + 1) % songs.length;
+        if (!audioPlayer.loop && songs.length > 0 && chooseRandomSong()) {
             setCurrentSong(currentSongIndex, true);
         }
     });
@@ -2108,12 +2402,33 @@ function setupSongs() {
         if (!clickedNotesPanel && event.target !== notesToggle && event.target !== notesAddToggle) {
             notesPanel.classList.remove("open");
             editingNoteId = null;
+            document.body.classList.remove("mobile-keyboard-open");
         }
 
         if (!clickedNoteViewer && !event.target.closest(".pinned-note")) {
             noteViewerPanel.classList.remove("open");
+            noteReplyComposer.classList.add("hidden");
+            noteReplyTextarea.value = "";
+            activeViewerNoteId = null;
+            document.body.classList.remove("mobile-keyboard-open");
         }
     });
+
+    [notesTextarea, noteReplyTextarea].forEach((input) => {
+        input.addEventListener("focus", syncMobileKeyboardState);
+        input.addEventListener("blur", () => {
+            window.setTimeout(syncMobileKeyboardState, 120);
+        });
+    });
+
+    updateViewportHeightVariable();
+
+    if (window.visualViewport) {
+        window.visualViewport.addEventListener("resize", syncMobileKeyboardState);
+        window.visualViewport.addEventListener("scroll", syncMobileKeyboardState);
+    }
+
+    window.addEventListener("resize", syncMobileKeyboardState);
 }
 
 // Changes the active song.
@@ -2123,6 +2438,7 @@ function setCurrentSong(index, shouldPlay) {
     }
 
     currentSongIndex = index;
+    markSongAsUsed(index);
     audioPlayer.src = songs[index].file;
     audioPlayer.load();
     nowPlayingTitle.textContent = songs[index].title;
