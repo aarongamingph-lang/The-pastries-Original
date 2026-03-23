@@ -507,6 +507,47 @@
             -webkit-backdrop-filter: blur(12px);
         }
 
+        .settings-toggle-status {
+            position: relative;
+        }
+
+        .settings-toggle-icon {
+            line-height: 1;
+        }
+
+        .settings-toggle-presence {
+            position: absolute;
+            right: -6px;
+            bottom: -6px;
+            min-width: 24px;
+            height: 24px;
+            padding: 0 6px;
+            border-radius: 999px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 5px;
+            background: rgba(8, 18, 10, 0.92);
+            border: 1px solid rgba(125, 255, 179, 0.22);
+            box-shadow: 0 8px 18px rgba(0, 0, 0, 0.22);
+        }
+
+        .settings-toggle-presence-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #7dffb3;
+            box-shadow: 0 0 10px rgba(125, 255, 179, 0.55);
+            flex: 0 0 auto;
+        }
+
+        .settings-toggle-presence-count {
+            color: #f3fff6;
+            font-size: 0.7rem;
+            font-weight: 700;
+            line-height: 1;
+        }
+
         .leaderboard-panel {
             position: absolute;
             top: 50%;
@@ -960,19 +1001,22 @@
             min-height: 76px;
             padding: 8px;
             border: 1px solid rgba(188, 188, 188, 0.84);
-            border-radius: 12px;
+            border-radius: 4px;
             display: grid;
             place-items: center;
             gap: 0;
             background: rgba(255, 255, 255, 0.98);
             color: #201a06;
             text-align: center;
-            box-shadow: 0 18px 28px rgba(0, 0, 0, 0.22);
+            box-shadow:
+                0 0 0 2px rgba(63, 56, 27, 0.34),
+                0 18px 28px rgba(0, 0, 0, 0.22);
             pointer-events: auto;
             text-transform: none;
             letter-spacing: normal;
             transform-origin: top center;
             animation: pinnedNoteSway 4.8s ease-in-out infinite;
+            image-rendering: pixelated;
         }
 
         .pinned-note::before {
@@ -992,10 +1036,13 @@
             position: relative;
             width: 100%;
             height: 100%;
-            border-radius: 8px;
-            border: 1px solid rgba(210, 210, 210, 0.84);
-            background: rgba(255, 255, 255, 0.98);
+            border-radius: 2px;
+            border: 2px solid rgba(86, 79, 44, 0.72);
+            background: linear-gradient(180deg, #fff8b6 0%, #ece298 100%);
             display: block;
+            box-shadow:
+                inset 2px 2px 0 rgba(255, 255, 255, 0.42),
+                inset -2px -2px 0 rgba(146, 135, 78, 0.38);
         }
 
         .pinned-note-icon span {
@@ -1007,20 +1054,21 @@
         .pinned-note-icon span::after {
             content: "";
             position: absolute;
-            left: 9px;
-            right: 9px;
-            height: 2px;
-            background: rgba(140, 140, 140, 0.7);
-            border-radius: 999px;
+            left: 8px;
+            right: 8px;
+            height: 3px;
+            background: rgba(120, 113, 67, 0.88);
         }
 
         .pinned-note-icon span::before {
-            top: 22px;
-            box-shadow: 0 12px 0 rgba(140, 140, 140, 0.7);
+            top: 18px;
+            box-shadow:
+                0 10px 0 rgba(120, 113, 67, 0.88),
+                0 20px 0 rgba(120, 113, 67, 0.88);
         }
 
         .pinned-note-icon span::after {
-            top: 46px;
+            top: 42px;
         }
 
         .pinned-note-name {
@@ -1664,13 +1712,13 @@
             bottom: max(16px, env(safe-area-inset-bottom));
             z-index: 3;
             width: min(78vw, 260px);
-            padding: 12px 14px;
-            border: 1px solid rgba(255, 255, 255, 0.14);
-            border-radius: 18px;
-            background: rgba(10, 10, 10, 0.56);
-            box-shadow: 0 18px 34px rgba(0, 0, 0, 0.24);
-            backdrop-filter: blur(18px);
-            -webkit-backdrop-filter: blur(18px);
+            padding: 0;
+            border: 0;
+            border-radius: 0;
+            background: transparent;
+            box-shadow: none;
+            backdrop-filter: none;
+            -webkit-backdrop-filter: none;
             text-align: left;
             transform: translateY(12px);
             opacity: 0;
@@ -1690,7 +1738,8 @@
             font-size: 0.62rem;
             letter-spacing: 0.18em;
             text-transform: uppercase;
-            color: rgba(255, 255, 255, 0.58);
+            color: rgba(255, 255, 255, 0.9);
+            text-shadow: 0 1px 0 rgba(0, 0, 0, 0.92);
         }
 
         .floating-now-playing-title {
@@ -1699,15 +1748,17 @@
             font-weight: 700;
             line-height: 1.28;
             color: rgba(255, 244, 189, 0.98);
-            text-shadow: 0 6px 16px rgba(0, 0, 0, 0.24);
+            text-shadow:
+                0 1px 0 rgba(0, 0, 0, 0.95),
+                0 0 12px rgba(0, 0, 0, 0.45);
         }
 
         .floating-now-playing-time {
             margin: 8px 0 0;
             font-size: 0.74rem;
             font-weight: 600;
-            color: rgba(255, 255, 255, 0.74);
-            text-shadow: none;
+            color: rgba(255, 255, 255, 0.94);
+            text-shadow: 0 1px 0 rgba(0, 0, 0, 0.92);
         }
 
         .player-button {
@@ -2814,6 +2865,24 @@
                 min-height: 44px;
             }
 
+            .settings-toggle-presence {
+                right: -5px;
+                bottom: -5px;
+                min-width: 22px;
+                height: 22px;
+                padding: 0 5px;
+                gap: 4px;
+            }
+
+            .settings-toggle-presence-dot {
+                width: 7px;
+                height: 7px;
+            }
+
+            .settings-toggle-presence-count {
+                font-size: 0.64rem;
+            }
+
             .settings-quick-menu {
                 width: 58px;
                 padding: 8px;
@@ -2890,14 +2959,15 @@
             }
 
             .pinned-note {
-                width: 46px;
-                height: 60px;
-                min-height: 60px;
+                width: 44px;
+                height: 44px;
+                min-height: 44px;
+                padding: 5px;
             }
 
             .pinned-note-name {
-                max-width: 72px;
-                font-size: 0.56rem;
+                max-width: 66px;
+                font-size: 0.5rem;
             }
 
             .pinned-note-unread {
