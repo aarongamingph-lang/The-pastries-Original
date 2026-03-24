@@ -1278,6 +1278,7 @@
     function showPresenceToast(message) {
         const toast = document.createElement("div");
         toast.className = "presence-toast";
+        toast.classList.add(message.toLowerCase().includes("left") ? "leave" : "enter");
         toast.textContent = message;
         presenceNotifications.appendChild(toast);
 
