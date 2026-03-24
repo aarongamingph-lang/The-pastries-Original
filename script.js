@@ -158,6 +158,7 @@ let notesChannel = null;
 let noteRepliesChannel = null;
 let presenceSyncStarted = false;
 let knownPresenceUserIds = new Set();
+let suppressPresenceJoinToastsUntil = 0;
 let welcomeNowPlayingTimeout = null;
 let editingNoteId = null;
 let activeViewerNoteId = null;
@@ -1323,6 +1324,11 @@ async function connectPresence() {
                 }
 
                 knownPresenceUserIds.add(presenceUserId);
+
+                 if (Date.now() < suppressPresenceJoinToastsUntil) {
+                    return;
+                }
+
                 showPresenceToast(`User ${presence.username} has entered.`);
             });
 
@@ -1357,6 +1363,7 @@ async function connectPresence() {
             await trackCurrentPresence();
             syncOnlineUsersFromPresence();
             knownPresenceUserIds = new Set(onlineUsers.map((user) => user.id));
+            suppressPresenceJoinToastsUntil = Date.now() + 1600;
             showPresenceToast(`User ${currentUser} has entered.`);
         });
 }
