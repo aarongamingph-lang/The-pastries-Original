@@ -166,6 +166,7 @@
     let activeViewerNoteId = null;
     let remainingBouncingTextIndices = [];
     let remainingSongIndices = [];
+    let noteLayoutMap = new Map();
     let notesVisibilityEnabled = true;
     const LOCAL_SESSION_KEY = "pastries_active_profile";
     const LOCAL_NOTE_READS_PREFIX = "pastries_note_reads_";
@@ -748,12 +749,21 @@
     }
 
     function getNoteLayout(index, noteId) {
-        const safeId = Number(noteId) || index + 1;
-        const top = 14 + ((safeId * 17) % 50);
-        const left = 8 + ((safeId * 23) % 72);
-        const rotate = ((safeId * 11) % 9) - 4;
+        const noteKey = String(noteId ?? index);
+        const existingLayout = noteLayoutMap.get(noteKey);
 
-        return { top, left, rotate };
+        if (existingLayout) {
+            return existingLayout;
+        }
+
+        const layout = {
+            top: 8 + Math.random() * 72,
+            left: 6 + Math.random() * 82,
+            rotate: -6 + Math.random() * 12
+        };
+
+        noteLayoutMap.set(noteKey, layout);
+        return layout;
     }
 
     function closeAllNotePanels() {
@@ -1019,6 +1029,7 @@
         }
 
         notesEntries = data || [];
+        noteLayoutMap = new Map();
         renderPinnedNotes();
         renderSubmittedNotes();
     }
