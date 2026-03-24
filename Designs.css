@@ -1126,6 +1126,24 @@
                 pointer-events: none;
             }
 
+            .pinned-note-reply-alert {
+                position: absolute;
+                top: -10px;
+                right: -10px;
+                width: 18px;
+                height: 18px;
+                border-radius: 999px;
+                display: grid;
+                place-items: center;
+                background: #4aa8ff;
+                color: #ffffff;
+                font-size: 0.78rem;
+                font-weight: 800;
+                line-height: 1;
+                box-shadow: 0 8px 16px rgba(74, 168, 255, 0.28);
+                pointer-events: none;
+            }
+
             .note-delete-button {
                 position: absolute;
                 top: 14px;
@@ -2361,6 +2379,14 @@
                     padding: 3px 6px;
                 }
 
+                .pinned-note-reply-alert {
+                    top: -8px;
+                    right: -8px;
+                    width: 16px;
+                    height: 16px;
+                    font-size: 0.68rem;
+                }
+
                 .leaderboard-columns,
                 .leaderboard-item {
                     grid-template-columns: minmax(0, 1fr) 110px;
@@ -2854,8 +2880,7 @@
                 }
 
                 .main-page-content,
-                .pinned-notes-layer,
-                .presence-notifications {
+                .pinned-notes-layer {
                     width: 100%;
                     height: 100%;
                 }
@@ -3013,6 +3038,12 @@
                     font-size: 0.5rem;
                 }
 
+                .pinned-note-reply-alert {
+                    width: 15px;
+                    height: 15px;
+                    font-size: 0.64rem;
+                }
+
                 .floating-now-playing,
                 .player-wrap {
                     left: max(10px, env(safe-area-inset-left));
@@ -3144,6 +3175,7 @@
                 }
 
                 .presence-notifications {
+                    position: fixed;
                     top: max(8px, env(safe-area-inset-top));
                     left: auto;
                     right: max(8px, env(safe-area-inset-right));
@@ -3153,7 +3185,9 @@
                     height: auto;
                     gap: 4px;
                     pointer-events: none;
-                    justify-items: end;
+                    display: flex;
+                    flex-direction: column;
+                    align-items: flex-end;
                 }
 
                 .presence-toast {
