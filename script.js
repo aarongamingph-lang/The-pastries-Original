@@ -1356,18 +1356,20 @@
 
                 renderLeaderboard();
             })
-            .subscribe(async (status) => {
-                if (status !== "SUBSCRIBED") {
-                    return;
-                }
-                presenceSyncStarted = true;
-                await trackCurrentPresence();
-                syncOnlineUsersFromPresence();
-                knownPresenceUserIds = new Set(onlineUsers.map((user) => user.id));
-                suppressPresenceJoinToastsUntil = Date.now() + 1600;
-                showPresenceToast(`User ${currentUser} has entered.`);
-            });
-    }
+        .subscribe(async (status) => {
+            if (status !== "SUBSCRIBED") {
+                return;
+            }
+            presenceSyncStarted = true;
+            syncOnlineUsersFromPresence();
+            knownPresenceUserIds = new Set(onlineUsers.map((user) => user.id));
+            await trackCurrentPresence();
+            syncOnlineUsersFromPresence();
+            knownPresenceUserIds = new Set(onlineUsers.map((user) => user.id));
+            suppressPresenceJoinToastsUntil = Date.now() + 1600;
+            showPresenceToast(`User ${currentUser} has entered.`);
+        });
+}
 
     async function trackCurrentPresence() {
         if (!presenceChannel || !profileData?.id || !currentUser) {
