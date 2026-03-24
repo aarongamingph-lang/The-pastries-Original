@@ -63,6 +63,7 @@
                 position: relative;
                 z-index: 1;
                 width: min(92vw, 520px);
+                margin: auto;
                 padding: 34px 28px;
                 border: 1px solid var(--border);
                 border-radius: 24px;
@@ -1165,32 +1166,44 @@
                 }
             }
 
-            .presence-notifications {
-                position: absolute;
-                top: max(14px, env(safe-area-inset-top) + 8px);
-                left: 50%;
-                z-index: 5;
-                width: min(88vw, 380px);
-                display: grid;
-                gap: 10px;
-                pointer-events: none;
-                transform: translateX(-50%);
-            }
+        .presence-notifications {
+            position: absolute;
+            top: max(14px, env(safe-area-inset-top) + 8px);
+            left: 50%;
+            z-index: 5;
+            width: auto;
+            max-width: min(88vw, 380px);
+            display: grid;
+            gap: 8px;
+            pointer-events: none;
+            transform: translateX(-50%);
+            justify-items: center;
+        }
 
-            .presence-toast {
-                padding: 12px 16px;
-                border: 1px solid rgba(255, 255, 255, 0.14);
-                border-radius: 18px;
-                background: rgba(10, 10, 10, 0.44);
-                color: #fff;
-                text-align: center;
-                box-shadow: 0 18px 32px rgba(0, 0, 0, 0.24);
-                backdrop-filter: blur(18px);
-                -webkit-backdrop-filter: blur(18px);
-                opacity: 0;
-                transform: translateY(-8px);
-                animation: toastInOut 3.6s ease forwards;
-            }
+        .presence-toast {
+            width: auto;
+            max-width: min(88vw, 380px);
+            padding: 0;
+            border: 0;
+            border-radius: 0;
+            background: transparent;
+            color: #7dffb3;
+            text-align: center;
+            box-shadow: none;
+            backdrop-filter: none;
+            -webkit-backdrop-filter: none;
+            font-size: 0.9rem;
+            font-weight: 700;
+            line-height: 1.28;
+            text-shadow: 0 1px 0 rgba(0, 0, 0, 0.92);
+            opacity: 0;
+            transform: translateY(-8px);
+            animation: toastInOut 3.6s ease forwards;
+        }
+
+        .presence-toast.leave {
+            color: rgba(212, 212, 212, 0.96);
+        }
 
             .settings-panel {
                 position: absolute;
@@ -2476,6 +2489,8 @@
 
             @media (max-width: 932px) and (orientation: landscape) {
                 body {
+                    display: grid;
+                    place-items: center;
                     overflow: auto;
                     min-height: 100vh;
                     min-height: 100dvh;
@@ -2490,6 +2505,7 @@
                     width: min(100%, 844px);
                     max-width: 844px;
                     max-height: calc(100dvh - 16px);
+                    margin: auto;
                     padding: 18px 18px;
                     overflow: auto;
                     border-radius: 20px;
@@ -2813,6 +2829,8 @@
             @media (max-width: 932px) {
                 html,
                 body {
+                    display: grid;
+                    place-items: center;
                     overflow: hidden;
                     touch-action: manipulation;
                 }
@@ -2846,6 +2864,7 @@
                     width: min(94vw, 520px);
                     max-width: 94vw;
                     max-height: min(92dvh, 720px);
+                    margin: auto;
                     padding: 22px 16px;
                     border-radius: 20px;
                     overflow: auto;
@@ -3125,8 +3144,24 @@
                 }
 
                 .presence-notifications {
-                    padding-top: max(10px, env(safe-area-inset-top));
+                    top: max(8px, env(safe-area-inset-top));
+                    left: auto;
+                    right: max(8px, env(safe-area-inset-right));
+                    transform: none;
+                    width: auto;
+                    max-width: min(42vw, 140px);
+                    height: auto;
+                    gap: 4px;
                     pointer-events: none;
+                    justify-items: end;
+                }
+
+                .presence-toast {
+                    width: auto;
+                    max-width: min(42vw, 140px);
+                    font-size: 0.58rem;
+                    line-height: 1.14;
+                    text-align: right;
                 }
             }
 
