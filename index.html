@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>THE PASTRIES SPECIAL</title>
-    <link rel="stylesheet" href="Designs.css?v=72">
+    <link rel="stylesheet" href="Designs.css?v=74">
 </head>
 <body>
     <!-- Background dots used on the opening screens -->
@@ -199,7 +199,13 @@
 
             <div class="notes-menu-panel" id="notesMenuPanel">
                 <div class="notes-head">
-                    <p class="leaderboard-title">Notes</p>
+                    <div class="notes-head-main">
+                        <p class="leaderboard-title">Notes</p>
+                        <label class="notes-visibility-switch" for="notesVisibilityToggle">
+                            <input id="notesVisibilityToggle" type="checkbox" checked>
+                            <span class="notes-visibility-slider" aria-hidden="true"></span>
+                        </label>
+                    </div>
                     <button class="settings-close" id="notesMenuClose" type="button" aria-label="Close notes menu">x</button>
                 </div>
                 <div class="notes-menu-actions">
@@ -320,6 +326,6 @@
     </section>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="script.js?v=72"></script>
+    <script src="script.js?v=74"></script>
 </body>
 </html>
