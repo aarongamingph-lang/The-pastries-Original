@@ -56,6 +56,7 @@
     const leaderboardTitle = document.getElementById("leaderboardTitle");
     const notesMenuPanel = document.getElementById("notesMenuPanel");
     const notesMenuClose = document.getElementById("notesMenuClose");
+    const notesVisibilityToggle = document.getElementById("notesVisibilityToggle");
     const notesViewToggle = document.getElementById("notesViewToggle");
     const notesAddToggle = document.getElementById("notesAddToggle");
     const notesListPanel = document.getElementById("notesListPanel");
@@ -165,6 +166,7 @@
     let activeViewerNoteId = null;
     let remainingBouncingTextIndices = [];
     let remainingSongIndices = [];
+    let notesVisibilityEnabled = true;
     const LOCAL_SESSION_KEY = "pastries_active_profile";
     const LOCAL_NOTE_READS_PREFIX = "pastries_note_reads_";
 
@@ -765,6 +767,18 @@
         document.body.classList.remove("mobile-keyboard-open");
     }
 
+    function updatePinnedNotesVisibility() {
+        if (!mainPage) {
+            return;
+        }
+
+        mainPage.classList.toggle("notes-visible", notesVisibilityEnabled);
+
+        if (notesVisibilityToggle) {
+            notesVisibilityToggle.checked = notesVisibilityEnabled;
+        }
+    }
+
     function getOpenOverlayPanels() {
         return [
             settingsPanel,
@@ -983,6 +997,8 @@
 
             pinnedNotesLayer.appendChild(pin);
         });
+
+        updatePinnedNotesVisibility();
     }
 
     async function loadNotes() {
@@ -1124,7 +1140,7 @@
         const currentReadAt = noteReadMap.get(noteReadKey);
         const currentReadTime = currentReadAt ? new Date(currentReadAt).getTime() : 0;
 
-        if (note.user_id === profileData.id || currentReadTime >= latestActivityTime) {
+        if (currentReadTime >= latestActivityTime) {
             return;
         }
 
@@ -1842,7 +1858,7 @@
         clearTimeout(bouncingTextStartTimeout);
         clearTimeout(notesRevealTimeout);
         notesRevealTimeout = setTimeout(() => {
-            mainPage.classList.add("notes-visible");
+            updatePinnedNotesVisibility();
         }, 5000);
         bouncingTextStartTimeout = setTimeout(() => {
             startBouncingTextSequence();
@@ -2399,6 +2415,11 @@
         notesAddToggle.addEventListener("click", () => {
             notesMenuPanel.classList.remove("open");
             openNotesEditor();
+        });
+
+        notesVisibilityToggle.addEventListener("change", () => {
+            notesVisibilityEnabled = notesVisibilityToggle.checked;
+            updatePinnedNotesVisibility();
         });
 
         leaderboardToggle.addEventListener("click", async () => {
