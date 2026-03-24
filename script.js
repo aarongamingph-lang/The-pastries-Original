@@ -170,6 +170,7 @@
             let notesVisibilityEnabled = true;
             const LOCAL_SESSION_KEY = "pastries_active_profile";
             const LOCAL_NOTE_READS_PREFIX = "pastries_note_reads_";
+            const LOCAL_NOTES_VISIBILITY_PREFIX = "pastries_notes_visibility_";
 
             // Shows small text messages in the audio settings area.
             function setAudioStatus(message, tone = "neutral", autoClearMs = 0) {
@@ -654,6 +655,40 @@
 
             function getLocalNoteReadsStorageKey() {
                 return profileData?.id ? `${LOCAL_NOTE_READS_PREFIX}${profileData.id}` : "";
+            }
+
+            function getNotesVisibilityStorageKey() {
+                return profileData?.id ? `${LOCAL_NOTES_VISIBILITY_PREFIX}${profileData.id}` : "";
+            }
+
+            function loadNotesVisibilityPreference() {
+                const storageKey = getNotesVisibilityStorageKey();
+
+                if (!storageKey) {
+                    notesVisibilityEnabled = true;
+                    return;
+                }
+
+                try {
+                    const savedValue = localStorage.getItem(storageKey);
+                    notesVisibilityEnabled = savedValue === null ? true : savedValue === "true";
+                } catch {
+                    notesVisibilityEnabled = true;
+                }
+            }
+
+            function saveNotesVisibilityPreference() {
+                const storageKey = getNotesVisibilityStorageKey();
+
+                if (!storageKey) {
+                    return;
+                }
+
+                try {
+                    localStorage.setItem(storageKey, String(notesVisibilityEnabled));
+                } catch {
+                    // Ignore localStorage write failures.
+                }
             }
 
             function loadLocalNoteReads() {
@@ -1519,6 +1554,7 @@
             async function openPostAuthFlow() {
                 await updateAdminSettingsView();
                 applyUserSpecificTheme();
+                loadNotesVisibilityPreference();
                 onlineUsers = [];
                 renderLeaderboard();
                 await Promise.all([loadNotes(), loadNoteReads(), loadNoteReplies()]);
@@ -2448,6 +2484,7 @@
 
                 notesVisibilityToggle.addEventListener("change", () => {
                     notesVisibilityEnabled = notesVisibilityToggle.checked;
+                    saveNotesVisibilityPreference();
                     updatePinnedNotesVisibility();
                 });
 
@@ -2505,6 +2542,11 @@
 
                 logoutButton.addEventListener("click", async () => {
                     settingsLauncher.classList.remove("open");
+                    audioPlayer.pause();
+                    audioPlayer.currentTime = 0;
+                    audioAutoplayPending = false;
+                    updatePlayPauseButton();
+                    updateFloatingNowPlaying();
                     await untrackCurrentPresence();
                     if (presenceChannel) {
                         await supabaseClient.removeChannel(presenceChannel);
@@ -2522,6 +2564,7 @@
                     notesEntries = [];
                     noteRepliesEntries = [];
                     noteReadMap = new Map();
+                    notesVisibilityEnabled = true;
                     renderPinnedNotes();
                     renderSubmittedNotes();
                     renderNoteReplies(null);
