@@ -18,6 +18,7 @@
     const unlockButton = document.getElementById("unlockButton");
     const lockMessage = document.getElementById("lockMessage");
     const proceedMainButton = document.getElementById("proceedMainButton");
+    const orientationBackButton = document.getElementById("orientationBackButton");
     const floatingNowPlaying = document.getElementById("floatingNowPlaying");
     const floatingNowPlayingTitle = document.getElementById("floatingNowPlayingTitle");
     const floatingNowPlayingTime = document.getElementById("floatingNowPlayingTime");
@@ -714,6 +715,36 @@
         return latestActivityTime > readTime;
     }
 
+    function hasUnreadReplyAlert(note) {
+        if (!note || !profileData?.id) {
+            return false;
+        }
+
+        const latestReplyFromOtherUser = noteRepliesEntries
+            .filter((reply) => reply.note_id === note.id && reply.user_id !== profileData.id)
+            .map((reply) => new Date(reply.created_at).getTime())
+            .filter((time) => Number.isFinite(time))
+            .sort((left, right) => right - left)[0];
+
+        if (!latestReplyFromOtherUser) {
+            return false;
+        }
+
+        const readAt = noteReadMap.get(getNoteReadKey(note.id));
+
+        if (!readAt) {
+            return true;
+        }
+
+        const readTime = new Date(readAt).getTime();
+
+        if (!Number.isFinite(readTime)) {
+            return true;
+        }
+
+        return latestReplyFromOtherUser > readTime;
+    }
+
     function getNoteLayout(index, noteId) {
         const safeId = Number(noteId) || index + 1;
         const top = 14 + ((safeId * 17) % 50);
@@ -913,6 +944,7 @@
         notesEntries.forEach((note, index) => {
             const isOwnNote = note.user_id === profileData?.id;
             const isUnread = !isOwnNote && isNoteUnread(note);
+            const hasReplyAlert = hasUnreadReplyAlert(note);
             const pin = document.createElement("button");
             pin.type = "button";
             pin.className = "pinned-note";
@@ -931,7 +963,12 @@
             name.className = "pinned-note-name";
             name.textContent = note.username || "Unknown";
 
-            if (isUnread) {
+            if (hasReplyAlert) {
+                const replyBadge = document.createElement("span");
+                replyBadge.className = "pinned-note-reply-alert";
+                replyBadge.textContent = "!";
+                pin.appendChild(replyBadge);
+            } else if (isUnread) {
                 const unreadBadge = document.createElement("span");
                 unreadBadge.className = "pinned-note-unread";
                 unreadBadge.textContent = "Unread";
@@ -1360,13 +1397,13 @@
             if (status !== "SUBSCRIBED") {
                 return;
             }
-            presenceSyncStarted = true;
             syncOnlineUsersFromPresence();
             knownPresenceUserIds = new Set(onlineUsers.map((user) => user.id));
             await trackCurrentPresence();
             syncOnlineUsersFromPresence();
             knownPresenceUserIds = new Set(onlineUsers.map((user) => user.id));
             suppressPresenceJoinToastsUntil = Date.now() + 1600;
+            presenceSyncStarted = true;
             showPresenceToast(`User ${currentUser} has entered.`);
         });
 }
@@ -1442,6 +1479,32 @@
         await Promise.all([loadNotes(), loadNoteReads(), loadNoteReplies()]);
         await connectNotesRealtime();
         setActiveScreen(landscapeScreen);
+    }
+
+    function clearRememberedSessionAndReturnToLogin() {
+        profileData = null;
+        currentUser = "";
+        onlineUsers = [];
+        noteReadMap = new Map();
+        localStorage.removeItem(LOCAL_SESSION_KEY);
+        renderPinnedNotes();
+        renderLeaderboard();
+        settingsLauncher.classList.remove("open");
+        settingsPanel.classList.remove("open");
+        leaderboardPanel.classList.remove("open");
+        notesMenuPanel.classList.remove("open");
+        notesListPanel.classList.remove("open");
+        notesPanel.classList.remove("open");
+        noteViewerPanel.classList.remove("open");
+        noteReplyComposer.classList.add("hidden");
+        noteReplyTextarea.value = "";
+        activeViewerNoteId = null;
+        nameInput.value = "";
+        passwordInput.value = "";
+        confirmPasswordInput.value = "";
+        setAuthMode("login");
+        showAuthMessage("Session cleared. Log in again to continue.", "success");
+        setActiveScreen(lockScreen);
     }
 
     async function handleAuthenticatedSession(session, usernameOverride = "") {
@@ -2667,6 +2730,10 @@
         setActiveScreen(mainPage);
         await connectPresence();
         await refreshLeaderboard();
+    });
+
+    orientationBackButton.addEventListener("click", () => {
+        clearRememberedSessionAndReturnToLogin();
     });
 
     loginModeButton.addEventListener("click", () => {
