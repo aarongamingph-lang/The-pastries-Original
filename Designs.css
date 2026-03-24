@@ -227,6 +227,30 @@
                 justify-items: center;
             }
 
+            .orientation-back-button {
+                position: absolute;
+                top: 16px;
+                right: 16px;
+                width: 34px;
+                height: 34px;
+                min-height: 34px;
+                padding: 0;
+                border: 1px solid rgba(255, 255, 255, 0.16);
+                border-radius: 10px;
+                display: grid;
+                place-items: center;
+                background: rgba(255, 255, 255, 0.08);
+                color: #fff;
+                font-size: 1.1rem;
+                line-height: 1;
+                z-index: 2;
+            }
+
+            .orientation-back-button:hover {
+                transform: none;
+                background: rgba(255, 255, 255, 0.14);
+            }
+
             .orientation-title {
                 margin-bottom: 4px;
             }
@@ -2549,6 +2573,11 @@
                     width: min(42vw, 220px);
                 }
 
+                .orientation-back-button {
+                    top: 12px;
+                    right: 12px;
+                }
+
                 .orientation-note {
                     max-width: 70ch;
                     margin-bottom: 0;
@@ -2794,6 +2823,15 @@
                     gap: 10px;
                 }
 
+                .orientation-back-button {
+                    top: 10px;
+                    right: 10px;
+                    width: 30px;
+                    height: 30px;
+                    min-height: 30px;
+                    font-size: 1rem;
+                }
+
                 .orientation-visual {
                     width: min(38vw, 180px);
                 }
@@ -2899,6 +2937,15 @@
                     width: min(94vw, 520px);
                     max-width: 94vw;
                     max-height: min(92dvh, 720px);
+                }
+
+                .orientation-back-button {
+                    top: 10px;
+                    right: 10px;
+                    width: 30px;
+                    height: 30px;
+                    min-height: 30px;
+                    font-size: 1rem;
                 }
 
                 .orientation-visual {
