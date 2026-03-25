@@ -3213,8 +3213,8 @@
                 }
 
                 .screen {
-                    width: min(88vw, 420px);
-                    max-width: 88vw;
+                    width: min(80vw, 360px);
+                    max-width: 80vw;
                     max-height: min(92dvh, 720px);
                     margin: auto;
                     padding: 18px 14px;
@@ -3223,8 +3223,8 @@
                 }
 
                 .orientation-screen {
-                    width: min(88vw, 420px);
-                    max-width: 88vw;
+                    width: min(80vw, 360px);
+                    max-width: 80vw;
                     max-height: min(92dvh, 720px);
                 }
 
@@ -3308,9 +3308,9 @@
                     left: 50%;
                     top: 48%;
                     transform: translate(-50%, -50%);
-                    width: min(86vw, 420px);
-                    max-width: 86vw;
-                    max-height: min(76dvh, 680px);
+                    width: min(78vw, 360px);
+                    max-width: 78vw;
+                    max-height: min(82dvh, 720px);
                     overflow: auto;
                     border-radius: 18px;
                     padding: 10px;
@@ -3368,7 +3368,7 @@
 
                 .leaderboard-list,
                 .notes-submitted-list {
-                    max-height: min(58dvh, 420px);
+                    max-height: min(64dvh, 500px);
                     overflow: auto;
                 }
 
@@ -3392,8 +3392,8 @@
                 }
 
                 .chat-messages {
-                    min-height: min(28dvh, 190px);
-                    max-height: min(38dvh, 300px);
+                    min-height: min(34dvh, 240px);
+                    max-height: min(46dvh, 380px);
                 }
 
                 .chat-bubble {
@@ -3415,7 +3415,7 @@
                 }
 
                 .chat-input {
-                    min-height: 88px;
+                    min-height: 96px;
                     font-size: 16px;
                 }
 
@@ -3426,13 +3426,13 @@
 
                 .notes-paper,
                 .note-viewer-paper {
-                    min-height: min(34dvh, 250px);
-                    max-height: min(44dvh, 320px);
+                    min-height: min(40dvh, 300px);
+                    max-height: min(52dvh, 420px);
                     padding: 16px 16px 14px;
                 }
 
                 .notes-textarea {
-                    min-height: min(28dvh, 190px);
+                    min-height: min(34dvh, 250px);
                     font-size: 16px;
                 }
 
@@ -3452,7 +3452,7 @@
                 }
 
                 .note-reply-textarea {
-                    min-height: 96px;
+                    min-height: 110px;
                 }
 
                 .pinned-note {
