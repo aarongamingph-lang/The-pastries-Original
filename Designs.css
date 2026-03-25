@@ -747,6 +747,171 @@
                 transform: none;
             }
 
+            .leaderboard-message-button {
+                width: 30px;
+                height: 30px;
+                min-height: 30px;
+                margin-left: auto;
+                padding: 0;
+                border: 1px solid rgba(255, 255, 255, 0.14);
+                border-radius: 10px;
+                display: grid;
+                place-items: center;
+                background: rgba(255, 255, 255, 0.08);
+                color: #fff;
+                font-size: 0.9rem;
+                line-height: 1;
+                text-transform: none;
+                box-shadow: none;
+            }
+
+            .leaderboard-message-button:hover {
+                background: rgba(255, 255, 255, 0.16);
+                transform: none;
+            }
+
+            .leaderboard-message-badge {
+                min-width: 22px;
+                height: 22px;
+                padding: 0 6px;
+                border-radius: 999px;
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                background: #ff6b6b;
+                color: #fff;
+                font-size: 0.7rem;
+                font-weight: 700;
+                line-height: 1;
+                box-shadow: 0 8px 18px rgba(255, 107, 107, 0.2);
+            }
+
+            .chat-panel {
+                position: fixed;
+                top: 50%;
+                left: 50%;
+                z-index: 4;
+                width: min(94vw, 720px);
+                max-height: min(78vh, 720px);
+                padding: 22px;
+                border: 1px solid rgba(255, 255, 255, 0.16);
+                border-radius: 28px;
+                background: rgba(12, 12, 12, 0.28);
+                box-shadow: 0 26px 60px rgba(0, 0, 0, 0.3);
+                backdrop-filter: blur(24px);
+                -webkit-backdrop-filter: blur(24px);
+                opacity: 0;
+                pointer-events: none;
+                transform: translate(-50%, -50%) scale(0.96);
+                transition: opacity 0.25s ease, transform 0.25s ease;
+            }
+
+            .chat-panel::before {
+                content: "";
+                position: absolute;
+                inset: 0;
+                border-radius: inherit;
+                background:
+                    linear-gradient(180deg, rgba(255, 255, 255, 0.06), transparent 34%),
+                    radial-gradient(circle at top, rgba(125, 255, 179, 0.14), transparent 42%);
+                pointer-events: none;
+            }
+
+            .chat-panel.open {
+                opacity: 1;
+                pointer-events: auto;
+                transform: translate(-50%, -50%) scale(1);
+            }
+
+            .chat-head-copy {
+                min-width: 0;
+            }
+
+            .chat-panel-status {
+                margin: 6px 0 0;
+                color: rgba(255, 255, 255, 0.66);
+                font-size: 0.76rem;
+                letter-spacing: 0.04em;
+            }
+
+            .chat-messages {
+                position: relative;
+                z-index: 1;
+                display: flex;
+                flex-direction: column;
+                gap: 10px;
+                min-height: 260px;
+                max-height: min(52vh, 430px);
+                overflow: auto;
+                padding-right: 4px;
+            }
+
+            .chat-empty {
+                margin: auto 0;
+                color: rgba(255, 255, 255, 0.62);
+                text-align: center;
+                line-height: 1.5;
+            }
+
+            .chat-bubble {
+                max-width: min(76%, 420px);
+                padding: 12px 14px;
+                border: 1px solid rgba(255, 255, 255, 0.1);
+                border-radius: 18px;
+                background: rgba(255, 255, 255, 0.08);
+                align-self: flex-start;
+                box-shadow: 0 12px 24px rgba(0, 0, 0, 0.18);
+            }
+
+            .chat-bubble.own {
+                align-self: flex-end;
+                background: rgba(125, 255, 179, 0.14);
+                border-color: rgba(125, 255, 179, 0.22);
+            }
+
+            .chat-bubble-text {
+                margin: 0;
+                color: #fff;
+                line-height: 1.5;
+                white-space: pre-wrap;
+                word-break: break-word;
+                text-align: left;
+            }
+
+            .chat-bubble-meta {
+                margin: 8px 0 0;
+                color: rgba(255, 255, 255, 0.6);
+                font-size: 0.72rem;
+                letter-spacing: 0.03em;
+                text-align: left;
+            }
+
+            .chat-input-wrap {
+                position: relative;
+                z-index: 1;
+                display: grid;
+                grid-template-columns: minmax(0, 1fr) auto;
+                gap: 10px;
+                margin-top: 14px;
+            }
+
+            .chat-input {
+                min-height: 92px;
+                resize: none;
+                padding: 12px 14px;
+                border: 1px solid rgba(255, 255, 255, 0.1);
+                border-radius: 16px;
+                background: rgba(255, 255, 255, 0.07);
+                color: #fff;
+                font-size: 16px;
+                line-height: 1.45;
+            }
+
+            .chat-send-button {
+                min-width: 110px;
+                align-self: end;
+            }
+
             .leaderboard-empty {
                 padding: 18px;
                 border-radius: 16px;
@@ -2420,6 +2585,7 @@
                     border-radius: 24px;
                 }
 
+                .chat-panel,
                 .notes-menu-panel,
                 .notes-list-panel,
                 .notes-panel,
@@ -2478,6 +2644,19 @@
                 .leaderboard-status {
                     gap: 8px;
                     padding: 7px 10px;
+                }
+
+                .leaderboard-message-button {
+                    width: 28px;
+                    height: 28px;
+                    min-height: 28px;
+                    font-size: 0.84rem;
+                }
+
+                .leaderboard-message-badge {
+                    min-width: 20px;
+                    height: 20px;
+                    font-size: 0.64rem;
                 }
 
                 .settings-launcher {
@@ -2772,6 +2951,7 @@
                     padding: 14px;
                 }
 
+                .chat-panel,
                 .notes-menu-panel,
                 .notes-list-panel,
                 .notes-panel,
@@ -3059,6 +3239,7 @@
 
                 .settings-panel,
                 .leaderboard-panel,
+                .chat-panel,
                 .notes-menu-panel,
                 .notes-list-panel,
                 .notes-panel,
@@ -3122,6 +3303,29 @@
                 .notes-submitted-list {
                     max-height: min(58dvh, 420px);
                     overflow: auto;
+                }
+
+                .chat-messages {
+                    min-height: min(28dvh, 190px);
+                    max-height: min(38dvh, 300px);
+                }
+
+                .chat-bubble {
+                    max-width: 86%;
+                    padding: 10px 12px;
+                }
+
+                .chat-input-wrap {
+                    grid-template-columns: 1fr;
+                }
+
+                .chat-input {
+                    min-height: 88px;
+                }
+
+                .chat-send-button {
+                    width: 100%;
+                    min-width: 0;
                 }
 
                 .notes-paper,
@@ -3330,7 +3534,8 @@
                 }
 
                 .settings-panel,
-                .leaderboard-panel {
+                .leaderboard-panel,
+                .chat-panel {
                     width: min(96vw, 844px);
                     max-width: 96vw;
                 }
@@ -3377,6 +3582,7 @@
             body.mobile-keyboard-open .note-viewer-panel.open,
             body.mobile-keyboard-open .notes-list-panel.open,
             body.mobile-keyboard-open .notes-menu-panel.open,
+            body.mobile-keyboard-open .chat-panel.open,
             body.mobile-keyboard-open .leaderboard-panel.open,
             body.mobile-keyboard-open .settings-panel.open {
                 top: max(8px, env(safe-area-inset-top));
