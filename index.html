@@ -1,350 +1,350 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>THE PASTRIES SPECIAL</title>
-    <link rel="stylesheet" href="Designs.css?v=90">
-</head>
-<body>
-    <!-- Background dots used on the opening screens -->
-    <div class="particles" id="particles" aria-hidden="true"></div>
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>THE PASTRIES SPECIAL</title>
+        <link rel="stylesheet" href="Designs.css?v=90">
+    </head>
+    <body>
+        <!-- Background dots used on the opening screens -->
+        <div class="particles" id="particles" aria-hidden="true"></div>
 
-    <!-- Screen 1: name input -->
-    <main class="screen active" id="lockScreen">
-        <div class="lock-icon">AUTH</div>
-        <h1 id="authTitle">Log In</h1>
-        <p id="authDescription">Enter your username and password to continue.</p>
+        <!-- Screen 1: name input -->
+        <main class="screen active" id="lockScreen">
+            <div class="lock-icon">AUTH</div>
+            <h1 id="authTitle">Log In</h1>
+            <p id="authDescription">Enter your username and password to continue.</p>
 
-        <form id="lockForm">
-            <div class="auth-mode-switch">
-                <button class="auth-mode-button active" id="loginModeButton" type="button">Log In</button>
-                <button class="auth-mode-button" id="signupModeButton" type="button">Sign Up</button>
-            </div>
-            <input
-                id="nameInput"
-                type="text"
-                name="username"
-                placeholder="Username"
-                autocomplete="off"
-                spellcheck="false"
-                required
-            >
-            <input
-                id="passwordInput"
-                type="password"
-                name="password"
-                placeholder="Password"
-                autocomplete="current-password"
-                required
-            >
-            <div class="auth-confirm-wrap hidden" id="confirmPasswordWrap">
+            <form id="lockForm">
+                <div class="auth-mode-switch">
+                    <button class="auth-mode-button active" id="loginModeButton" type="button">Log In</button>
+                    <button class="auth-mode-button" id="signupModeButton" type="button">Sign Up</button>
+                </div>
                 <input
-                    id="confirmPasswordInput"
-                    type="password"
-                    name="confirm-password"
-                    placeholder="Confirm password"
-                    autocomplete="new-password"
+                    id="nameInput"
+                    type="text"
+                    name="username"
+                    placeholder="Username"
+                    autocomplete="off"
+                    spellcheck="false"
+                    required
                 >
-            </div>
-            <button type="submit" id="unlockButton">PROCEED</button>
-        </form>
-
-        <div class="message" id="lockMessage" aria-live="polite"></div>
-    </main>
-
-    <!-- Screen 2: reminder before the main page -->
-    <section class="screen hidden orientation-screen" id="landscapeScreen">
-        <button class="orientation-back-button" id="orientationBackButton" type="button" aria-label="Back to login">&times;</button>
-        <div>
-            <h2 class="orientation-title">Turn Your Phone Landscape</h2>
-            <p class="orientation-note">Rotate your phone sideways first, then continue to the main page.</p>
-        </div>
-
-        <div class="orientation-visual" aria-hidden="true">
-            <div class="orientation-phone"></div>
-            <div class="orientation-arrow">&#8635;</div>
-        </div>
-
-        <button class="proceed-button" id="proceedMainButton" type="button">Proceed</button>
-    </section>
-
-    <!-- Screen 3: final main page -->
-    <section class="screen hidden main-page" id="mainPage">
-        <video class="main-page-video" id="mainPageVideo" autoplay muted loop playsinline preload="auto" disablepictureinpicture tabindex="-1" aria-hidden="true"></video>
-
-        <div class="main-page-content">
-            <!-- Main page text -->
-            <h2 class="main-page-title">Welcome Since You're Here Take A Sit And Relax</h2>
-            <p class="bouncing-message" id="bouncingMessage"></p>
-
-            <div class="settings-launcher" id="settingsLauncher">
-                    <button class="settings-menu-toggle" id="settingsMenuToggle" type="button" aria-label="Open menu">
-                        <span class="settings-menu-toggle-icon" aria-hidden="true">&#9776;</span>
-                        <span class="settings-toggle-alert hidden" id="menuMessageAlert">!</span>
-                    </button>
-                <div class="settings-quick-menu" id="settingsQuickMenu">
-                    <button class="settings-toggle" id="settingsToggle" type="button" aria-label="Open settings" title="Settings">&#9881;</button>
-                    <button class="settings-toggle" id="notesToggle" type="button" aria-label="Write a note" title="Notes">&#128221;</button>
-                    <button class="settings-toggle settings-toggle-status" id="leaderboardToggle" type="button" aria-label="Open online users" title="Online">
-                        <span class="settings-toggle-icon">&#128100;</span>
-                        <span class="settings-toggle-presence">
-                            <span class="settings-toggle-presence-dot"></span>
-                            <span class="settings-toggle-presence-count" id="leaderboardToggleCount">0</span>
-                        </span>
-                        <span class="settings-toggle-alert hidden" id="leaderboardMessageAlert">!</span>
-                    </button>
+                <input
+                    id="passwordInput"
+                    type="password"
+                    name="password"
+                    placeholder="Password"
+                    autocomplete="current-password"
+                    required
+                >
+                <div class="auth-confirm-wrap hidden" id="confirmPasswordWrap">
+                    <input
+                        id="confirmPasswordInput"
+                        type="password"
+                        name="confirm-password"
+                        placeholder="Confirm password"
+                        autocomplete="new-password"
+                    >
                 </div>
+                <button type="submit" id="unlockButton">PROCEED</button>
+            </form>
+
+            <div class="message" id="lockMessage" aria-live="polite"></div>
+        </main>
+
+        <!-- Screen 2: reminder before the main page -->
+        <section class="screen hidden orientation-screen" id="landscapeScreen">
+            <button class="orientation-back-button" id="orientationBackButton" type="button" aria-label="Back to login">&times;</button>
+            <div>
+                <h2 class="orientation-title">Turn Your Phone Landscape</h2>
+                <p class="orientation-note">Rotate your phone sideways first, then continue to the main page.</p>
             </div>
 
-            <!-- Idle now-playing text shown in the center -->
-            <div class="floating-now-playing" id="floatingNowPlaying" aria-hidden="true">
-                <p class="floating-now-playing-label">Now Playing</p>
-                <p class="floating-now-playing-title" id="floatingNowPlayingTitle">Loading songs...</p>
-                <p class="floating-now-playing-time" id="floatingNowPlayingTime">0:00 / 0:00</p>
+            <div class="orientation-visual" aria-hidden="true">
+                <div class="orientation-phone"></div>
+                <div class="orientation-arrow">&#8635;</div>
             </div>
 
-            <!-- Settings panel -->
-            <div class="settings-panel" id="settingsPanel">
-                <div class="settings-head">
-                    <div style="width: 34px;"></div>
-                    <p class="settings-title">SETTINGS</p>
-                    <button class="settings-close" id="settingsClose" type="button" aria-label="Close settings">x</button>
-                </div>
+            <button class="proceed-button" id="proceedMainButton" type="button">Proceed</button>
+        </section>
 
-                <div class="settings-nav">
-                    <button class="settings-tab active" type="button" data-settings-tab="settings">Settings</button>
-                    <button class="settings-tab" type="button" data-settings-tab="theme">Theme</button>
-                    <button class="settings-tab" type="button" data-settings-tab="audio">Audio</button>
-                    <button class="settings-tab hidden-admin-tab" id="userAdminTab" type="button" data-settings-tab="users">User</button>
-                </div>
+        <!-- Screen 3: final main page -->
+        <section class="screen hidden main-page" id="mainPage">
+            <video class="main-page-video" id="mainPageVideo" autoplay muted loop playsinline preload="auto" disablepictureinpicture tabindex="-1" aria-hidden="true"></video>
 
-                <!-- Settings tab -->
-                <div class="settings-section active" data-settings-section="settings">
-                    <div class="settings-group">
-                        <div class="settings-card">
-                            <p class="settings-label-text">Brightness</p>
-                            <input class="settings-range" id="brightnessRange" type="range" min="0.6" max="1.4" step="0.01" value="1">
-                            <p class="settings-value" id="brightnessValue">100%</p>
-                        </div>
+            <div class="main-page-content">
+                <!-- Main page text -->
+                <h2 class="main-page-title">Welcome Since You're Here Take A Sit And Relax</h2>
+                <p class="bouncing-message" id="bouncingMessage"></p>
 
-                        <div class="settings-card">
-                            <p class="settings-label-text">Music Volume</p>
-                            <input class="settings-range" id="volumeRange" type="range" min="0" max="1" step="0.01" value="1">
-                            <p class="settings-value" id="volumeValue">100%</p>
-                        </div>
-
-                        <div class="settings-card">
-                            <p class="settings-label-text">Account</p>
-                            <button class="settings-logout-button" id="logoutButton" type="button">Log Out</button>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Theme tab: change image file names here if needed -->
-                <div class="settings-section" data-settings-section="theme">
-                    <div class="settings-info">
-                        <button class="theme-card active" type="button" data-theme-file="default.mp4">
-                            <div class="theme-preview default"></div>
-                            <p class="theme-label">Default</p>
+                <div class="settings-launcher" id="settingsLauncher">
+                        <button class="settings-menu-toggle" id="settingsMenuToggle" type="button" aria-label="Open menu">
+                            <span class="settings-menu-toggle-icon" aria-hidden="true">&#9776;</span>
+                            <span class="settings-toggle-alert hidden" id="menuMessageAlert">!</span>
                         </button>
-
-                        <button class="theme-card" type="button" data-theme-file="Snow.mp4">
-                            <div class="theme-preview snowy"></div>
-                            <p class="theme-label">Snowy</p>
-                        </button>
-
-                        <button class="theme-card" type="button" data-theme-file="Raining.mp4">
-                            <div class="theme-preview raining"></div>
-                            <p class="theme-label">Raining</p>
-                        </button>
-
-                        <button class="theme-card" type="button" data-theme-file="Night.mp4">
-                            <div class="theme-preview night"></div>
-                            <p class="theme-label">Night</p>
-                        </button>
-
-                        <button class="theme-card" type="button" data-theme-file="special.mp4">
-                            <div class="theme-preview special"></div>
-                            <p class="theme-label">Special</p>
+                    <div class="settings-quick-menu" id="settingsQuickMenu">
+                        <button class="settings-toggle" id="settingsToggle" type="button" aria-label="Open settings" title="Settings">&#9881;</button>
+                        <button class="settings-toggle" id="notesToggle" type="button" aria-label="Write a note" title="Notes">&#128221;</button>
+                        <button class="settings-toggle settings-toggle-status" id="leaderboardToggle" type="button" aria-label="Open online users" title="Online">
+                            <span class="settings-toggle-icon">&#128100;</span>
+                            <span class="settings-toggle-presence">
+                                <span class="settings-toggle-presence-dot"></span>
+                                <span class="settings-toggle-presence-count" id="leaderboardToggleCount">0</span>
+                            </span>
+                            <span class="settings-toggle-alert hidden" id="leaderboardMessageAlert">!</span>
                         </button>
                     </div>
                 </div>
 
-                <!-- Audio tab: upload songs here -->
-                <div class="settings-section" data-settings-section="audio">
-                    <div class="audio-actions">
-                        <label class="audio-upload" id="audioUploadLabel" for="audioUploadInput">Add</label>
-                        <input id="audioUploadInput" type="file" accept="audio/mpeg,audio/mp3" multiple hidden>
-                        <p class="audio-help" id="audioHelp">Pick MP3 files from your phone or computer and they will be uploaded to Supabase storage so they can be used again later.</p>
-                        <p class="audio-status" id="audioStatus"></p>
+                <!-- Idle now-playing text shown in the center -->
+                <div class="floating-now-playing" id="floatingNowPlaying" aria-hidden="true">
+                    <p class="floating-now-playing-label">Now Playing</p>
+                    <p class="floating-now-playing-title" id="floatingNowPlayingTitle">Loading songs...</p>
+                    <p class="floating-now-playing-time" id="floatingNowPlayingTime">0:00 / 0:00</p>
+                </div>
+
+                <!-- Settings panel -->
+                <div class="settings-panel" id="settingsPanel">
+                    <div class="settings-head">
+                        <div style="width: 34px;"></div>
+                        <p class="settings-title">SETTINGS</p>
+                        <button class="settings-close" id="settingsClose" type="button" aria-label="Close settings">x</button>
                     </div>
-                </div>
 
-                <!-- Admin-only user list -->
-                <div class="settings-section" id="userAdminSection" data-settings-section="users">
-                    <div class="settings-group">
-                        <div class="settings-card">
-                            <p class="settings-label-text">Saved Users</p>
-                            <p class="audio-help">Live user entries from Supabase will appear here.</p>
-                            <div class="saved-user-list" id="savedUserList"></div>
-                        </div>
+                    <div class="settings-nav">
+                        <button class="settings-tab active" type="button" data-settings-tab="settings">Settings</button>
+                        <button class="settings-tab" type="button" data-settings-tab="theme">Theme</button>
+                        <button class="settings-tab" type="button" data-settings-tab="audio">Audio</button>
+                        <button class="settings-tab hidden-admin-tab" id="userAdminTab" type="button" data-settings-tab="users">User</button>
                     </div>
-                </div>
-            </div>
 
-            <div class="leaderboard-panel" id="leaderboardPanel">
-                <div class="leaderboard-head">
-                    <p class="leaderboard-title" id="leaderboardTitle">Online Now</p>
-                    <button class="settings-close" id="leaderboardClose" type="button" aria-label="Close leaderboard">x</button>
-                </div>
-                <div class="leaderboard-list" id="leaderboardList"></div>
-            </div>
+                    <!-- Settings tab -->
+                    <div class="settings-section active" data-settings-section="settings">
+                        <div class="settings-group">
+                            <div class="settings-card">
+                                <p class="settings-label-text">Brightness</p>
+                                <input class="settings-range" id="brightnessRange" type="range" min="0.6" max="1.4" step="0.01" value="1">
+                                <p class="settings-value" id="brightnessValue">100%</p>
+                            </div>
 
-            <div class="chat-panel" id="chatPanel">
-                <div class="leaderboard-head">
-                    <div class="chat-head-copy">
-                        <p class="leaderboard-title" id="chatPanelTitle">Messages</p>
-                        <p class="chat-panel-status" id="chatPanelStatus">Select a user to start chatting.</p>
-                    </div>
-                    <button class="settings-close" id="chatClose" type="button" aria-label="Close chat">x</button>
-                </div>
-                <div class="chat-messages" id="chatMessages"></div>
-                <div class="chat-input-wrap">
-                    <textarea class="chat-input" id="chatInput" placeholder="Type a message..."></textarea>
-                    <button class="notes-submit-button chat-send-button" id="chatSendButton" type="button">Send</button>
-                </div>
-            </div>
+                            <div class="settings-card">
+                                <p class="settings-label-text">Music Volume</p>
+                                <input class="settings-range" id="volumeRange" type="range" min="0" max="1" step="0.01" value="1">
+                                <p class="settings-value" id="volumeValue">100%</p>
+                            </div>
 
-            <div class="notes-menu-panel" id="notesMenuPanel">
-                <div class="notes-head">
-                    <div class="notes-head-main">
-                        <p class="leaderboard-title">Notes</p>
-                        <label class="notes-visibility-switch" for="notesVisibilityToggle">
-                            <input id="notesVisibilityToggle" type="checkbox" checked>
-                            <span class="notes-visibility-slider" aria-hidden="true"></span>
-                        </label>
-                    </div>
-                    <button class="settings-close" id="notesMenuClose" type="button" aria-label="Close notes menu">x</button>
-                </div>
-                <div class="notes-menu-actions">
-                    <button class="notes-menu-button" id="notesViewToggle" type="button">Notes</button>
-                    <button class="notes-menu-button" id="notesAddToggle" type="button">New</button>
-                </div>
-            </div>
-
-            <div class="notes-list-panel" id="notesListPanel">
-                <div class="notes-head">
-                    <p class="leaderboard-title">Your Notes</p>
-                    <button class="settings-close" id="notesListClose" type="button" aria-label="Close submitted notes">x</button>
-                </div>
-                <div class="notes-submitted-list" id="notesSubmittedList"></div>
-            </div>
-
-            <div class="notes-panel" id="notesPanel">
-                <div class="notes-head">
-                    <p class="leaderboard-title" id="notesPanelTitle">Write Note</p>
-                    <button class="settings-close" id="notesClose" type="button" aria-label="Close notes">x</button>
-                </div>
-                <div class="notes-paper">
-                    <button class="note-delete-button hidden" id="notesEditorDeleteButton" type="button" aria-label="Delete note">x</button>
-                    <textarea class="notes-textarea" id="notesTextarea" placeholder="Write anything here..."></textarea>
-                </div>
-                <button class="notes-submit-button" id="notesSubmitButton" type="button">Submit</button>
-            </div>
-
-            <div class="note-viewer-panel" id="noteViewerPanel">
-                <div class="notes-head">
-                    <p class="leaderboard-title">Pinned Note</p>
-                    <button class="settings-close" id="noteViewerClose" type="button" aria-label="Close note">x</button>
-                </div>
-                <div class="note-viewer-paper">
-                    <p class="note-viewer-text" id="noteViewerText"></p>
-                    <p class="note-viewer-meta" id="noteViewerMeta"></p>
-                    <div class="note-replies" id="noteRepliesList"></div>
-                    <div class="note-reply-composer hidden" id="noteReplyComposer">
-                        <textarea class="note-reply-textarea" id="noteReplyTextarea" placeholder="Write a reply..."></textarea>
-                        <button class="notes-submit-button note-reply-submit hidden" id="noteReplySubmitButton" type="button">Send Reply</button>
-                    </div>
-                </div>
-                <div class="note-viewer-actions">
-                    <button class="notes-submit-button" id="noteReplyButton" type="button">Reply</button>
-                    <button class="notes-submit-button hidden" id="noteEditButton" type="button">Edit Note</button>
-                </div>
-            </div>
-
-            <div class="presence-notifications" id="presenceNotifications" aria-live="polite"></div>
-            <div class="pinned-notes-layer" id="pinnedNotesLayer" aria-live="polite"></div>
-
-            <!-- Music player -->
-            <div class="player-wrap" id="playerWrap">
-                <div class="player-shell">
-                    <div class="player-decor" aria-hidden="true"></div>
-
-                    <div class="player-header">
-                        <span class="player-note" aria-hidden="true">&#9835;</span>
-                        <div class="now-playing">
-                            <p class="now-playing-title" id="nowPlayingTitle">Loading songs...</p>
+                            <div class="settings-card">
+                                <p class="settings-label-text">Account</p>
+                                <button class="settings-logout-button" id="logoutButton" type="button">Log Out</button>
+                            </div>
                         </div>
                     </div>
 
-                    <div class="player-progress" id="playerProgress" aria-label="Song progress">
-                        <div class="player-progress-track">
-                            <div class="player-progress-fill" id="playerProgressFill"></div>
-                        </div>
+                    <!-- Theme tab: change image file names here if needed -->
+                    <div class="settings-section" data-settings-section="theme">
+                        <div class="settings-info">
+                            <button class="theme-card active" type="button" data-theme-file="default.mp4">
+                                <div class="theme-preview default"></div>
+                                <p class="theme-label">Default</p>
+                            </button>
 
-                        <div class="player-time">
-                            <span id="playerCurrentTime">0:00</span>
-                            <span id="playerDuration">0:00</span>
+                            <button class="theme-card" type="button" data-theme-file="Snow.mp4">
+                                <div class="theme-preview snowy"></div>
+                                <p class="theme-label">Snowy</p>
+                            </button>
+
+                            <button class="theme-card" type="button" data-theme-file="Raining.mp4">
+                                <div class="theme-preview raining"></div>
+                                <p class="theme-label">Raining</p>
+                            </button>
+
+                            <button class="theme-card" type="button" data-theme-file="Night.mp4">
+                                <div class="theme-preview night"></div>
+                                <p class="theme-label">Night</p>
+                            </button>
+
+                            <button class="theme-card" type="button" data-theme-file="special.mp4">
+                                <div class="theme-preview special"></div>
+                                <p class="theme-label">Special</p>
+                            </button>
                         </div>
                     </div>
 
-                    <!-- Music controls -->
-                    <div class="player-controls">
-                        <button class="player-button player-list-toggle" id="playerListToggle" type="button" aria-label="Open playlist">&#9776;</button>
-                        <button class="player-button" id="loopButton" type="button" aria-label="Loop">&#8635;</button>
-                        <button class="player-button" id="prevButton" type="button" aria-label="Previous">&#9198;</button>
-                        <button class="player-button" id="playPauseButton" type="button" aria-label="Play or pause">&#10074;&#10074;</button>
-                        <button class="player-button" id="nextButton" type="button" aria-label="Next">&#9197;</button>
-                        <button class="player-button" id="playerVolumeToggle" type="button" aria-label="Volume">&#128266;</button>
-                    </div>
-
-                    <!-- Playlist -->
-                    <div class="player-playlist-panel" id="playerPlaylistPanel">
-                        <div class="player-playlist-top">
-                            <input class="player-search" id="playerSearchInput" type="text" placeholder="Search" autocomplete="off">
+                    <!-- Audio tab: upload songs here -->
+                    <div class="settings-section" data-settings-section="audio">
+                        <div class="audio-actions">
+                            <label class="audio-upload" id="audioUploadLabel" for="audioUploadInput">Add</label>
+                            <input id="audioUploadInput" type="file" accept="audio/mpeg,audio/mp3" multiple hidden>
+                            <p class="audio-help" id="audioHelp">Pick MP3 files from your phone or computer and they will be uploaded to Supabase storage so they can be used again later.</p>
+                            <p class="audio-status" id="audioStatus"></p>
                         </div>
+                    </div>
 
-                        <div class="player-playlist-titlebar">
-                            <p class="player-playlist-title">Playlist</p>
-                            <p class="player-playlist-subtitle">Songs</p>
+                    <!-- Admin-only user list -->
+                    <div class="settings-section" id="userAdminSection" data-settings-section="users">
+                        <div class="settings-group">
+                            <div class="settings-card">
+                                <p class="settings-label-text">Saved Users</p>
+                                <p class="audio-help">Live user entries from Supabase will appear here.</p>
+                                <div class="saved-user-list" id="savedUserList"></div>
+                            </div>
                         </div>
-
-                        <div class="player-playlist-list" id="playerPlaylistList"></div>
-                    </div>
-
-                    <!-- Volume control -->
-                    <div class="player-volume-panel" id="playerVolumePanel">
-                        <p class="player-volume-label">Volume</p>
-                        <input class="player-volume-slider" id="playerVolumeSlider" type="range" min="0" max="1" step="0.01" value="0.65">
-                    </div>
-
-                    <!-- Animated bars -->
-                    <div class="sound-bars" aria-hidden="true">
-                        <span class="sound-bar"></span>
-                        <span class="sound-bar"></span>
-                        <span class="sound-bar"></span>
-                        <span class="sound-bar"></span>
                     </div>
                 </div>
 
-                <!-- Real audio element used by JavaScript -->
-                <audio class="audio-player" id="audioPlayer" controls preload="metadata"></audio>
-            </div>
-        </div>
-    </section>
+                <div class="leaderboard-panel" id="leaderboardPanel">
+                    <div class="leaderboard-head">
+                        <p class="leaderboard-title" id="leaderboardTitle">Online Now</p>
+                        <button class="settings-close" id="leaderboardClose" type="button" aria-label="Close leaderboard">x</button>
+                    </div>
+                    <div class="leaderboard-list" id="leaderboardList"></div>
+                </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="script.js?v=90"></script>
-</body>
-</html>
+                <div class="chat-panel" id="chatPanel">
+                    <div class="leaderboard-head">
+                        <div class="chat-head-copy">
+                            <p class="leaderboard-title" id="chatPanelTitle">Messages</p>
+                            <p class="chat-panel-status" id="chatPanelStatus">Select a user to start chatting.</p>
+                        </div>
+                        <button class="settings-close" id="chatClose" type="button" aria-label="Close chat">x</button>
+                    </div>
+                    <div class="chat-messages" id="chatMessages"></div>
+                    <div class="chat-input-wrap">
+                        <textarea class="chat-input" id="chatInput" placeholder="Type a message..."></textarea>
+                        <button class="notes-submit-button chat-send-button" id="chatSendButton" type="button">Send</button>
+                    </div>
+                </div>
+
+                <div class="notes-menu-panel" id="notesMenuPanel">
+                    <div class="notes-head">
+                        <div class="notes-head-main">
+                            <p class="leaderboard-title">Notes</p>
+                            <label class="notes-visibility-switch" for="notesVisibilityToggle">
+                                <input id="notesVisibilityToggle" type="checkbox" checked>
+                                <span class="notes-visibility-slider" aria-hidden="true"></span>
+                            </label>
+                        </div>
+                        <button class="settings-close" id="notesMenuClose" type="button" aria-label="Close notes menu">x</button>
+                    </div>
+                    <div class="notes-menu-actions">
+                        <button class="notes-menu-button" id="notesViewToggle" type="button">Notes</button>
+                        <button class="notes-menu-button" id="notesAddToggle" type="button">New</button>
+                    </div>
+                </div>
+
+                <div class="notes-list-panel" id="notesListPanel">
+                    <div class="notes-head">
+                        <p class="leaderboard-title">Your Notes</p>
+                        <button class="settings-close" id="notesListClose" type="button" aria-label="Close submitted notes">x</button>
+                    </div>
+                    <div class="notes-submitted-list" id="notesSubmittedList"></div>
+                </div>
+
+                <div class="notes-panel" id="notesPanel">
+                    <div class="notes-head">
+                        <p class="leaderboard-title" id="notesPanelTitle">Write Note</p>
+                        <button class="settings-close" id="notesClose" type="button" aria-label="Close notes">x</button>
+                    </div>
+                    <div class="notes-paper">
+                        <button class="note-delete-button hidden" id="notesEditorDeleteButton" type="button" aria-label="Delete note">x</button>
+                        <textarea class="notes-textarea" id="notesTextarea" placeholder="Write anything here..."></textarea>
+                    </div>
+                    <button class="notes-submit-button" id="notesSubmitButton" type="button">Submit</button>
+                </div>
+
+                <div class="note-viewer-panel" id="noteViewerPanel">
+                    <div class="notes-head">
+                        <p class="leaderboard-title">Pinned Note</p>
+                        <button class="settings-close" id="noteViewerClose" type="button" aria-label="Close note">x</button>
+                    </div>
+                    <div class="note-viewer-paper">
+                        <p class="note-viewer-text" id="noteViewerText"></p>
+                        <p class="note-viewer-meta" id="noteViewerMeta"></p>
+                        <div class="note-replies" id="noteRepliesList"></div>
+                        <div class="note-reply-composer hidden" id="noteReplyComposer">
+                            <textarea class="note-reply-textarea" id="noteReplyTextarea" placeholder="Write a reply..."></textarea>
+                            <button class="notes-submit-button note-reply-submit hidden" id="noteReplySubmitButton" type="button">Send Reply</button>
+                        </div>
+                    </div>
+                    <div class="note-viewer-actions">
+                        <button class="notes-submit-button" id="noteReplyButton" type="button">Reply</button>
+                        <button class="notes-submit-button hidden" id="noteEditButton" type="button">Edit Note</button>
+                    </div>
+                </div>
+
+                <div class="presence-notifications" id="presenceNotifications" aria-live="polite"></div>
+                <div class="pinned-notes-layer" id="pinnedNotesLayer" aria-live="polite"></div>
+
+                <!-- Music player -->
+                <div class="player-wrap" id="playerWrap">
+                    <div class="player-shell">
+                        <div class="player-decor" aria-hidden="true"></div>
+
+                        <div class="player-header">
+                            <span class="player-note" aria-hidden="true">&#9835;</span>
+                            <div class="now-playing">
+                                <p class="now-playing-title" id="nowPlayingTitle">Loading songs...</p>
+                            </div>
+                        </div>
+
+                        <div class="player-progress" id="playerProgress" aria-label="Song progress">
+                            <div class="player-progress-track">
+                                <div class="player-progress-fill" id="playerProgressFill"></div>
+                            </div>
+
+                            <div class="player-time">
+                                <span id="playerCurrentTime">0:00</span>
+                                <span id="playerDuration">0:00</span>
+                            </div>
+                        </div>
+
+                        <!-- Music controls -->
+                        <div class="player-controls">
+                            <button class="player-button player-list-toggle" id="playerListToggle" type="button" aria-label="Open playlist">&#9776;</button>
+                            <button class="player-button" id="loopButton" type="button" aria-label="Loop">&#8635;</button>
+                            <button class="player-button" id="prevButton" type="button" aria-label="Previous">&#9198;</button>
+                            <button class="player-button" id="playPauseButton" type="button" aria-label="Play or pause">&#10074;&#10074;</button>
+                            <button class="player-button" id="nextButton" type="button" aria-label="Next">&#9197;</button>
+                            <button class="player-button" id="playerVolumeToggle" type="button" aria-label="Volume">&#128266;</button>
+                        </div>
+
+                        <!-- Playlist -->
+                        <div class="player-playlist-panel" id="playerPlaylistPanel">
+                            <div class="player-playlist-top">
+                                <input class="player-search" id="playerSearchInput" type="text" placeholder="Search" autocomplete="off">
+                            </div>
+
+                            <div class="player-playlist-titlebar">
+                                <p class="player-playlist-title">Playlist</p>
+                                <p class="player-playlist-subtitle">Songs</p>
+                            </div>
+
+                            <div class="player-playlist-list" id="playerPlaylistList"></div>
+                        </div>
+
+                        <!-- Volume control -->
+                        <div class="player-volume-panel" id="playerVolumePanel">
+                            <p class="player-volume-label">Volume</p>
+                            <input class="player-volume-slider" id="playerVolumeSlider" type="range" min="0" max="1" step="0.01" value="0.65">
+                        </div>
+
+                        <!-- Animated bars -->
+                        <div class="sound-bars" aria-hidden="true">
+                            <span class="sound-bar"></span>
+                            <span class="sound-bar"></span>
+                            <span class="sound-bar"></span>
+                            <span class="sound-bar"></span>
+                        </div>
+                    </div>
+
+                    <!-- Real audio element used by JavaScript -->
+                    <audio class="audio-player" id="audioPlayer" controls preload="metadata"></audio>
+                </div>
+            </div>
+        </section>
+
+        <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+        <script src="script.js?v=90"></script>
+    </body>
+    </html>
