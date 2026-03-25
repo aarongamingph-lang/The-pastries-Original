@@ -31,10 +31,12 @@
                 const playerWrap = document.getElementById("playerWrap");
                 const settingsLauncher = document.getElementById("settingsLauncher");
                 const settingsMenuToggle = document.getElementById("settingsMenuToggle");
+                const menuMessageAlert = document.getElementById("menuMessageAlert");
                 const settingsToggle = document.getElementById("settingsToggle");
                 const notesToggle = document.getElementById("notesToggle");
                 const leaderboardToggle = document.getElementById("leaderboardToggle");
                 const leaderboardToggleCount = document.getElementById("leaderboardToggleCount");
+                const leaderboardMessageAlert = document.getElementById("leaderboardMessageAlert");
                 const logoutButton = document.getElementById("logoutButton");
                 const settingsPanel = document.getElementById("settingsPanel");
                 const settingsClose = document.getElementById("settingsClose");
@@ -565,6 +567,8 @@
                         leaderboardTitle.textContent = `User Status (${onlineCount} Online)`;
                     }
 
+                    updateMenuMessageAlert();
+
                     const boardHeader = document.createElement("div");
                     boardHeader.className = "leaderboard-columns";
                     boardHeader.innerHTML = `
@@ -657,6 +661,31 @@
                         item.appendChild(status);
                         leaderboardList.appendChild(item);
                     });
+                }
+
+                function getTotalUnreadMessageCount() {
+                    if (!profileData?.id) {
+                        return 0;
+                    }
+
+                    return messagesEntries.filter((message) =>
+                        message.receiver_id === profileData.id &&
+                        !message.is_read
+                    ).length;
+                }
+
+                function updateMenuMessageAlert() {
+                    const unreadCount = getTotalUnreadMessageCount();
+                    const showAlert = unreadCount > 0;
+                    const quickMenuOpen = settingsLauncher?.classList.contains("open");
+
+                    if (menuMessageAlert) {
+                        menuMessageAlert.classList.toggle("hidden", !showAlert || quickMenuOpen);
+                    }
+
+                    if (leaderboardMessageAlert) {
+                        leaderboardMessageAlert.classList.toggle("hidden", !showAlert || !quickMenuOpen);
+                    }
                 }
 
                 async function refreshLeaderboard() {
@@ -797,6 +826,7 @@
                     chatInput.value = "";
                     leaderboardPanel.classList.remove("open");
                     settingsLauncher.classList.remove("open");
+                    updateMenuMessageAlert();
                     chatPanel.classList.add("open");
                     renderChatMessages();
                     await markConversationAsRead(entry.id);
@@ -1834,6 +1864,7 @@
                     renderLeaderboard();
                     renderChatMessages();
                     settingsLauncher.classList.remove("open");
+                    updateMenuMessageAlert();
                     settingsPanel.classList.remove("open");
                     leaderboardPanel.classList.remove("open");
                     chatPanel.classList.remove("open");
@@ -2024,6 +2055,7 @@
                         notesPanel.classList.remove("open");
                         noteViewerPanel.classList.remove("open");
                         settingsLauncher.classList.remove("open");
+                        updateMenuMessageAlert();
 
                         if (songs.length > 0) {
                             setCurrentSong(currentSongIndex < songs.length ? currentSongIndex : 0, true);
@@ -2710,6 +2742,7 @@
 
                     settingsToggle.addEventListener("click", async () => {
                         settingsLauncher.classList.remove("open");
+                        updateMenuMessageAlert();
                         notesMenuPanel.classList.remove("open");
                         notesListPanel.classList.remove("open");
                         notesPanel.classList.remove("open");
@@ -2725,10 +2758,12 @@
 
                     settingsMenuToggle.addEventListener("click", () => {
                         settingsLauncher.classList.toggle("open");
+                        updateMenuMessageAlert();
                     });
 
                     notesToggle.addEventListener("click", () => {
                         settingsLauncher.classList.remove("open");
+                        updateMenuMessageAlert();
                         settingsPanel.classList.remove("open");
                         leaderboardPanel.classList.remove("open");
                         noteViewerPanel.classList.remove("open");
@@ -2756,6 +2791,7 @@
 
                     leaderboardToggle.addEventListener("click", async () => {
                         settingsLauncher.classList.remove("open");
+                        updateMenuMessageAlert();
                         settingsPanel.classList.remove("open");
                         chatPanel.classList.remove("open");
                         notesMenuPanel.classList.remove("open");
@@ -2822,6 +2858,7 @@
 
                     logoutButton.addEventListener("click", async () => {
                         settingsLauncher.classList.remove("open");
+                        updateMenuMessageAlert();
                         audioPlayer.pause();
                         audioPlayer.currentTime = 0;
                         audioAutoplayPending = false;
@@ -3000,9 +3037,10 @@
                             closePlayerUi();
                         }
 
-                        if (!clickedSettings && !clickedSettingsLauncher) {
-                            settingsLauncher.classList.remove("open");
-                        }
+                    if (!clickedSettings && !clickedSettingsLauncher) {
+                        settingsLauncher.classList.remove("open");
+                        updateMenuMessageAlert();
+                    }
 
                         if (!clickedLeaderboard && event.target !== leaderboardToggle) {
                             leaderboardPanel.classList.remove("open");
