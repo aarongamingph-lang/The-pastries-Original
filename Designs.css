@@ -465,6 +465,7 @@
             }
 
             .settings-menu-toggle {
+                position: relative;
                 width: 58px;
                 height: 58px;
                 border: 1px solid rgba(255, 255, 255, 0.16);
@@ -478,6 +479,10 @@
                 box-shadow: 0 12px 32px rgba(0, 0, 0, 0.2);
                 backdrop-filter: blur(14px);
                 -webkit-backdrop-filter: blur(14px);
+            }
+
+            .settings-menu-toggle-icon {
+                line-height: 1;
             }
 
             .settings-menu-toggle:hover,
@@ -571,6 +576,25 @@
                 font-size: 0.7rem;
                 font-weight: 700;
                 line-height: 1;
+            }
+
+            .settings-toggle-alert {
+                position: absolute;
+                top: -6px;
+                right: -6px;
+                width: 20px;
+                height: 20px;
+                border-radius: 50%;
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                background: #ff4d4f;
+                color: #fff;
+                font-size: 0.72rem;
+                font-weight: 800;
+                line-height: 1;
+                border: 1px solid rgba(255, 255, 255, 0.28);
+                box-shadow: 0 8px 18px rgba(0, 0, 0, 0.24);
             }
 
             .leaderboard-panel {
@@ -3229,6 +3253,14 @@
 
                 .settings-toggle-presence-count {
                     font-size: 0.64rem;
+                }
+
+                .settings-toggle-alert {
+                    top: -5px;
+                    right: -5px;
+                    width: 18px;
+                    height: 18px;
+                    font-size: 0.66rem;
                 }
 
                 .settings-quick-menu {
