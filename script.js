@@ -1090,6 +1090,8 @@
                     const maxTop = Math.max(minTop, 92 - verticalGapPercent);
                     const minLeft = 4;
                     const maxLeft = Math.max(minLeft, 96 - horizontalGapPercent);
+                    const reservedLeftMax = layerWidth <= 932 ? 42 : 30;
+                    const reservedTopMin = layerWidth <= 932 ? 58 : 72;
                     let layout = null;
 
                     for (let attempt = 0; attempt < 80; attempt += 1) {
@@ -1098,6 +1100,12 @@
                             left: minLeft + Math.random() * Math.max(1, maxLeft - minLeft),
                             rotate: -6 + Math.random() * 12
                         };
+
+                        const overlapsPlayerZone = candidate.left < reservedLeftMax && candidate.top > reservedTopMin;
+
+                        if (overlapsPlayerZone) {
+                            continue;
+                        }
 
                         const overlapsExisting = Array.from(noteLayoutMap.values()).some((placedLayout) => {
                             const horizontalOverlap = Math.abs(candidate.left - placedLayout.left) < horizontalGapPercent;
@@ -1121,6 +1129,11 @@
                             left: Math.min(maxLeft, minLeft + column * Math.max(horizontalGapPercent, 10)),
                             rotate: -4 + Math.random() * 8
                         };
+
+                        if (layout.left < reservedLeftMax && layout.top > reservedTopMin) {
+                            layout.top = Math.max(minTop, reservedTopMin - verticalGapPercent - 4);
+                            layout.left = Math.min(maxLeft, reservedLeftMax + 4);
+                        }
                     }
 
                     noteLayoutMap.set(noteKey, layout);
