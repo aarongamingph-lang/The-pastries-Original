@@ -1080,11 +1080,48 @@
                         return existingLayout;
                     }
 
-                    const layout = {
-                        top: 8 + Math.random() * 72,
-                        left: 6 + Math.random() * 82,
-                        rotate: -6 + Math.random() * 12
-                    };
+                    const layerWidth = pinnedNotesLayer?.clientWidth || window.innerWidth || 932;
+                    const layerHeight = pinnedNotesLayer?.clientHeight || window.innerHeight || 430;
+                    const noteWidth = layerWidth <= 932 ? 44 : 60;
+                    const noteHeight = layerWidth <= 932 ? 44 : 76;
+                    const horizontalGapPercent = ((noteWidth + 14) / Math.max(layerWidth, 1)) * 100;
+                    const verticalGapPercent = ((noteHeight + 18) / Math.max(layerHeight, 1)) * 100;
+                    const minTop = 6;
+                    const maxTop = Math.max(minTop, 92 - verticalGapPercent);
+                    const minLeft = 4;
+                    const maxLeft = Math.max(minLeft, 96 - horizontalGapPercent);
+                    let layout = null;
+
+                    for (let attempt = 0; attempt < 80; attempt += 1) {
+                        const candidate = {
+                            top: minTop + Math.random() * Math.max(1, maxTop - minTop),
+                            left: minLeft + Math.random() * Math.max(1, maxLeft - minLeft),
+                            rotate: -6 + Math.random() * 12
+                        };
+
+                        const overlapsExisting = Array.from(noteLayoutMap.values()).some((placedLayout) => {
+                            const horizontalOverlap = Math.abs(candidate.left - placedLayout.left) < horizontalGapPercent;
+                            const verticalOverlap = Math.abs(candidate.top - placedLayout.top) < verticalGapPercent;
+                            return horizontalOverlap && verticalOverlap;
+                        });
+
+                        if (!overlapsExisting) {
+                            layout = candidate;
+                            break;
+                        }
+                    }
+
+                    if (!layout) {
+                        const columnCount = Math.max(2, Math.floor((maxLeft - minLeft) / Math.max(horizontalGapPercent, 8)) + 1);
+                        const row = Math.floor(index / columnCount);
+                        const column = index % columnCount;
+
+                        layout = {
+                            top: Math.min(maxTop, minTop + row * Math.max(verticalGapPercent, 10)),
+                            left: Math.min(maxLeft, minLeft + column * Math.max(horizontalGapPercent, 10)),
+                            rotate: -4 + Math.random() * 8
+                        };
+                    }
 
                     noteLayoutMap.set(noteKey, layout);
                     return layout;
@@ -1176,8 +1213,8 @@
                 }
 
                 function openNotesEditor(note = null) {
-                    if (!note && getOwnNotesCount() >= 5) {
-                        showPresenceToast("You can only create up to 5 notes.");
+                    if (!note && getOwnNotesCount() >= 3) {
+                        showPresenceToast("You can only create up to 3 notes.");
                         return;
                     }
 
@@ -1517,8 +1554,8 @@
                         return;
                     }
 
-                    if (!editingNoteId && getOwnNotesCount() >= 5) {
-                        showPresenceToast("You can only create up to 5 notes.");
+                    if (!editingNoteId && getOwnNotesCount() >= 3) {
+                        showPresenceToast("You can only create up to 3 notes.");
                         return;
                     }
 
