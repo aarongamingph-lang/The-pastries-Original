@@ -3745,3 +3745,59 @@
             body.mobile-keyboard-open .notes-textarea {
                 min-height: 150px;
             }
+
+            @media (max-width: 932px) {
+                body.main-page-active {
+                    background:
+                        radial-gradient(circle at 20% 18%, rgba(255, 255, 255, 0.08), transparent 28%) !important,
+                        radial-gradient(circle at 82% 78%, rgba(255, 255, 255, 0.05), transparent 24%) !important,
+                        linear-gradient(180deg, rgba(18, 18, 18, 0.92), rgba(7, 7, 7, 0.98)) !important;
+                }
+
+                .main-page,
+                .main-page-content,
+                .pinned-notes-layer {
+                    width: 100% !important;
+                    max-width: 100% !important;
+                    min-height: 100dvh !important;
+                    height: 100dvh !important;
+                }
+
+                .main-page::before {
+                    inset: -10% !important;
+                    background-size: cover !important;
+                    background-position: center center !important;
+                    transform: scale(1.18) !important;
+                }
+
+                .main-page-video {
+                    inset: 0 !important;
+                    width: 100% !important;
+                    height: 100% !important;
+                    object-fit: cover !important;
+                    object-position: center center !important;
+                }
+
+                .leaderboard-panel,
+                .chat-panel,
+                .notes-menu-panel,
+                .notes-list-panel,
+                .notes-panel,
+                .note-viewer-panel {
+                    width: min(78vw, 360px) !important;
+                    max-width: 78vw !important;
+                }
+            }
+
+            @media (max-width: 932px) and (orientation: landscape) {
+                .leaderboard-panel,
+                .chat-panel,
+                .notes-menu-panel,
+                .notes-list-panel,
+                .notes-panel,
+                .note-viewer-panel {
+                    width: min(46vw, 320px) !important;
+                    max-width: 320px !important;
+                    max-height: calc(100dvh - 16px) !important;
+                }
+            }
