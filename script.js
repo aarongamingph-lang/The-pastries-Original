@@ -54,6 +54,13 @@
             const leaderboardClose = document.getElementById("leaderboardClose");
             const leaderboardList = document.getElementById("leaderboardList");
             const leaderboardTitle = document.getElementById("leaderboardTitle");
+            const chatPanel = document.getElementById("chatPanel");
+            const chatClose = document.getElementById("chatClose");
+            const chatPanelTitle = document.getElementById("chatPanelTitle");
+            const chatPanelStatus = document.getElementById("chatPanelStatus");
+            const chatMessages = document.getElementById("chatMessages");
+            const chatInput = document.getElementById("chatInput");
+            const chatSendButton = document.getElementById("chatSendButton");
             const notesMenuPanel = document.getElementById("notesMenuPanel");
             const notesMenuClose = document.getElementById("notesMenuClose");
             const notesVisibilityToggle = document.getElementById("notesVisibilityToggle");
@@ -117,6 +124,7 @@
             const NOTES_TABLE = "notes";
             const NOTE_READS_TABLE = "note_reads";
             const NOTE_REPLIES_TABLE = "note_replies";
+            const MESSAGES_TABLE = "messages";
             const supabaseClient = window.supabase
                 ? window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY)
                 : null;
@@ -154,16 +162,19 @@
             let notesEntries = [];
             let noteRepliesEntries = [];
             let noteReadMap = new Map();
+            let messagesEntries = [];
             let onlineUsers = [];
             let presenceChannel = null;
             let notesChannel = null;
             let noteRepliesChannel = null;
+            let messagesChannel = null;
             let presenceSyncStarted = false;
             let knownPresenceUserIds = new Set();
             let suppressPresenceJoinToastsUntil = 0;
             let welcomeNowPlayingTimeout = null;
             let editingNoteId = null;
             let activeViewerNoteId = null;
+            let activeChatUserId = null;
             let remainingBouncingTextIndices = [];
             let remainingSongIndices = [];
             let noteLayoutMap = new Map();
@@ -558,7 +569,7 @@
                 boardHeader.className = "leaderboard-columns";
                 boardHeader.innerHTML = `
                     <span>Name</span>
-                    <span>Status</span>
+                    <span>Status / Action</span>
                 `;
                 leaderboardList.appendChild(boardHeader);
 
@@ -572,6 +583,7 @@
 
                 leaderboardEntries.forEach((entry) => {
                     const isOnline = onlineUserIds.has(entry.id);
+                    const unreadCount = getUnreadCountForSender(entry.id);
                     const item = document.createElement("div");
                     item.className = "leaderboard-item";
 
@@ -608,6 +620,26 @@
                     status.appendChild(dot);
                     status.appendChild(statusText);
 
+                    if (entry.id !== profileData?.id) {
+                        const messageButton = document.createElement("button");
+                        messageButton.type = "button";
+                        messageButton.className = "leaderboard-message-button";
+                        messageButton.setAttribute("aria-label", `Message ${entry.username}`);
+                        messageButton.textContent = "💬";
+                        messageButton.addEventListener("click", async (event) => {
+                            event.stopPropagation();
+                            await openChatPanelWithUser(entry);
+                        });
+                        status.appendChild(messageButton);
+
+                        if (unreadCount > 0) {
+                            const unreadBadge = document.createElement("span");
+                            unreadBadge.className = "leaderboard-message-badge";
+                            unreadBadge.textContent = String(unreadCount);
+                            status.appendChild(unreadBadge);
+                        }
+                    }
+
                     if (isAdminUser()) {
                         const deleteButton = document.createElement("button");
                         deleteButton.type = "button";
@@ -631,6 +663,233 @@
                 await loadLeaderboard();
                 syncOnlineUsersFromPresence();
                 renderLeaderboard();
+            }
+
+            function getUnreadCountForSender(senderId) {
+                if (!profileData?.id || !senderId) {
+                    return 0;
+                }
+
+                return messagesEntries.filter((message) =>
+                    message.receiver_id === profileData.id &&
+                    message.sender_id === senderId &&
+                    !message.is_read
+                ).length;
+            }
+
+            function isUserOnline(userId) {
+                return onlineUsers.some((user) => user.id === userId);
+            }
+
+            function formatChatStatus(entry) {
+                if (!entry) {
+                    return "Select a user to start chatting.";
+                }
+
+                return isUserOnline(entry.id) ? "Online" : "Offline";
+            }
+
+            function getConversationMessages(otherUserId) {
+                if (!profileData?.id || !otherUserId) {
+                    return [];
+                }
+
+                return messagesEntries
+                    .filter((message) =>
+                        (message.sender_id === profileData.id && message.receiver_id === otherUserId) ||
+                        (message.sender_id === otherUserId && message.receiver_id === profileData.id)
+                    )
+                    .sort((left, right) => new Date(left.created_at) - new Date(right.created_at));
+            }
+
+            function renderChatMessages() {
+                if (!chatMessages) {
+                    return;
+                }
+
+                chatMessages.innerHTML = "";
+
+                if (!activeChatUserId) {
+                    const empty = document.createElement("div");
+                    empty.className = "chat-empty";
+                    empty.textContent = "Pick a user from the status board to open a private chat.";
+                    chatMessages.appendChild(empty);
+                    return;
+                }
+
+                const conversation = getConversationMessages(activeChatUserId);
+
+                if (conversation.length === 0) {
+                    const empty = document.createElement("div");
+                    empty.className = "chat-empty";
+                    empty.textContent = "No messages yet. Start the conversation.";
+                    chatMessages.appendChild(empty);
+                    return;
+                }
+
+                conversation.forEach((message) => {
+                    const bubble = document.createElement("div");
+                    const isOwnMessage = message.sender_id === profileData?.id;
+                    bubble.className = `chat-bubble ${isOwnMessage ? "own" : "other"}`;
+
+                    const text = document.createElement("p");
+                    text.className = "chat-bubble-text";
+                    text.textContent = message.content || "";
+
+                    const meta = document.createElement("p");
+                    meta.className = "chat-bubble-meta";
+                    meta.textContent = `${message.sender_username || "Unknown"} | ${formatNoteDate(message.created_at)}`;
+
+                    bubble.appendChild(text);
+                    bubble.appendChild(meta);
+                    chatMessages.appendChild(bubble);
+                });
+
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+            }
+
+            async function markConversationAsRead(otherUserId) {
+                if (!supabaseClient || !profileData?.id || !otherUserId) {
+                    return;
+                }
+
+                const unreadMessages = messagesEntries.filter((message) =>
+                    message.receiver_id === profileData.id &&
+                    message.sender_id === otherUserId &&
+                    !message.is_read
+                );
+
+                if (unreadMessages.length === 0) {
+                    return;
+                }
+
+                unreadMessages.forEach((message) => {
+                    message.is_read = true;
+                });
+
+                renderLeaderboard();
+                renderChatMessages();
+
+                const unreadIds = unreadMessages.map((message) => message.id).filter(Boolean);
+
+                if (unreadIds.length === 0) {
+                    return;
+                }
+
+                const { error } = await supabaseClient
+                    .from(MESSAGES_TABLE)
+                    .update({ is_read: true })
+                    .in("id", unreadIds);
+
+                if (error) {
+                    console.error("Could not mark messages as read:", error.message);
+                }
+            }
+
+            async function openChatPanelWithUser(entry) {
+                if (!entry?.id || entry.id === profileData?.id) {
+                    return;
+                }
+
+                activeChatUserId = entry.id;
+                chatPanelTitle.textContent = entry.username || "Messages";
+                chatPanelStatus.textContent = formatChatStatus(entry);
+                chatInput.value = "";
+                leaderboardPanel.classList.remove("open");
+                settingsLauncher.classList.remove("open");
+                chatPanel.classList.add("open");
+                renderChatMessages();
+                await markConversationAsRead(entry.id);
+            }
+
+            async function loadMessages() {
+                if (!supabaseClient || !profileData?.id) {
+                    messagesEntries = [];
+                    renderChatMessages();
+                    renderLeaderboard();
+                    return;
+                }
+
+                const { data, error } = await supabaseClient
+                    .from(MESSAGES_TABLE)
+                    .select("id, sender_id, sender_username, receiver_id, receiver_username, content, created_at, is_read")
+                    .or(`sender_id.eq.${profileData.id},receiver_id.eq.${profileData.id}`)
+                    .order("created_at", { ascending: true });
+
+                if (error) {
+                    console.error("Could not load messages:", error.message);
+                    return;
+                }
+
+                messagesEntries = data || [];
+                renderChatMessages();
+                renderLeaderboard();
+            }
+
+            async function sendChatMessage() {
+                if (!supabaseClient || !profileData?.id || !currentUser || !activeChatUserId) {
+                    return;
+                }
+
+                const targetUser = leaderboardEntries.find((entry) => entry.id === activeChatUserId);
+                const messageContent = chatInput.value.trim();
+
+                if (!targetUser || !messageContent) {
+                    return;
+                }
+
+                chatSendButton.disabled = true;
+
+                const { error } = await supabaseClient
+                    .from(MESSAGES_TABLE)
+                    .insert({
+                        sender_id: profileData.id,
+                        sender_username: currentUser,
+                        receiver_id: targetUser.id,
+                        receiver_username: targetUser.username,
+                        content: messageContent,
+                        created_at: new Date().toISOString(),
+                        is_read: false
+                    });
+
+                chatSendButton.disabled = false;
+
+                if (error) {
+                    console.error("Could not send message:", error.message);
+                    showPresenceToast("Could not send message.");
+                    return;
+                }
+
+                chatInput.value = "";
+                await loadMessages();
+            }
+
+            async function connectMessagesRealtime() {
+                if (!supabaseClient) {
+                    return;
+                }
+
+                if (messagesChannel) {
+                    return;
+                }
+
+                messagesChannel = supabaseClient
+                    .channel("shared-messages")
+                    .on(
+                        "postgres_changes",
+                        { event: "*", schema: "public", table: MESSAGES_TABLE },
+                        async () => {
+                            await loadMessages();
+
+                            if (activeChatUserId) {
+                                await markConversationAsRead(activeChatUserId);
+                                const activeEntry = leaderboardEntries.find((entry) => entry.id === activeChatUserId);
+                                chatPanelStatus.textContent = formatChatStatus(activeEntry);
+                            }
+                        }
+                    );
+
+                messagesChannel.subscribe();
             }
 
             function formatNoteDate(dateValue) {
@@ -836,6 +1095,7 @@
                 return [
                     settingsPanel,
                     leaderboardPanel,
+                    chatPanel,
                     notesMenuPanel,
                     notesListPanel,
                     notesPanel,
@@ -1557,8 +1817,9 @@
                 loadNotesVisibilityPreference();
                 onlineUsers = [];
                 renderLeaderboard();
-                await Promise.all([loadNotes(), loadNoteReads(), loadNoteReplies()]);
+                await Promise.all([loadNotes(), loadNoteReads(), loadNoteReplies(), loadMessages()]);
                 await connectNotesRealtime();
+                await connectMessagesRealtime();
                 setActiveScreen(landscapeScreen);
             }
 
@@ -1567,12 +1828,15 @@
                 currentUser = "";
                 onlineUsers = [];
                 noteReadMap = new Map();
+                messagesEntries = [];
                 localStorage.removeItem(LOCAL_SESSION_KEY);
                 renderPinnedNotes();
                 renderLeaderboard();
+                renderChatMessages();
                 settingsLauncher.classList.remove("open");
                 settingsPanel.classList.remove("open");
                 leaderboardPanel.classList.remove("open");
+                chatPanel.classList.remove("open");
                 notesMenuPanel.classList.remove("open");
                 notesListPanel.classList.remove("open");
                 notesPanel.classList.remove("open");
@@ -1580,6 +1844,8 @@
                 noteReplyComposer.classList.add("hidden");
                 noteReplyTextarea.value = "";
                 activeViewerNoteId = null;
+                activeChatUserId = null;
+                chatInput.value = "";
                 nameInput.value = "";
                 passwordInput.value = "";
                 confirmPasswordInput.value = "";
@@ -2491,6 +2757,7 @@
                 leaderboardToggle.addEventListener("click", async () => {
                     settingsLauncher.classList.remove("open");
                     settingsPanel.classList.remove("open");
+                    chatPanel.classList.remove("open");
                     notesMenuPanel.classList.remove("open");
                     notesListPanel.classList.remove("open");
                     notesPanel.classList.remove("open");
@@ -2509,6 +2776,12 @@
 
                 leaderboardClose.addEventListener("click", () => {
                     leaderboardPanel.classList.remove("open");
+                });
+
+                chatClose.addEventListener("click", () => {
+                    chatPanel.classList.remove("open");
+                    activeChatUserId = null;
+                    chatInput.value = "";
                 });
 
                 notesClose.addEventListener("click", () => {
@@ -2539,6 +2812,13 @@
 
                 notesSubmitButton.addEventListener("click", submitNote);
                 noteReplySubmitButton.addEventListener("click", submitNoteReply);
+                chatSendButton.addEventListener("click", sendChatMessage);
+                chatInput.addEventListener("keydown", async (event) => {
+                    if (event.key === "Enter" && !event.shiftKey) {
+                        event.preventDefault();
+                        await sendChatMessage();
+                    }
+                });
 
                 logoutButton.addEventListener("click", async () => {
                     settingsLauncher.classList.remove("open");
@@ -2560,20 +2840,27 @@
                         await supabaseClient.removeChannel(noteRepliesChannel);
                         noteRepliesChannel = null;
                     }
+                    if (messagesChannel) {
+                        await supabaseClient.removeChannel(messagesChannel);
+                        messagesChannel = null;
+                    }
                     onlineUsers = [];
                     notesEntries = [];
                     noteRepliesEntries = [];
                     noteReadMap = new Map();
+                    messagesEntries = [];
                     notesVisibilityEnabled = true;
                     renderPinnedNotes();
                     renderSubmittedNotes();
                     renderNoteReplies(null);
                     renderLeaderboard();
+                    renderChatMessages();
                     profileData = null;
                     currentUser = "";
                     localStorage.removeItem(LOCAL_SESSION_KEY);
                     settingsPanel.classList.remove("open");
                     leaderboardPanel.classList.remove("open");
+                    chatPanel.classList.remove("open");
                     notesMenuPanel.classList.remove("open");
                     notesListPanel.classList.remove("open");
                     notesPanel.classList.remove("open");
@@ -2581,6 +2868,7 @@
                     noteReplyComposer.classList.add("hidden");
                     noteReplyTextarea.value = "";
                     activeViewerNoteId = null;
+                    activeChatUserId = null;
                     showAuthMessage("Logged out.", "success");
                     setActiveScreen(lockScreen);
                 });
@@ -2701,13 +2989,14 @@
                     const clickedNowPlaying = floatingNowPlaying.contains(event.target);
                     const clickedSettings = settingsPanel.contains(event.target);
                     const clickedLeaderboard = leaderboardPanel.contains(event.target);
+                    const clickedChat = chatPanel.contains(event.target);
                     const clickedNotesMenu = notesMenuPanel.contains(event.target);
                     const clickedNotesList = notesListPanel.contains(event.target);
                     const clickedNotesPanel = notesPanel.contains(event.target);
                     const clickedNoteViewer = noteViewerPanel.contains(event.target);
                     const clickedSettingsLauncher = settingsLauncher.contains(event.target);
 
-                    if (!clickedInsidePlayer && !clickedNowPlaying && !clickedSettings && !clickedLeaderboard && !clickedNotesMenu && !clickedNotesList && !clickedNotesPanel && !clickedNoteViewer && !clickedSettingsLauncher) {
+                    if (!clickedInsidePlayer && !clickedNowPlaying && !clickedSettings && !clickedLeaderboard && !clickedChat && !clickedNotesMenu && !clickedNotesList && !clickedNotesPanel && !clickedNoteViewer && !clickedSettingsLauncher) {
                         closePlayerUi();
                     }
 
@@ -2717,6 +3006,10 @@
 
                     if (!clickedLeaderboard && event.target !== leaderboardToggle) {
                         leaderboardPanel.classList.remove("open");
+                    }
+
+                    if (!clickedChat && !event.target.closest(".leaderboard-message-button")) {
+                        chatPanel.classList.remove("open");
                     }
 
                     if (!clickedNotesMenu && event.target !== notesToggle) {
