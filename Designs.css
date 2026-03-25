@@ -344,7 +344,7 @@
             .main-page::before {
                 content: "";
                 position: absolute;
-                inset: -4%;
+                inset: -8%;
                 z-index: 0;
                 background:
                     linear-gradient(rgba(0, 0, 0, 0.04), rgba(0, 0, 0, 0.12)),
@@ -612,9 +612,9 @@
                 top: 50%;
                 left: 50%;
                 z-index: 4;
-                width: min(94vw, 720px);
-                max-height: min(78vh, 720px);
-                padding: 22px;
+                width: min(92vw, 520px);
+                max-height: min(82vh, 760px);
+                padding: 20px;
                 border: 1px solid rgba(255, 255, 255, 0.16);
                 border-radius: 28px;
                 background: rgba(12, 12, 12, 0.28);
@@ -3257,7 +3257,7 @@
                     inset: 0;
                     background-size: cover;
                     background-position: center center;
-                    transform: scale(1.08);
+                    transform: scale(1.14);
                     animation: none;
                 }
 
@@ -3393,9 +3393,9 @@
                 }
 
                 .chat-panel {
-                    width: min(52vw, 210px);
-                    max-width: calc(100vw - 20px - env(safe-area-inset-left) - env(safe-area-inset-right));
-                    max-height: min(74dvh, 520px);
+                    width: min(78vw, 360px);
+                    max-width: 78vw;
+                    max-height: min(82dvh, 720px);
                 }
 
                 .settings-head,
