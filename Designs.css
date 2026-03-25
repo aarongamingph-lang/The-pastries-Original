@@ -3002,6 +3002,11 @@
                     padding: 10px;
                 }
 
+                .chat-panel {
+                    width: min(32vw, 280px);
+                    max-width: 280px;
+                }
+
                 .pinned-note {
                     width: 54px;
                     height: 70px;
@@ -3353,8 +3358,8 @@
                 }
 
                 .chat-panel {
-                    width: min(74vw, 320px);
-                    max-width: 74vw;
+                    width: min(52vw, 210px);
+                    max-width: calc(100vw - 20px - env(safe-area-inset-left) - env(safe-area-inset-right));
                     max-height: min(74dvh, 520px);
                 }
 
