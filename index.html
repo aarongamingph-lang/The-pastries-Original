@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>THE PASTRIES SPECIAL</title>
-    <link rel="stylesheet" href="Designs.css?v=80">
+    <link rel="stylesheet" href="Designs.css?v=81">
 </head>
 <body>
     <!-- Background dots used on the opening screens -->
@@ -197,6 +197,21 @@
                 <div class="leaderboard-list" id="leaderboardList"></div>
             </div>
 
+            <div class="chat-panel" id="chatPanel">
+                <div class="leaderboard-head">
+                    <div class="chat-head-copy">
+                        <p class="leaderboard-title" id="chatPanelTitle">Messages</p>
+                        <p class="chat-panel-status" id="chatPanelStatus">Select a user to start chatting.</p>
+                    </div>
+                    <button class="settings-close" id="chatClose" type="button" aria-label="Close chat">x</button>
+                </div>
+                <div class="chat-messages" id="chatMessages"></div>
+                <div class="chat-input-wrap">
+                    <textarea class="chat-input" id="chatInput" placeholder="Type a message..."></textarea>
+                    <button class="notes-submit-button chat-send-button" id="chatSendButton" type="button">Send</button>
+                </div>
+            </div>
+
             <div class="notes-menu-panel" id="notesMenuPanel">
                 <div class="notes-head">
                     <div class="notes-head-main">
@@ -326,6 +341,6 @@
     </section>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="script.js?v=80"></script>
+    <script src="script.js?v=81"></script>
 </body>
 </html>
