@@ -3803,6 +3803,10 @@
             }
 
             @media (max-width: 932px) {
+                .player-wrap.song-list-open {
+                    overflow: visible !important;
+                }
+
                 .player-wrap.song-list-open .player-playlist-panel {
                     position: fixed !important;
                     top: 50% !important;
@@ -3810,10 +3814,13 @@
                     right: auto !important;
                     bottom: auto !important;
                     transform: translate(-50%, -50%) !important;
+                    display: block !important;
                     width: min(78vw, 360px) !important;
                     max-width: 78vw !important;
                     max-height: min(78dvh, 560px) !important;
                     margin: 0 !important;
+                    inset: auto !important;
+                    pointer-events: auto !important;
                     z-index: 45 !important;
                 }
 
