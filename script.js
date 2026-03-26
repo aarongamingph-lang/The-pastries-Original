@@ -2584,10 +2584,8 @@
                     floatingNowPlaying.classList.remove("visible");
 
                     if (isMobilePlayerLayout() && mainPage.classList.contains("active")) {
-                        mobileNowPlayingTimeout = setTimeout(() => {
-                            updateFloatingNowPlaying();
-                            floatingNowPlaying.classList.add("visible");
-                        }, 5000);
+                        updateFloatingNowPlaying();
+                        floatingNowPlaying.classList.add("visible");
                     }
                 }
 
