@@ -2741,20 +2741,20 @@
 
                 .player-wrap {
                     position: fixed;
-                    top: 50%;
-                    left: 50%;
+                    top: auto;
+                    left: max(12px, env(safe-area-inset-left));
                     right: auto;
-                    bottom: auto;
+                    bottom: max(12px, env(safe-area-inset-bottom));
                     width: min(78vw, 360px);
                     max-width: 78vw;
                     max-height: min(78dvh, 560px);
                     padding: 14px 12px;
-                    transform: translate(-50%, -50%) scale(0.92);
-                    transform-origin: center;
+                    transform: translateY(calc(100% + 18px));
+                    transform-origin: bottom left;
                 }
 
                 .player-wrap.open {
-                    transform: translate(-50%, -50%) scale(1);
+                    transform: translateY(0);
                 }
 
                 .player-playlist-panel {
@@ -3074,20 +3074,20 @@
 
                 .player-wrap {
                     position: fixed;
-                    top: 50%;
-                    left: 50%;
+                    top: auto;
+                    left: max(10px, env(safe-area-inset-left));
                     right: auto;
-                    bottom: auto;
+                    bottom: max(10px, env(safe-area-inset-bottom));
                     width: min(46vw, 320px);
                     max-width: 320px;
                     max-height: calc(100dvh - 16px);
                     padding: 12px 12px;
-                    transform: translate(-50%, -50%) scale(0.92);
-                    transform-origin: center;
+                    transform: translateY(calc(100% + 18px));
+                    transform-origin: bottom left;
                 }
 
                 .player-wrap.open {
-                    transform: translate(-50%, -50%) scale(1);
+                    transform: translateY(0);
                 }
 
                 .player-playlist-panel {
