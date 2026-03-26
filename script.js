@@ -61,6 +61,10 @@
                 const chatPanelTitle = document.getElementById("chatPanelTitle");
                 const chatPanelStatus = document.getElementById("chatPanelStatus");
                 const chatMessages = document.getElementById("chatMessages");
+                const chatComposeContext = document.getElementById("chatComposeContext");
+                const chatComposeContextLabel = document.getElementById("chatComposeContextLabel");
+                const chatComposeContextText = document.getElementById("chatComposeContextText");
+                const chatComposeCancel = document.getElementById("chatComposeCancel");
                 const chatInput = document.getElementById("chatInput");
                 const chatSendButton = document.getElementById("chatSendButton");
                 const notesMenuPanel = document.getElementById("notesMenuPanel");
@@ -127,6 +131,7 @@
                 const NOTE_READS_TABLE = "note_reads";
                 const NOTE_REPLIES_TABLE = "note_replies";
                 const MESSAGES_TABLE = "messages";
+                const MESSAGE_REACTIONS_TABLE = "message_reactions";
                 const supabaseClient = window.supabase
                     ? window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY)
                     : null;
@@ -165,11 +170,13 @@
                 let noteRepliesEntries = [];
                 let noteReadMap = new Map();
                 let messagesEntries = [];
+                let messageReactionsEntries = [];
                 let onlineUsers = [];
                 let presenceChannel = null;
                 let notesChannel = null;
                 let noteRepliesChannel = null;
                 let messagesChannel = null;
+                let messageReactionsChannel = null;
                 let presenceSyncStarted = false;
                 let knownPresenceUserIds = new Set();
                 let suppressPresenceJoinToastsUntil = 0;
@@ -177,6 +184,10 @@
                 let editingNoteId = null;
                 let activeViewerNoteId = null;
                 let activeChatUserId = null;
+                let activeChatReplyMessageId = null;
+                let activeChatEditMessageId = null;
+                let activeChatReactionMenuId = null;
+                let activeChatActionMenuId = null;
                 let remainingBouncingTextIndices = [];
                 let remainingSongIndices = [];
                 let noteLayoutMap = new Map();
@@ -731,6 +742,166 @@
                         .sort((left, right) => new Date(left.created_at) - new Date(right.created_at));
                 }
 
+                function getMessageById(messageId) {
+                    return messagesEntries.find((message) => String(message.id) === String(messageId)) || null;
+                }
+
+                function getChatMessagePreview(message) {
+                    if (!message) {
+                        return "Original message unavailable.";
+                    }
+
+                    const text = String(message.content || "").trim();
+                    return text.length > 72 ? `${text.slice(0, 72)}...` : text || "Empty message";
+                }
+
+                function getMessageReactions(messageId) {
+                    return messageReactionsEntries.filter((entry) => String(entry.message_id) === String(messageId));
+                }
+
+                function getReactionSummary(messageId) {
+                    const grouped = new Map();
+
+                    getMessageReactions(messageId).forEach((entry) => {
+                        const key = entry.emoji || "";
+
+                        if (!key) {
+                            return;
+                        }
+
+                        if (!grouped.has(key)) {
+                            grouped.set(key, { emoji: key, count: 0, mine: false });
+                        }
+
+                        const current = grouped.get(key);
+                        current.count += 1;
+
+                        if (entry.user_id === profileData?.id) {
+                            current.mine = true;
+                        }
+                    });
+
+                    return Array.from(grouped.values());
+                }
+
+                function clearChatComposerState() {
+                    activeChatReplyMessageId = null;
+                    activeChatEditMessageId = null;
+                    activeChatReactionMenuId = null;
+                    activeChatActionMenuId = null;
+                    chatComposeContext.classList.add("hidden");
+                    chatComposeContextLabel.textContent = "Replying";
+                    chatComposeContextText.textContent = "";
+                    chatSendButton.textContent = "Send";
+                }
+
+                function setChatReplyState(message) {
+                    activeChatEditMessageId = null;
+                    activeChatReplyMessageId = message?.id ?? null;
+
+                    if (!message) {
+                        clearChatComposerState();
+                        return;
+                    }
+
+                    chatComposeContextLabel.textContent = `Replying to ${message.sender_username || "Unknown"}`;
+                    chatComposeContextText.textContent = getChatMessagePreview(message);
+                    chatComposeContext.classList.remove("hidden");
+                    chatSendButton.textContent = "Reply";
+                    chatInput.focus();
+                }
+
+                function setChatEditState(message) {
+                    if (!message) {
+                        clearChatComposerState();
+                        return;
+                    }
+
+                    activeChatReplyMessageId = null;
+                    activeChatEditMessageId = message.id;
+                    chatComposeContextLabel.textContent = "Editing message";
+                    chatComposeContextText.textContent = getChatMessagePreview(message);
+                    chatComposeContext.classList.remove("hidden");
+                    chatSendButton.textContent = "Update";
+                    chatInput.value = message.content || "";
+                    chatInput.focus();
+                }
+
+                async function deleteChatMessage(messageId) {
+                    if (!supabaseClient || !profileData?.id || !messageId) {
+                        return;
+                    }
+
+                    const targetMessage = getMessageById(messageId);
+
+                    if (!targetMessage || targetMessage.sender_id !== profileData.id) {
+                        return;
+                    }
+
+                    const { error } = await supabaseClient
+                        .from(MESSAGES_TABLE)
+                        .delete()
+                        .eq("id", messageId);
+
+                    if (error) {
+                        console.error("Could not delete message:", error.message);
+                        showPresenceToast("Could not delete message.");
+                        return;
+                    }
+
+                    if (String(activeChatEditMessageId) === String(messageId) || String(activeChatReplyMessageId) === String(messageId)) {
+                        clearChatComposerState();
+                        chatInput.value = "";
+                    }
+
+                    activeChatActionMenuId = null;
+                    await loadMessages();
+                }
+
+                async function reactToMessage(messageId, emoji) {
+                    if (!supabaseClient || !profileData?.id || !messageId || !emoji) {
+                        return;
+                    }
+
+                    const existingReaction = messageReactionsEntries.find((entry) =>
+                        String(entry.message_id) === String(messageId) &&
+                        entry.user_id === profileData.id
+                    );
+
+                    let error = null;
+
+                    if (existingReaction && existingReaction.emoji === emoji) {
+                        ({ error } = await supabaseClient
+                            .from(MESSAGE_REACTIONS_TABLE)
+                            .delete()
+                            .eq("id", existingReaction.id));
+                    } else if (existingReaction) {
+                        ({ error } = await supabaseClient
+                            .from(MESSAGE_REACTIONS_TABLE)
+                            .update({ emoji })
+                            .eq("id", existingReaction.id));
+                    } else {
+                        ({ error } = await supabaseClient
+                            .from(MESSAGE_REACTIONS_TABLE)
+                            .insert({
+                                message_id: messageId,
+                                user_id: profileData.id,
+                                username: currentUser,
+                                emoji,
+                                created_at: new Date().toISOString()
+                            }));
+                    }
+
+                    if (error) {
+                        console.error("Could not react to message:", error.message);
+                        showPresenceToast("Could not react to message.");
+                        return;
+                    }
+
+                    activeChatReactionMenuId = null;
+                    await loadMessageReactions();
+                }
+
                 function renderChatMessages() {
                     if (!chatMessages) {
                         return;
@@ -760,6 +931,20 @@
                         const bubble = document.createElement("div");
                         const isOwnMessage = message.sender_id === profileData?.id;
                         bubble.className = `chat-bubble ${isOwnMessage ? "own" : "other"}`;
+                        bubble.dataset.messageId = String(message.id);
+
+                        if (message.parent_message_id) {
+                            const parent = getMessageById(message.parent_message_id);
+                            const parentBox = document.createElement("div");
+                            parentBox.className = "chat-bubble-parent";
+                            const parentLabel = document.createElement("strong");
+                            parentLabel.textContent = parent?.sender_username || "Reply";
+                            const parentText = document.createElement("span");
+                            parentText.textContent = getChatMessagePreview(parent);
+                            parentBox.appendChild(parentLabel);
+                            parentBox.appendChild(parentText);
+                            bubble.appendChild(parentBox);
+                        }
 
                         const text = document.createElement("p");
                         text.className = "chat-bubble-text";
@@ -767,10 +952,113 @@
 
                         const meta = document.createElement("p");
                         meta.className = "chat-bubble-meta";
-                        meta.textContent = `${message.sender_username || "Unknown"} | ${formatNoteDate(message.created_at)}`;
+                        meta.textContent = `${message.sender_username || "Unknown"} | ${formatNoteDate(message.edited_at || message.created_at)}${message.edited_at ? " · edited" : ""}`;
+
+                        const reactions = getReactionSummary(message.id);
+                        let reactionWrap = null;
+
+                        if (reactions.length > 0) {
+                            reactionWrap = document.createElement("div");
+                            reactionWrap.className = "chat-bubble-reactions";
+                            reactions.forEach((reaction) => {
+                                const chip = document.createElement("div");
+                                chip.className = `chat-reaction-chip${reaction.mine ? " mine" : ""}`;
+                                chip.textContent = `${reaction.emoji} ${reaction.count}`;
+                                reactionWrap.appendChild(chip);
+                            });
+                        }
+
+                        const actions = document.createElement("div");
+                        actions.className = "chat-bubble-actions";
+
+                        const reactionButton = document.createElement("button");
+                        reactionButton.type = "button";
+                        reactionButton.className = "chat-bubble-action";
+                        reactionButton.setAttribute("aria-label", "React to message");
+                        reactionButton.textContent = "☺";
+                        reactionButton.addEventListener("click", (event) => {
+                            event.stopPropagation();
+                            activeChatActionMenuId = null;
+                            activeChatReactionMenuId = activeChatReactionMenuId === message.id ? null : message.id;
+                            renderChatMessages();
+                        });
+
+                        const replyButton = document.createElement("button");
+                        replyButton.type = "button";
+                        replyButton.className = "chat-bubble-action";
+                        replyButton.setAttribute("aria-label", "Reply to message");
+                        replyButton.textContent = "↩";
+                        replyButton.addEventListener("click", () => {
+                            setChatReplyState(message);
+                        });
+
+                        actions.appendChild(reactionButton);
+                        actions.appendChild(replyButton);
+
+                        if (isOwnMessage) {
+                            const menuButton = document.createElement("button");
+                            menuButton.type = "button";
+                            menuButton.className = "chat-bubble-action";
+                            menuButton.setAttribute("aria-label", "Message actions");
+                            menuButton.textContent = "⋮";
+                            menuButton.addEventListener("click", (event) => {
+                                event.stopPropagation();
+                                activeChatReactionMenuId = null;
+                                activeChatActionMenuId = activeChatActionMenuId === message.id ? null : message.id;
+                                renderChatMessages();
+                            });
+                            actions.appendChild(menuButton);
+                        }
+
+                        const reactionPicker = document.createElement("div");
+                        reactionPicker.className = `chat-reaction-picker${activeChatReactionMenuId === message.id ? "" : " hidden"}`;
+
+                        ["❤", "😂", "😮", "😢"].forEach((emoji) => {
+                            const option = document.createElement("button");
+                            option.type = "button";
+                            option.className = "chat-reaction-option";
+                            option.textContent = emoji;
+                            option.addEventListener("click", async (event) => {
+                                event.stopPropagation();
+                                await reactToMessage(message.id, emoji);
+                            });
+                            reactionPicker.appendChild(option);
+                        });
+
+                        actions.appendChild(reactionPicker);
+
+                        if (isOwnMessage) {
+                            const actionMenu = document.createElement("div");
+                            actionMenu.className = `chat-bubble-menu${activeChatActionMenuId === message.id ? "" : " hidden"}`;
+
+                            const editButton = document.createElement("button");
+                            editButton.type = "button";
+                            editButton.className = "chat-bubble-menu-button";
+                            editButton.textContent = "Edit";
+                            editButton.addEventListener("click", () => {
+                                activeChatActionMenuId = null;
+                                setChatEditState(message);
+                            });
+
+                            const deleteButton = document.createElement("button");
+                            deleteButton.type = "button";
+                            deleteButton.className = "chat-bubble-menu-button delete";
+                            deleteButton.textContent = "Delete";
+                            deleteButton.addEventListener("click", async () => {
+                                await deleteChatMessage(message.id);
+                            });
+
+                            actionMenu.appendChild(editButton);
+                            actionMenu.appendChild(deleteButton);
+                            actions.appendChild(actionMenu);
+                        }
 
                         bubble.appendChild(text);
                         bubble.appendChild(meta);
+                        if (reactionWrap) {
+                            bubble.appendChild(reactionWrap);
+                        }
+                        bubble.appendChild(actions);
                         chatMessages.appendChild(bubble);
                     });
 
@@ -821,6 +1109,7 @@
                     }
 
                     activeChatUserId = entry.id;
+                    clearChatComposerState();
                     chatPanelTitle.textContent = entry.username || "Messages";
                     chatPanelStatus.textContent = formatChatStatus(entry);
                     chatInput.value = "";
@@ -835,6 +1124,7 @@
                 async function loadMessages() {
                     if (!supabaseClient || !profileData?.id) {
                         messagesEntries = [];
+                        messageReactionsEntries = [];
                         renderChatMessages();
                         renderLeaderboard();
                         return;
@@ -842,7 +1132,7 @@
 
                     const { data, error } = await supabaseClient
                         .from(MESSAGES_TABLE)
-                        .select("id, sender_id, sender_username, receiver_id, receiver_username, content, created_at, is_read")
+                        .select("id, sender_id, sender_username, receiver_id, receiver_username, content, created_at, edited_at, parent_message_id, is_read")
                         .or(`sender_id.eq.${profileData.id},receiver_id.eq.${profileData.id}`)
                         .order("created_at", { ascending: true });
 
@@ -852,8 +1142,29 @@
                     }
 
                     messagesEntries = data || [];
+                    await loadMessageReactions();
                     renderChatMessages();
                     renderLeaderboard();
+                }
+
+                async function loadMessageReactions() {
+                    if (!supabaseClient) {
+                        messageReactionsEntries = [];
+                        renderChatMessages();
+                        return;
+                    }
+
+                    const { data, error } = await supabaseClient
+                        .from(MESSAGE_REACTIONS_TABLE)
+                        .select("id, message_id, user_id, username, emoji, created_at");
+
+                    if (error) {
+                        console.error("Could not load message reactions:", error.message);
+                        return;
+                    }
+
+                    messageReactionsEntries = data || [];
+                    renderChatMessages();
                 }
 
                 async function sendChatMessage() {
@@ -869,18 +1180,32 @@
                     }
 
                     chatSendButton.disabled = true;
+                    let error = null;
 
-                    const { error } = await supabaseClient
-                        .from(MESSAGES_TABLE)
-                        .insert({
-                            sender_id: profileData.id,
-                            sender_username: currentUser,
-                            receiver_id: targetUser.id,
-                            receiver_username: targetUser.username,
-                            content: messageContent,
-                            created_at: new Date().toISOString(),
-                            is_read: false
-                        });
+                    if (activeChatEditMessageId) {
+                        ({ error } = await supabaseClient
+                            .from(MESSAGES_TABLE)
+                            .update({
+                                content: messageContent,
+                                edited_at: new Date().toISOString()
+                            })
+                            .eq("id", activeChatEditMessageId)
+                            .eq("sender_id", profileData.id));
+                    } else {
+                        ({ error } = await supabaseClient
+                            .from(MESSAGES_TABLE)
+                            .insert({
+                                sender_id: profileData.id,
+                                sender_username: currentUser,
+                                receiver_id: targetUser.id,
+                                receiver_username: targetUser.username,
+                                content: messageContent,
+                                created_at: new Date().toISOString(),
+                                edited_at: null,
+                                parent_message_id: activeChatReplyMessageId || null,
+                                is_read: false
+                            }));
+                    }
 
                     chatSendButton.disabled = false;
 
@@ -891,6 +1216,7 @@
                     }
 
                     chatInput.value = "";
+                    clearChatComposerState();
                     await loadMessages();
                 }
 
@@ -920,6 +1246,24 @@
                         );
 
                     messagesChannel.subscribe();
+                }
+
+                async function connectMessageReactionsRealtime() {
+                    if (!supabaseClient || messageReactionsChannel) {
+                        return;
+                    }
+
+                    messageReactionsChannel = supabaseClient
+                        .channel("shared-message-reactions")
+                        .on(
+                            "postgres_changes",
+                            { event: "*", schema: "public", table: MESSAGE_REACTIONS_TABLE },
+                            async () => {
+                                await loadMessageReactions();
+                            }
+                        );
+
+                    messageReactionsChannel.subscribe();
                 }
 
                 function formatNoteDate(dateValue) {
@@ -1900,6 +2244,7 @@
                     await Promise.all([loadNotes(), loadNoteReads(), loadNoteReplies(), loadMessages()]);
                     await connectNotesRealtime();
                     await connectMessagesRealtime();
+                    await connectMessageReactionsRealtime();
                     setActiveScreen(landscapeScreen);
                 }
 
@@ -1926,6 +2271,7 @@
                     noteReplyTextarea.value = "";
                     activeViewerNoteId = null;
                     activeChatUserId = null;
+                    clearChatComposerState();
                     chatInput.value = "";
                     nameInput.value = "";
                     passwordInput.value = "";
@@ -2865,6 +3211,12 @@
                     chatClose.addEventListener("click", () => {
                         chatPanel.classList.remove("open");
                         activeChatUserId = null;
+                        clearChatComposerState();
+                        chatInput.value = "";
+                    });
+
+                    chatComposeCancel.addEventListener("click", () => {
+                        clearChatComposerState();
                         chatInput.value = "";
                     });
 
@@ -2929,11 +3281,16 @@
                             await supabaseClient.removeChannel(messagesChannel);
                             messagesChannel = null;
                         }
+                        if (messageReactionsChannel) {
+                            await supabaseClient.removeChannel(messageReactionsChannel);
+                            messageReactionsChannel = null;
+                        }
                         onlineUsers = [];
                         notesEntries = [];
                         noteRepliesEntries = [];
                         noteReadMap = new Map();
                         messagesEntries = [];
+                        messageReactionsEntries = [];
                         notesVisibilityEnabled = true;
                         renderPinnedNotes();
                         renderSubmittedNotes();
@@ -2954,6 +3311,9 @@
                         noteReplyTextarea.value = "";
                         activeViewerNoteId = null;
                         activeChatUserId = null;
+                        clearChatComposerState();
+                        activeChatReactionMenuId = null;
+                        activeChatActionMenuId = null;
                         showAuthMessage("Logged out.", "success");
                         setActiveScreen(lockScreen);
                     });
@@ -3096,6 +3456,14 @@
 
                         if (!clickedChat && !event.target.closest(".leaderboard-message-button")) {
                             chatPanel.classList.remove("open");
+                        }
+
+                        if (!event.target.closest(".chat-bubble-actions")) {
+                            if (activeChatActionMenuId !== null || activeChatReactionMenuId !== null) {
+                                activeChatActionMenuId = null;
+                                activeChatReactionMenuId = null;
+                                renderChatMessages();
+                            }
                         }
 
                         if (!clickedNotesMenu && event.target !== notesToggle) {
