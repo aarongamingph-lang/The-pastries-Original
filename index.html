@@ -4,7 +4,7 @@
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>THE PASTRIES SPECIAL</title>
-        <link rel="stylesheet" href="Designs.css?v=105">
+        <link rel="stylesheet" href="Designs.css?v=106">
     </head>
     <body>
         <!-- Background dots used on the opening screens -->
@@ -210,6 +210,13 @@
                         <button class="settings-close" id="chatClose" type="button" aria-label="Close chat">x</button>
                     </div>
                     <div class="chat-messages" id="chatMessages"></div>
+                    <div class="chat-compose-context hidden" id="chatComposeContext">
+                        <div class="chat-compose-context-copy">
+                            <p class="chat-compose-context-label" id="chatComposeContextLabel">Replying</p>
+                            <p class="chat-compose-context-text" id="chatComposeContextText"></p>
+                        </div>
+                        <button class="settings-close chat-compose-context-close" id="chatComposeCancel" type="button" aria-label="Clear chat action">x</button>
+                    </div>
                     <div class="chat-input-wrap">
                         <textarea class="chat-input" id="chatInput" placeholder="Type a message..."></textarea>
                         <button class="notes-submit-button chat-send-button" id="chatSendButton" type="button">Send</button>
@@ -345,6 +352,6 @@
         </section>
 
         <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-        <script src="script.js?v=105"></script>
+        <script src="script.js?v=106"></script>
     </body>
     </html>
