@@ -2740,11 +2740,21 @@
                 }
 
                 .player-wrap {
-                    left: max(12px, env(safe-area-inset-left));
-                    width: min(78vw, 300px);
-                    max-width: 300px;
-                    bottom: max(12px, env(safe-area-inset-bottom));
+                    position: fixed;
+                    top: 50%;
+                    left: 50%;
+                    right: auto;
+                    bottom: auto;
+                    width: min(78vw, 360px);
+                    max-width: 78vw;
+                    max-height: min(78dvh, 560px);
                     padding: 14px 12px;
+                    transform: translate(-50%, -50%) scale(0.92);
+                    transform-origin: center;
+                }
+
+                .player-wrap.open {
+                    transform: translate(-50%, -50%) scale(1);
                 }
 
                 .player-playlist-panel {
@@ -2779,11 +2789,6 @@
                 }
 
                 .player-wrap.song-list-open {
-                    position: fixed;
-                    top: 50%;
-                    left: 50%;
-                    right: auto;
-                    bottom: auto;
                     width: min(78vw, 360px);
                     max-width: 78vw;
                     max-height: min(78dvh, 560px);
@@ -2794,7 +2799,7 @@
                     box-shadow: none;
                     backdrop-filter: none;
                     -webkit-backdrop-filter: none;
-                    transform: translate(-50%, -50%);
+                    transform: translate(-50%, -50%) scale(1);
                     z-index: 45;
                 }
 
@@ -3068,16 +3073,21 @@
                 }
 
                 .player-wrap {
-                    left: max(10px, env(safe-area-inset-left));
-                    bottom: max(10px, env(safe-area-inset-bottom));
-                    width: min(32vw, 280px);
-                    max-width: 280px;
+                    position: fixed;
+                    top: 50%;
+                    left: 50%;
+                    right: auto;
+                    bottom: auto;
+                    width: min(46vw, 320px);
+                    max-width: 320px;
+                    max-height: calc(100dvh - 16px);
                     padding: 12px 12px;
-                    transform: translateY(calc(100% + 18px));
+                    transform: translate(-50%, -50%) scale(0.92);
+                    transform-origin: center;
                 }
 
                 .player-wrap.open {
-                    transform: translateY(0);
+                    transform: translate(-50%, -50%) scale(1);
                 }
 
                 .player-playlist-panel {
@@ -3112,11 +3122,6 @@
                 }
 
                 .player-wrap.song-list-open {
-                    position: fixed;
-                    top: 50%;
-                    left: 50%;
-                    right: auto;
-                    bottom: auto;
                     width: min(46vw, 320px);
                     max-width: 320px;
                     max-height: calc(100dvh - 16px);
@@ -3127,7 +3132,7 @@
                     box-shadow: none;
                     backdrop-filter: none;
                     -webkit-backdrop-filter: none;
-                    transform: translate(-50%, -50%);
+                    transform: translate(-50%, -50%) scale(1);
                     z-index: 45;
                 }
 
