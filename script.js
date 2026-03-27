@@ -107,7 +107,10 @@
                 const playerListToggle = document.getElementById("playerListToggle");
                 const playerPlaylistPanel = document.getElementById("playerPlaylistPanel");
                 const playerPlaylistList = document.getElementById("playerPlaylistList");
+                const playerPlaylistCount = document.getElementById("playerPlaylistCount");
                 const playerSearchInput = document.getElementById("playerSearchInput");
+                const playerSongsTab = document.getElementById("playerSongsTab");
+                const playerLikedTab = document.getElementById("playerLikedTab");
                 const playerVolumeToggle = document.getElementById("playerVolumeToggle");
                 const playerVolumePanel = document.getElementById("playerVolumePanel");
                 const playerVolumeSlider = document.getElementById("playerVolumeSlider");
@@ -198,9 +201,12 @@
                 let remainingSongIndices = [];
                 let noteLayoutMap = new Map();
                 let notesVisibilityEnabled = true;
+                let likedSongFiles = new Set();
+                let playlistViewMode = "songs";
                 const LOCAL_SESSION_KEY = "pastries_active_profile";
                 const LOCAL_NOTE_READS_PREFIX = "pastries_note_reads_";
                 const LOCAL_NOTES_VISIBILITY_PREFIX = "pastries_notes_visibility_";
+                const LOCAL_LIKED_SONGS_PREFIX = "pastries_liked_songs_";
 
                 // Shows small text messages in the audio settings area.
                 function setAudioStatus(message, tone = "neutral", autoClearMs = 0) {
@@ -253,6 +259,44 @@
                     return String(username || "")
                         .trim()
                         .toLowerCase();
+                }
+
+                function normalizeSongIdentity(value) {
+                    return String(value || "")
+                        .trim()
+                        .toLowerCase()
+                        .replace(/^\d+-/, "")
+                        .replace(/\.mp3$/i, "")
+                        .replace(/\s+/g, " ")
+                        .replace(/[^a-z0-9 ]/g, "");
+                }
+
+                function getLikedSongsStorageKey() {
+                    const userKey = profileData?.id || normalizeAuthUsername(currentUser) || "guest";
+                    return `${LOCAL_LIKED_SONGS_PREFIX}${userKey}`;
+                }
+
+                function loadLikedSongsPreference() {
+                    try {
+                        const raw = localStorage.getItem(getLikedSongsStorageKey());
+                        const parsed = raw ? JSON.parse(raw) : [];
+                        likedSongFiles = new Set(Array.isArray(parsed) ? parsed : []);
+                    } catch (error) {
+                        likedSongFiles = new Set();
+                    }
+                }
+
+                function saveLikedSongsPreference() {
+                    try {
+                        localStorage.setItem(getLikedSongsStorageKey(), JSON.stringify(Array.from(likedSongFiles)));
+                    } catch (error) {
+                        console.error("Could not save liked songs:", error);
+                    }
+                }
+
+                function syncPlaylistTabs() {
+                    playerSongsTab?.classList.toggle("active", playlistViewMode === "songs");
+                    playerLikedTab?.classList.toggle("active", playlistViewMode === "liked");
                 }
 
                 function isAdminUser() {
@@ -2299,6 +2343,7 @@
                     await updateAdminSettingsView();
                     applyUserSpecificTheme();
                     loadNotesVisibilityPreference();
+                    loadLikedSongsPreference();
                     onlineUsers = [];
                     renderLeaderboard();
                     await Promise.all([loadNotes(), loadNoteReads(), loadNoteReplies(), loadMessages()]);
@@ -2314,6 +2359,8 @@
                     onlineUsers = [];
                     noteReadMap = new Map();
                     messagesEntries = [];
+                    likedSongFiles = new Set();
+                    playlistViewMode = "songs";
                     localStorage.removeItem(LOCAL_SESSION_KEY);
                     renderPinnedNotes();
                     renderLeaderboard();
@@ -2613,15 +2660,28 @@
                 function renderPlayerPlaylist(filterText = "") {
                     const normalizedFilter = filterText.trim().toLowerCase();
                     playerPlaylistList.innerHTML = "";
+                    syncPlaylistTabs();
 
-                    const filteredSongs = songs.filter((song) =>
-                        song.title.toLowerCase().includes(normalizedFilter)
-                    );
+                    if (playerPlaylistCount) {
+                        playerPlaylistCount.textContent = `(${songs.length})`;
+                    }
+
+                    const filteredSongs = songs.filter((song) => {
+                        const matchesSearch = song.title.toLowerCase().includes(normalizedFilter);
+                        const matchesView = playlistViewMode === "liked"
+                            ? likedSongFiles.has(song.file)
+                            : true;
+                        return matchesSearch && matchesView;
+                    });
 
                     if (filteredSongs.length === 0) {
                         const empty = document.createElement("div");
                         empty.className = "player-playlist-empty";
-                        empty.textContent = normalizedFilter ? "No matching songs found." : "No uploaded songs yet.";
+                        empty.textContent = normalizedFilter
+                            ? "No matching songs found."
+                            : playlistViewMode === "liked"
+                                ? "No liked songs yet."
+                                : "No uploaded songs yet.";
                         playerPlaylistList.appendChild(empty);
                         return;
                     }
@@ -2645,8 +2705,34 @@
                         heart.className = "player-playlist-heart";
                         heart.textContent = "♡";
 
+                        textWrap.innerHTML = `<span>\u266B</span><span class="player-playlist-name"></span>`;
+                        textWrap.querySelector(".player-playlist-name").textContent = song.title;
+                        heart.textContent = likedSongFiles.has(song.file) ? "\u2665" : "\u2661";
+                        heart.classList.toggle("liked", likedSongFiles.has(song.file));
+                        heart.setAttribute("role", "button");
+                        heart.setAttribute("tabindex", "0");
+                        heart.setAttribute("aria-label", likedSongFiles.has(song.file) ? `Unlike ${song.title}` : `Like ${song.title}`);
+
                         item.appendChild(textWrap);
                         item.appendChild(heart);
+                        heart.addEventListener("click", (event) => {
+                            event.stopPropagation();
+
+                            if (likedSongFiles.has(song.file)) {
+                                likedSongFiles.delete(song.file);
+                            } else {
+                                likedSongFiles.add(song.file);
+                            }
+
+                            saveLikedSongsPreference();
+                            renderPlayerPlaylist(playerSearchInput.value);
+                        });
+                        heart.addEventListener("keydown", (event) => {
+                            if (event.key === "Enter" || event.key === " ") {
+                                event.preventDefault();
+                                heart.click();
+                            }
+                        });
                         item.addEventListener("click", () => {
                             setCurrentSong(actualIndex, true);
                             playerWrap.classList.remove("song-list-open");
@@ -2973,7 +3059,16 @@
 
                 // Adds one loaded song into the playlist array.
                 function addSongToPlayer(song) {
-                    const alreadyExists = songs.some((item) => item.file === song.file);
+                    const incomingTitleKey = normalizeSongIdentity(song.title);
+                    const incomingFileKey = normalizeSongIdentity(song.file);
+                    const alreadyExists = songs.some((item) => {
+                        const existingTitleKey = normalizeSongIdentity(item.title);
+                        const existingFileKey = normalizeSongIdentity(item.file);
+
+                        return item.file === song.file ||
+                            (incomingTitleKey && existingTitleKey === incomingTitleKey) ||
+                            (incomingFileKey && existingFileKey === incomingFileKey);
+                    });
 
                     if (!alreadyExists) {
                         songs.push(song);
@@ -3192,6 +3287,16 @@
                         playerWrap.classList.remove("idle-ui");
                         floatingNowPlaying.classList.remove("visible");
                         resetPlayerAutoCloseTimer();
+                    });
+
+                    playerSongsTab?.addEventListener("click", () => {
+                        playlistViewMode = "songs";
+                        renderPlayerPlaylist(playerSearchInput.value);
+                    });
+
+                    playerLikedTab?.addEventListener("click", () => {
+                        playlistViewMode = "liked";
+                        renderPlayerPlaylist(playerSearchInput.value);
                     });
 
                     settingsToggle.addEventListener("click", async () => {
