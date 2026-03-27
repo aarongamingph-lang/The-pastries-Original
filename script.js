@@ -193,8 +193,6 @@
                 let activeChatEditMessageId = null;
                 let activeChatReactionMenuId = null;
                 let activeChatActionMenuId = null;
-                let activeChatExpandedMessageId = null;
-                let lastChatBubbleTap = { id: null, time: 0 };
                 let pendingDeleteProfile = null;
                 let remainingBouncingTextIndices = [];
                 let remainingSongIndices = [];
@@ -803,17 +801,6 @@
                     chatSendButton.textContent = "Send";
                 }
 
-                function isMobileChatGestureLayout() {
-                    return window.matchMedia("(max-width: 932px)").matches;
-                }
-
-                function toggleExpandedChatMessage(messageId) {
-                    activeChatExpandedMessageId = activeChatExpandedMessageId === messageId ? null : messageId;
-                    activeChatReactionMenuId = null;
-                    activeChatActionMenuId = null;
-                    renderChatMessages();
-                }
-
                 function setChatReplyState(message) {
                     activeChatEditMessageId = null;
                     activeChatReplyMessageId = message?.id ?? null;
@@ -937,6 +924,7 @@
                     }
 
                     const conversation = getConversationMessages(activeChatUserId);
+                    const fragment = document.createDocumentFragment();
 
                     if (conversation.length === 0) {
                         const empty = document.createElement("div");
@@ -974,7 +962,10 @@
 
                         const meta = document.createElement("p");
                         meta.className = "chat-bubble-meta";
+                        const editedMetaSuffix = message.edited_at ? " \u00B7 edited" : "";
                         meta.textContent = `${message.sender_username || "Unknown"} | ${formatNoteDate(message.edited_at || message.created_at)}${message.edited_at ? " · edited" : ""}`;
+
+                        meta.textContent = `${message.sender_username || "Unknown"} | ${formatNoteDate(message.edited_at || message.created_at)}${editedMetaSuffix}`;
 
                         const reactions = getReactionSummary(message.id);
                         let reactionWrap = null;
@@ -986,6 +977,9 @@
                                 const chip = document.createElement("div");
                                 chip.className = `chat-reaction-chip${reaction.mine ? " mine" : ""}`;
                                 if (reaction.emoji === "❤") {
+                                    chip.classList.add("heart");
+                                }
+                                if (reaction.emoji === "\u2764") {
                                     chip.classList.add("heart");
                                 }
                                 chip.textContent = `${reaction.emoji} ${reaction.count}`;
@@ -1000,7 +994,9 @@
                         reactionButton.type = "button";
                         reactionButton.className = "chat-bubble-action";
                         reactionButton.setAttribute("aria-label", "React to message");
+                        reactionButton.textContent = "\u263A";
                         reactionButton.textContent = "☺";
+                        reactionButton.textContent = "\u263A";
                         reactionButton.addEventListener("click", (event) => {
                             event.stopPropagation();
                             activeChatActionMenuId = null;
@@ -1012,7 +1008,9 @@
                         replyButton.type = "button";
                         replyButton.className = "chat-bubble-action";
                         replyButton.setAttribute("aria-label", "Reply to message");
+                        replyButton.textContent = "\u21A9";
                         replyButton.textContent = "↩";
+                        replyButton.textContent = "\u21A9";
                         replyButton.addEventListener("click", () => {
                             setChatReplyState(message);
                         });
@@ -1025,7 +1023,9 @@
                             menuButton.type = "button";
                             menuButton.className = "chat-bubble-action";
                             menuButton.setAttribute("aria-label", "Message actions");
+                            menuButton.textContent = "\u22EE";
                             menuButton.textContent = "⋮";
+                            menuButton.textContent = "\u22EE";
                             menuButton.addEventListener("click", (event) => {
                                 event.stopPropagation();
                                 activeChatReactionMenuId = null;
@@ -1050,6 +1050,18 @@
                             reactionPicker.appendChild(option);
                         });
 
+                        reactionPicker.innerHTML = "";
+                        ["\u2764", "\u{1F602}", "\u{1F60A}", "\u{1F620}", "\u{1F62E}", "\u{1F622}"].forEach((emoji) => {
+                            const option = document.createElement("button");
+                            option.type = "button";
+                            option.className = "chat-reaction-option";
+                            option.textContent = emoji;
+                            option.addEventListener("click", async (event) => {
+                                event.stopPropagation();
+                                await reactToMessage(message.id, emoji);
+                            });
+                            reactionPicker.appendChild(option);
+                        });
                         actions.appendChild(reactionPicker);
 
                         if (isOwnMessage) {
@@ -1095,9 +1107,10 @@
 
                         footer.appendChild(actions);
                         messageItem.appendChild(footer);
-                        chatMessages.appendChild(messageItem);
+                        fragment.appendChild(messageItem);
                     });
 
+                    chatMessages.appendChild(fragment);
                     chatMessages.scrollTop = chatMessages.scrollHeight;
                 }
 
