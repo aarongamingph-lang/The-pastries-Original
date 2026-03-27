@@ -2696,17 +2696,7 @@
                 }
 
                 function startBouncingTextSequence() {
-                    if (window.matchMedia("(max-width: 932px)").matches) {
-                        startMobileRandomTextSequence();
-                        return;
-                    }
-
-                    if (bouncingTextIndex < 0 || !bouncingTexts[bouncingTextIndex]) {
-                        bouncingTextIndex = getNextBouncingTextIndex();
-                    }
-
-                    showBouncingText(bouncingTexts[bouncingTextIndex]);
-                    animateBouncingText();
+                    startMobileRandomTextSequence();
                 }
 
                 function showBouncingText(text) {
@@ -2894,14 +2884,23 @@
                     document.addEventListener("keydown", unlockAudio);
                 }
 
+                function resolveThemeFile(fileName) {
+                    if (fileName === "default.mp4" && window.matchMedia("(max-width: 932px)").matches) {
+                        return "Default mobile.mp4";
+                    }
+
+                    return fileName;
+                }
+
                 function applyTheme(fileName) {
-                    const usesVideoTheme = /\.mp4$/i.test(fileName);
+                    const resolvedFileName = resolveThemeFile(fileName);
+                    const usesVideoTheme = /\.mp4$/i.test(resolvedFileName);
 
                     mainPage.classList.toggle("video-theme", usesVideoTheme);
 
                     if (usesVideoTheme) {
                         mainPageVideo.classList.remove("loaded");
-                        mainPageVideo.src = fileName;
+                        mainPageVideo.src = resolvedFileName;
                         mainPageVideo.muted = true;
                         mainPageVideo.volume = 0;
                         mainPageVideo.defaultMuted = true;
@@ -2923,7 +2922,7 @@
                     mainPageVideo.load();
                     document.documentElement.style.setProperty(
                         "--main-page-background",
-                        `url("${fileName}")`
+                        `url("${resolvedFileName}")`
                     );
                 }
 
