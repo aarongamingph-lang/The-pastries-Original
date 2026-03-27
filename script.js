@@ -56,6 +56,11 @@
                 const leaderboardClose = document.getElementById("leaderboardClose");
                 const leaderboardList = document.getElementById("leaderboardList");
                 const leaderboardTitle = document.getElementById("leaderboardTitle");
+                const deleteConfirmPanel = document.getElementById("deleteConfirmPanel");
+                const deleteConfirmClose = document.getElementById("deleteConfirmClose");
+                const deleteConfirmText = document.getElementById("deleteConfirmText");
+                const deleteConfirmCancel = document.getElementById("deleteConfirmCancel");
+                const deleteConfirmProceed = document.getElementById("deleteConfirmProceed");
                 const chatPanel = document.getElementById("chatPanel");
                 const chatClose = document.getElementById("chatClose");
                 const chatPanelTitle = document.getElementById("chatPanelTitle");
@@ -190,6 +195,7 @@
                 let activeChatActionMenuId = null;
                 let activeChatExpandedMessageId = null;
                 let lastChatBubbleTap = { id: null, time: 0 };
+                let pendingDeleteProfile = null;
                 let remainingBouncingTextIndices = [];
                 let remainingSongIndices = [];
                 let noteLayoutMap = new Map();
@@ -665,7 +671,7 @@
                             deleteButton.setAttribute("aria-label", `Delete ${entry.username}`);
                             deleteButton.addEventListener("click", (event) => {
                                 event.stopPropagation();
-                                deleteProfileAccount(entry.id, entry.username);
+                                openDeleteConfirm(entry.id, entry.username);
                             });
                             status.appendChild(deleteButton);
                         }
@@ -2106,6 +2112,17 @@
                     showPresenceToast(`${profileName} was deleted.`);
                 }
 
+                function openDeleteConfirm(profileId, profileName) {
+                    pendingDeleteProfile = { id: profileId, name: profileName };
+                    deleteConfirmText.textContent = `Delete account "${profileName}"? This cannot be undone.`;
+                    deleteConfirmPanel.classList.add("open");
+                }
+
+                function closeDeleteConfirm() {
+                    pendingDeleteProfile = null;
+                    deleteConfirmPanel.classList.remove("open");
+                }
+
                 function showPresenceToast(message) {
                     const toast = document.createElement("div");
                     toast.className = "presence-toast";
@@ -2302,6 +2319,7 @@
                     activeViewerNoteId = null;
                     activeChatUserId = null;
                     clearChatComposerState();
+                    closeDeleteConfirm();
                     chatInput.value = "";
                     nameInput.value = "";
                     passwordInput.value = "";
@@ -3238,6 +3256,21 @@
                         leaderboardPanel.classList.remove("open");
                     });
 
+                    [deleteConfirmClose, deleteConfirmCancel].forEach((button) => {
+                        button.addEventListener("click", closeDeleteConfirm);
+                    });
+
+                    deleteConfirmProceed.addEventListener("click", async () => {
+                        if (!pendingDeleteProfile) {
+                            closeDeleteConfirm();
+                            return;
+                        }
+
+                        const { id, name } = pendingDeleteProfile;
+                        closeDeleteConfirm();
+                        await deleteProfileAccount(id, name);
+                    });
+
                     chatClose.addEventListener("click", () => {
                         chatPanel.classList.remove("open");
                         activeChatUserId = null;
@@ -3337,6 +3370,7 @@
                         notesListPanel.classList.remove("open");
                         notesPanel.classList.remove("open");
                         noteViewerPanel.classList.remove("open");
+                        closeDeleteConfirm();
                         noteReplyComposer.classList.add("hidden");
                         noteReplyTextarea.value = "";
                         activeViewerNoteId = null;
@@ -3482,6 +3516,11 @@
 
                         if (!clickedLeaderboard && event.target !== leaderboardToggle) {
                             leaderboardPanel.classList.remove("open");
+                        }
+
+                        if (!deleteConfirmPanel.contains(event.target)) {
+                            deleteConfirmPanel.classList.remove("open");
+                            pendingDeleteProfile = null;
                         }
 
                         if (!clickedChat && !event.target.closest(".leaderboard-message-button")) {
