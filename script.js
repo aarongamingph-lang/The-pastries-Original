@@ -2510,6 +2510,38 @@
                     return result.selected;
                 }
 
+                function getPlayableSongIndices() {
+                    if (playlistViewMode !== "liked") {
+                        return songs.map((_, index) => index);
+                    }
+
+                    return songs
+                        .map((song, index) => ({ song, index }))
+                        .filter(({ song }) => likedSongFiles.has(song.file))
+                        .map(({ index }) => index);
+                }
+
+                function getNextPlayableIndex(direction = 1) {
+                    const playableIndices = getPlayableSongIndices();
+
+                    if (playableIndices.length === 0) {
+                        return -1;
+                    }
+
+                    if (playableIndices.length === 1) {
+                        return playableIndices[0];
+                    }
+
+                    const currentPlayablePosition = playableIndices.indexOf(currentSongIndex);
+
+                    if (currentPlayablePosition < 0) {
+                        return playableIndices[0];
+                    }
+
+                    const nextPosition = (currentPlayablePosition + direction + playableIndices.length) % playableIndices.length;
+                    return playableIndices[nextPosition];
+                }
+
                 // Creates the floating dots in the background.
                 function buildParticles(total) {
                     for (let index = 0; index < total; index += 1) {
@@ -2580,13 +2612,27 @@
 
                 // Picks a random song from the loaded songs.
                 function chooseRandomSong() {
-                    if (songs.length === 0) {
+                    const playableIndices = getPlayableSongIndices();
+
+                    if (playableIndices.length === 0) {
                         return false;
                     }
 
-                    const nextSongIndex = getNextRandomSongIndex(currentSongIndex);
+                    if (playlistViewMode !== "liked") {
+                        const nextSongIndex = getNextRandomSongIndex(currentSongIndex);
 
-                    if (nextSongIndex < 0) {
+                        if (nextSongIndex < 0) {
+                            return false;
+                        }
+
+                        currentSongIndex = nextSongIndex;
+                        return true;
+                    }
+
+                    const availableIndices = playableIndices.filter((index) => index !== currentSongIndex);
+                    const pool = availableIndices.length > 0 ? availableIndices : playableIndices;
+                    const nextSongIndex = pool[Math.floor(Math.random() * pool.length)];
+                    if (typeof nextSongIndex !== "number") {
                         return false;
                     }
 
@@ -2688,9 +2734,10 @@
 
                     filteredSongs.forEach((song) => {
                         const actualIndex = songs.findIndex((item) => item.file === song.file);
-                        const item = document.createElement("button");
-                        item.type = "button";
+                        const item = document.createElement("div");
                         item.className = "player-playlist-item";
+                        item.setAttribute("role", "button");
+                        item.setAttribute("tabindex", "0");
 
                         if (actualIndex === currentSongIndex && audioPlayer.src === song.file) {
                             item.classList.add("active");
@@ -2701,7 +2748,8 @@
                         textWrap.innerHTML = `<span>♫</span><span class="player-playlist-name"></span>`;
                         textWrap.querySelector(".player-playlist-name").textContent = song.title;
 
-                        const heart = document.createElement("span");
+                        const heart = document.createElement("button");
+                        heart.type = "button";
                         heart.className = "player-playlist-heart";
                         heart.textContent = "♡";
 
@@ -2737,6 +2785,14 @@
                             setCurrentSong(actualIndex, true);
                             playerWrap.classList.remove("song-list-open");
                             resetPlayerAutoCloseTimer();
+                        });
+                        item.addEventListener("keydown", (event) => {
+                            if (event.key === "Enter" || event.key === " ") {
+                                event.preventDefault();
+                                setCurrentSong(actualIndex, true);
+                                playerWrap.classList.remove("song-list-open");
+                                resetPlayerAutoCloseTimer();
+                            }
                         });
 
                         playerPlaylistList.appendChild(item);
@@ -3296,6 +3352,12 @@
 
                     playerLikedTab?.addEventListener("click", () => {
                         playlistViewMode = "liked";
+                        if (!likedSongFiles.has(songs[currentSongIndex]?.file)) {
+                            const firstLikedIndex = getPlayableSongIndices()[0];
+                            if (typeof firstLikedIndex === "number") {
+                                currentSongIndex = firstLikedIndex;
+                            }
+                        }
                         renderPlayerPlaylist(playerSearchInput.value);
                     });
 
@@ -3495,6 +3557,9 @@
                         clearChatComposerState();
                         activeChatReactionMenuId = null;
                         activeChatActionMenuId = null;
+                        likedSongFiles = new Set();
+                        playlistViewMode = "songs";
+                        syncPlaylistTabs();
                         showAuthMessage("Logged out.", "success");
                         setActiveScreen(lockScreen);
                     });
@@ -3537,11 +3602,12 @@
                     });
 
                     prevButton.addEventListener("click", () => {
-                        if (songs.length === 0) {
+                        const previousIndex = getNextPlayableIndex(-1);
+                        if (previousIndex < 0) {
                             return;
                         }
 
-                        currentSongIndex = (currentSongIndex - 1 + songs.length) % songs.length;
+                        currentSongIndex = previousIndex;
                         setCurrentSong(currentSongIndex, true);
                         resetPlayerAutoCloseTimer();
                     });
