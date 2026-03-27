@@ -188,6 +188,8 @@
                 let activeChatEditMessageId = null;
                 let activeChatReactionMenuId = null;
                 let activeChatActionMenuId = null;
+                let activeChatExpandedMessageId = null;
+                let lastChatBubbleTap = { id: null, time: 0 };
                 let remainingBouncingTextIndices = [];
                 let remainingSongIndices = [];
                 let noteLayoutMap = new Map();
@@ -795,6 +797,17 @@
                     chatSendButton.textContent = "Send";
                 }
 
+                function isMobileChatGestureLayout() {
+                    return window.matchMedia("(max-width: 932px)").matches;
+                }
+
+                function toggleExpandedChatMessage(messageId) {
+                    activeChatExpandedMessageId = activeChatExpandedMessageId === messageId ? null : messageId;
+                    activeChatReactionMenuId = null;
+                    activeChatActionMenuId = null;
+                    renderChatMessages();
+                }
+
                 function setChatReplyState(message) {
                     activeChatEditMessageId = null;
                     activeChatReplyMessageId = message?.id ?? null;
@@ -928,8 +941,11 @@
                     }
 
                     conversation.forEach((message) => {
-                        const bubble = document.createElement("div");
+                        const messageItem = document.createElement("div");
                         const isOwnMessage = message.sender_id === profileData?.id;
+                        messageItem.className = `chat-message-item ${isOwnMessage ? "own" : "other"}`;
+
+                        const bubble = document.createElement("div");
                         bubble.className = `chat-bubble ${isOwnMessage ? "own" : "other"}`;
                         bubble.dataset.messageId = String(message.id);
 
@@ -963,6 +979,9 @@
                             reactions.forEach((reaction) => {
                                 const chip = document.createElement("div");
                                 chip.className = `chat-reaction-chip${reaction.mine ? " mine" : ""}`;
+                                if (reaction.emoji === "❤") {
+                                    chip.classList.add("heart");
+                                }
                                 chip.textContent = `${reaction.emoji} ${reaction.count}`;
                                 reactionWrap.appendChild(chip);
                             });
@@ -1013,7 +1032,7 @@
                         const reactionPicker = document.createElement("div");
                         reactionPicker.className = `chat-reaction-picker${activeChatReactionMenuId === message.id ? "" : " hidden"}`;
 
-                        ["❤", "😂", "😮", "😢"].forEach((emoji) => {
+                        ["❤", "😂", "😊", "😠", "😮", "😢"].forEach((emoji) => {
                             const option = document.createElement("button");
                             option.type = "button";
                             option.className = "chat-reaction-option";
@@ -1053,13 +1072,24 @@
                             actions.appendChild(actionMenu);
                         }
 
+                        const footer = document.createElement("div");
+                        footer.className = "chat-message-footer";
+
                         bubble.appendChild(text);
                         bubble.appendChild(meta);
+                        messageItem.appendChild(bubble);
+
                         if (reactionWrap) {
-                            bubble.appendChild(reactionWrap);
+                            footer.appendChild(reactionWrap);
+                        } else {
+                            const reactionSpacer = document.createElement("div");
+                            reactionSpacer.className = "chat-message-footer-spacer";
+                            footer.appendChild(reactionSpacer);
                         }
-                        bubble.appendChild(actions);
-                        chatMessages.appendChild(bubble);
+
+                        footer.appendChild(actions);
+                        messageItem.appendChild(footer);
+                        chatMessages.appendChild(messageItem);
                     });
 
                     chatMessages.scrollTop = chatMessages.scrollHeight;
