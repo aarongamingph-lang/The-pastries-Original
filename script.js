@@ -2331,17 +2331,41 @@
                 }
 
                 async function openPostAuthFlow() {
-                    await updateAdminSettingsView();
-                    applyUserSpecificTheme();
+                    setActiveScreen(landscapeScreen);
+
+                    try {
+                        await updateAdminSettingsView();
+                    } catch (error) {
+                        console.error("Could not update settings view after login:", error);
+                    }
+
+                    try {
+                        applyUserSpecificTheme();
+                    } catch (error) {
+                        console.error("Could not apply user theme after login:", error);
+                    }
+
                     loadNotesVisibilityPreference();
                     loadLikedSongsPreference();
                     onlineUsers = [];
                     renderLeaderboard();
-                    await Promise.all([loadNotes(), loadNoteReads(), loadNoteReplies(), loadMessages()]);
-                    await connectNotesRealtime();
-                    await connectMessagesRealtime();
-                    await connectMessageReactionsRealtime();
-                    setActiveScreen(landscapeScreen);
+
+                    const startupTasks = [
+                        loadNotes(),
+                        loadNoteReads(),
+                        loadNoteReplies(),
+                        loadMessages(),
+                        connectNotesRealtime(),
+                        connectMessagesRealtime(),
+                        connectMessageReactionsRealtime()
+                    ];
+
+                    const startupResults = await Promise.allSettled(startupTasks);
+                    startupResults.forEach((result, index) => {
+                        if (result.status === "rejected") {
+                            console.error(`Post-login startup task ${index + 1} failed:`, result.reason);
+                        }
+                    });
                 }
 
                 function clearRememberedSessionAndReturnToLogin() {
@@ -2382,15 +2406,24 @@
 
                 async function handleAuthenticatedSession(session, usernameOverride = "") {
                     if (!session?.id) {
-                        return;
+                        return false;
                     }
-                    await ensureProfile(session, usernameOverride);
-                    await saveUserIfNew(currentUser);
-                    localStorage.setItem(LOCAL_SESSION_KEY, JSON.stringify({
-                        id: profileData.id,
-                        username: profileData.username
-                    }));
-                    await openPostAuthFlow();
+
+                    try {
+                        await ensureProfile(session, usernameOverride);
+                        await saveUserIfNew(currentUser);
+                        localStorage.setItem(LOCAL_SESSION_KEY, JSON.stringify({
+                            id: profileData.id,
+                            username: profileData.username
+                        }));
+                        await openPostAuthFlow();
+                        return true;
+                    } catch (error) {
+                        console.error("Could not open authenticated session:", error);
+                        showAuthMessage("Login worked, but the app could not open correctly. Please try again.", "error");
+                        setActiveScreen(lockScreen);
+                        return false;
+                    }
                 }
 
                 // EASY EDIT:
