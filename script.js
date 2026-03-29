@@ -661,6 +661,19 @@
 
                         identity.appendChild(name);
 
+                        if (isAdminUser()) {
+                            const deleteButton = document.createElement("button");
+                            deleteButton.type = "button";
+                            deleteButton.className = "leaderboard-delete";
+                            deleteButton.textContent = "x";
+                            deleteButton.setAttribute("aria-label", `Delete ${entry.username}`);
+                            deleteButton.addEventListener("click", (event) => {
+                                event.stopPropagation();
+                                openDeleteConfirm(entry.id, entry.username);
+                            });
+                            identity.appendChild(deleteButton);
+                        }
+
                         if (!isOnline) {
                             const lastOnline = document.createElement("p");
                             lastOnline.className = "leaderboard-last-online";
@@ -703,19 +716,6 @@
                                 unreadBadge.textContent = String(unreadCount);
                                 status.appendChild(unreadBadge);
                             }
-                        }
-
-                        if (isAdminUser()) {
-                            const deleteButton = document.createElement("button");
-                            deleteButton.type = "button";
-                            deleteButton.className = "leaderboard-delete";
-                            deleteButton.textContent = "x";
-                            deleteButton.setAttribute("aria-label", `Delete ${entry.username}`);
-                            deleteButton.addEventListener("click", (event) => {
-                                event.stopPropagation();
-                                openDeleteConfirm(entry.id, entry.username);
-                            });
-                            status.appendChild(deleteButton);
                         }
 
                         item.appendChild(identity);
