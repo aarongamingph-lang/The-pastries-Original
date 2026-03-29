@@ -1082,7 +1082,7 @@
 
                         const reactionPicker = document.createElement("div");
                         reactionPicker.className = `chat-reaction-picker${activeChatReactionMenuId === message.id ? "" : " hidden"}`;
-                        ["\u2764", "\u{1F602}", "\u{1F60A}", "\u{1F620}", "\u{1F62E}", "\u{1F622}"].forEach((emoji) => {
+                        ["\u2764", "\uD83D\uDE02", "\uD83D\uDE0A", "\uD83D\uDE20", "\uD83D\uDE2E", "\uD83D\uDE22"].forEach((emoji) => {
                             const option = document.createElement("button");
                             option.type = "button";
                             option.className = "chat-reaction-option";
