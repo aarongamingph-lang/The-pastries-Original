@@ -3899,66 +3899,80 @@
                         return;
                     }
 
-                    unlockButton.disabled = true;
-
-                    if (authMode === "signup") {
-                        const existingProfile = await getProfileByUsername(cleanUsername);
-
-                        if (existingProfile) {
-                            showAuthMessage("Username already taken.", "error");
-                            unlockButton.disabled = false;
-                            return;
-                        }
-
-                        const passwordHash = await hashPassword(enteredPassword);
-                        const userId = crypto.randomUUID();
-                        const { error } = await supabaseClient
-                            .from(PROFILE_TABLE)
-                            .insert({
-                                id: userId,
-                                username: cleanUsername,
-                                password_hash: passwordHash
-                            });
-
-                        if (error) {
-                            showAuthMessage(error.message, "error");
-                            unlockButton.disabled = false;
-                            return;
-                        }
-
-                        showAuthMessage("Account created. Signing you in...", "success");
-                        await handleAuthenticatedSession({
-                            id: userId,
-                            username: cleanUsername
-                        });
-                    } else {
-                        const profile = await getProfileByUsername(cleanUsername);
-
-                        if (!profile) {
-                            showAuthMessage("Account not found. Create one first.", "error");
-                            unlockButton.disabled = false;
-                            return;
-                        }
-
-                        const passwordHash = await hashPassword(enteredPassword);
-
-                        if (profile.password_hash !== passwordHash) {
-                            showAuthMessage("Wrong password.", "error");
-                            unlockButton.disabled = false;
-                            return;
-                        }
-
-                        showAuthMessage("Login successful.", "success");
-                        await handleAuthenticatedSession({
-                            id: profile.id,
-                            username: profile.username
-                        });
+                    if (!supabaseClient) {
+                        showAuthMessage("Supabase did not load. Refresh the site and try again.", "error");
+                        return;
                     }
 
-                    unlockButton.disabled = false;
-                    passwordInput.value = "";
-                    confirmPasswordInput.value = "";
-                    lastNameProceedAt = null;
+                    unlockButton.disabled = true;
+
+                    try {
+                        if (authMode === "signup") {
+                            const existingProfile = await getProfileByUsername(cleanUsername);
+
+                            if (existingProfile) {
+                                showAuthMessage("Username already taken.", "error");
+                                return;
+                            }
+
+                            const passwordHash = await hashPassword(enteredPassword);
+                            const userId = crypto.randomUUID();
+                            const { error } = await supabaseClient
+                                .from(PROFILE_TABLE)
+                                .insert({
+                                    id: userId,
+                                    username: cleanUsername,
+                                    password_hash: passwordHash
+                                });
+
+                            if (error) {
+                                showAuthMessage(error.message || "Could not create account.", "error");
+                                return;
+                            }
+
+                            showAuthMessage("Account created. Signing you in...", "success");
+                            const opened = await handleAuthenticatedSession({
+                                id: userId,
+                                username: cleanUsername
+                            });
+
+                            if (!opened) {
+                                showAuthMessage("Account created, but the app could not open. Refresh and log in.", "error");
+                            }
+                        } else {
+                            const profile = await getProfileByUsername(cleanUsername);
+
+                            if (!profile) {
+                                showAuthMessage("Account not found. Create one first.", "error");
+                                return;
+                            }
+
+                            const passwordHash = await hashPassword(enteredPassword);
+
+                            if (profile.password_hash !== passwordHash) {
+                                showAuthMessage("Wrong password.", "error");
+                                return;
+                            }
+
+                            showAuthMessage("Login successful.", "success");
+                            const opened = await handleAuthenticatedSession({
+                                id: profile.id,
+                                username: profile.username
+                            });
+
+                            if (!opened) {
+                                showAuthMessage("Login worked, but the app could not open. Refresh and try again.", "error");
+                            }
+                        }
+                    } catch (error) {
+                        console.error("Authentication flow failed:", error);
+                        showAuthMessage("Something went wrong during login. Refresh and try again.", "error");
+                    } finally {
+                        unlockButton.disabled = false;
+                        passwordInput.value = "";
+                        confirmPasswordInput.value = "";
+                        lastNameProceedAt = null;
+                    }
                 });
 
                 // Start everything when the page loads.
