@@ -690,7 +690,7 @@
                             messageButton.type = "button";
                             messageButton.className = "leaderboard-message-button";
                             messageButton.setAttribute("aria-label", `Message ${entry.username}`);
-                            messageButton.textContent = "💬";
+                            messageButton.textContent = "\u2709";
                             messageButton.addEventListener("click", async (event) => {
                                 event.stopPropagation();
                                 await openChatPanelWithUser(entry);
@@ -2331,41 +2331,17 @@
                 }
 
                 async function openPostAuthFlow() {
-                    setActiveScreen(landscapeScreen);
-
-                    try {
-                        await updateAdminSettingsView();
-                    } catch (error) {
-                        console.error("Could not update settings view after login:", error);
-                    }
-
-                    try {
-                        applyUserSpecificTheme();
-                    } catch (error) {
-                        console.error("Could not apply user theme after login:", error);
-                    }
-
+                    await updateAdminSettingsView();
+                    applyUserSpecificTheme();
                     loadNotesVisibilityPreference();
                     loadLikedSongsPreference();
                     onlineUsers = [];
                     renderLeaderboard();
-
-                    const startupTasks = [
-                        loadNotes(),
-                        loadNoteReads(),
-                        loadNoteReplies(),
-                        loadMessages(),
-                        connectNotesRealtime(),
-                        connectMessagesRealtime(),
-                        connectMessageReactionsRealtime()
-                    ];
-
-                    const startupResults = await Promise.allSettled(startupTasks);
-                    startupResults.forEach((result, index) => {
-                        if (result.status === "rejected") {
-                            console.error(`Post-login startup task ${index + 1} failed:`, result.reason);
-                        }
-                    });
+                    await Promise.all([loadNotes(), loadNoteReads(), loadNoteReplies(), loadMessages()]);
+                    await connectNotesRealtime();
+                    await connectMessagesRealtime();
+                    await connectMessageReactionsRealtime();
+                    setActiveScreen(landscapeScreen);
                 }
 
                 function clearRememberedSessionAndReturnToLogin() {
@@ -2406,24 +2382,15 @@
 
                 async function handleAuthenticatedSession(session, usernameOverride = "") {
                     if (!session?.id) {
-                        return false;
+                        return;
                     }
-
-                    try {
-                        await ensureProfile(session, usernameOverride);
-                        await saveUserIfNew(currentUser);
-                        localStorage.setItem(LOCAL_SESSION_KEY, JSON.stringify({
-                            id: profileData.id,
-                            username: profileData.username
-                        }));
-                        await openPostAuthFlow();
-                        return true;
-                    } catch (error) {
-                        console.error("Could not open authenticated session:", error);
-                        showAuthMessage("Login worked, but the app could not open correctly. Please try again.", "error");
-                        setActiveScreen(lockScreen);
-                        return false;
-                    }
+                    await ensureProfile(session, usernameOverride);
+                    await saveUserIfNew(currentUser);
+                    localStorage.setItem(LOCAL_SESSION_KEY, JSON.stringify({
+                        id: profileData.id,
+                        username: profileData.username
+                    }));
+                    await openPostAuthFlow();
                 }
 
                 // EASY EDIT:
@@ -2712,11 +2679,11 @@
                 // Changes the volume icon based on the current volume.
                 function updateVolumeButton() {
                     if (audioPlayer.volume <= 0.01) {
-                        playerVolumeToggle.textContent = "🔇";
+                        playerVolumeToggle.textContent = "\uD83D\uDD07";
                     } else if (audioPlayer.volume < 0.5) {
-                        playerVolumeToggle.textContent = "🔉";
+                        playerVolumeToggle.textContent = "\uD83D\uDD09";
                     } else {
-                        playerVolumeToggle.textContent = "🔊";
+                        playerVolumeToggle.textContent = "\uD83D\uDD0A";
                     }
                 }
 
@@ -2726,25 +2693,6 @@
                     floatingNowPlayingTime.textContent = `${formatTime(audioPlayer.currentTime)} / ${formatTime(audioPlayer.duration)}`;
                 }
 
-                // Draws the playlist items inside the music player.
-                function renderPlayerPlaylist(filterText = "") {
-                    const normalizedFilter = filterText.trim().toLowerCase();
-                    playerPlaylistList.innerHTML = "";
-                    syncPlaylistTabs();
-
-                    if (playerPlaylistCount) {
-                        playerPlaylistCount.textContent = `(${songs.length})`;
-                    }
-
-                    const filteredSongs = songs.filter((song) => {
-                        const matchesSearch = song.title.toLowerCase().includes(normalizedFilter);
-                        const matchesView = playlistViewMode === "liked"
-                            ? likedSongFiles.has(song.file)
-                            : true;
-                        return matchesSearch && matchesView;
-                    });
-
-                    if (filteredSongs.length === 0) {
                 function renderPlayerPlaylist(filterText = "") {
                     const normalizedFilter = filterText.trim().toLowerCase();
                     playerPlaylistList.innerHTML = "";
@@ -3846,7 +3794,7 @@
 
                 // Updates the play / pause button icon.
                 function updatePlayPauseButton() {
-                    playPauseButton.textContent = audioPlayer.paused ? "▶" : "❚❚";
+                    playPauseButton.textContent = audioPlayer.paused ? "\u25B6" : "\u275A\u275A";
                 }
 
                 // Opens the main page after the reminder screen.
@@ -3899,80 +3847,66 @@
                         return;
                     }
 
-                    if (!supabaseClient) {
-                        showAuthMessage("Supabase did not load. Refresh the site and try again.", "error");
-                        return;
-                    }
-
                     unlockButton.disabled = true;
 
-                    try {
-                        if (authMode === "signup") {
-                            const existingProfile = await getProfileByUsername(cleanUsername);
+                    if (authMode === "signup") {
+                        const existingProfile = await getProfileByUsername(cleanUsername);
 
-                            if (existingProfile) {
-                                showAuthMessage("Username already taken.", "error");
-                                return;
-                            }
-
-                            const passwordHash = await hashPassword(enteredPassword);
-                            const userId = crypto.randomUUID();
-                            const { error } = await supabaseClient
-                                .from(PROFILE_TABLE)
-                                .insert({
-                                    id: userId,
-                                    username: cleanUsername,
-                                    password_hash: passwordHash
-                                });
-
-                            if (error) {
-                                showAuthMessage(error.message || "Could not create account.", "error");
-                                return;
-                            }
-
-                            showAuthMessage("Account created. Signing you in...", "success");
-                            const opened = await handleAuthenticatedSession({
-                                id: userId,
-                                username: cleanUsername
-                            });
-
-                            if (!opened) {
-                                showAuthMessage("Account created, but the app could not open. Refresh and log in.", "error");
-                            }
-                        } else {
-                            const profile = await getProfileByUsername(cleanUsername);
-
-                            if (!profile) {
-                                showAuthMessage("Account not found. Create one first.", "error");
-                                return;
-                            }
-
-                            const passwordHash = await hashPassword(enteredPassword);
-
-                            if (profile.password_hash !== passwordHash) {
-                                showAuthMessage("Wrong password.", "error");
-                                return;
-                            }
-
-                            showAuthMessage("Login successful.", "success");
-                            const opened = await handleAuthenticatedSession({
-                                id: profile.id,
-                                username: profile.username
-                            });
-
-                            if (!opened) {
-                                showAuthMessage("Login worked, but the app could not open. Refresh and try again.", "error");
-                            }
+                        if (existingProfile) {
+                            showAuthMessage("Username already taken.", "error");
+                            unlockButton.disabled = false;
+                            return;
                         }
-                    } catch (error) {
-                        console.error("Authentication flow failed:", error);
-                        showAuthMessage("Something went wrong during login. Refresh and try again.", "error");
-                    } finally {
-                        unlockButton.disabled = false;
-                        passwordInput.value = "";
-                        confirmPasswordInput.value = "";
-                        lastNameProceedAt = null;
+
+                        const passwordHash = await hashPassword(enteredPassword);
+                        const userId = crypto.randomUUID();
+                        const { error } = await supabaseClient
+                            .from(PROFILE_TABLE)
+                            .insert({
+                                id: userId,
+                                username: cleanUsername,
+                                password_hash: passwordHash
+                            });
+
+                        if (error) {
+                            showAuthMessage(error.message, "error");
+                            unlockButton.disabled = false;
+                            return;
+                        }
+
+                        showAuthMessage("Account created. Signing you in...", "success");
+                        await handleAuthenticatedSession({
+                            id: userId,
+                            username: cleanUsername
+                        });
+                    } else {
+                        const profile = await getProfileByUsername(cleanUsername);
+
+                        if (!profile) {
+                            showAuthMessage("Account not found. Create one first.", "error");
+                            unlockButton.disabled = false;
+                            return;
+                        }
+
+                        const passwordHash = await hashPassword(enteredPassword);
+
+                        if (profile.password_hash !== passwordHash) {
+                            showAuthMessage("Wrong password.", "error");
+                            unlockButton.disabled = false;
+                            return;
+                        }
+
+                        showAuthMessage("Login successful.", "success");
+                        await handleAuthenticatedSession({
+                            id: profile.id,
+                            username: profile.username
+                        });
                     }
+
+                    unlockButton.disabled = false;
+                    passwordInput.value = "";
+                    confirmPasswordInput.value = "";
+                    lastNameProceedAt = null;
                 });
 
                 // Start everything when the page loads.
