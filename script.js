@@ -845,6 +845,16 @@
                     chatSendButton.textContent = "Send";
                 }
 
+                function closeOpenChatMenus(preserveScroll = true) {
+                    if (activeChatActionMenuId === null && activeChatReactionMenuId === null) {
+                        return;
+                    }
+
+                    activeChatActionMenuId = null;
+                    activeChatReactionMenuId = null;
+                    renderChatMessages({ preserveScroll });
+                }
+
                 function setChatReplyState(message) {
                     activeChatEditMessageId = null;
                     activeChatReplyMessageId = message?.id ?? null;
@@ -952,11 +962,13 @@
                     await loadMessageReactions();
                 }
 
-                function renderChatMessages() {
+                function renderChatMessages(options = {}) {
                     if (!chatMessages) {
                         return;
                     }
 
+                    const preserveScroll = Boolean(options.preserveScroll);
+                    const previousScrollTop = preserveScroll ? chatMessages.scrollTop : 0;
                     chatMessages.innerHTML = "";
 
                     if (!activeChatUserId) {
@@ -1007,8 +1019,6 @@
                         const meta = document.createElement("p");
                         meta.className = "chat-bubble-meta";
                         const editedMetaSuffix = message.edited_at ? " \u00B7 edited" : "";
-                        meta.textContent = `${message.sender_username || "Unknown"} | ${formatNoteDate(message.edited_at || message.created_at)}${message.edited_at ? " · edited" : ""}`;
-
                         meta.textContent = `${message.sender_username || "Unknown"} | ${formatNoteDate(message.edited_at || message.created_at)}${editedMetaSuffix}`;
 
                         const reactions = getReactionSummary(message.id);
@@ -1020,9 +1030,6 @@
                             reactions.forEach((reaction) => {
                                 const chip = document.createElement("div");
                                 chip.className = `chat-reaction-chip${reaction.mine ? " mine" : ""}`;
-                                if (reaction.emoji === "❤") {
-                                    chip.classList.add("heart");
-                                }
                                 if (reaction.emoji === "\u2764") {
                                     chip.classList.add("heart");
                                 }
@@ -1039,21 +1046,17 @@
                         reactionButton.className = "chat-bubble-action";
                         reactionButton.setAttribute("aria-label", "React to message");
                         reactionButton.textContent = "\u263A";
-                        reactionButton.textContent = "☺";
-                        reactionButton.textContent = "\u263A";
                         reactionButton.addEventListener("click", (event) => {
                             event.stopPropagation();
                             activeChatActionMenuId = null;
                             activeChatReactionMenuId = activeChatReactionMenuId === message.id ? null : message.id;
-                            renderChatMessages();
+                            renderChatMessages({ preserveScroll: true });
                         });
 
                         const replyButton = document.createElement("button");
                         replyButton.type = "button";
                         replyButton.className = "chat-bubble-action";
                         replyButton.setAttribute("aria-label", "Reply to message");
-                        replyButton.textContent = "\u21A9";
-                        replyButton.textContent = "↩";
                         replyButton.textContent = "\u21A9";
                         replyButton.addEventListener("click", () => {
                             setChatReplyState(message);
@@ -1068,33 +1071,17 @@
                             menuButton.className = "chat-bubble-action";
                             menuButton.setAttribute("aria-label", "Message actions");
                             menuButton.textContent = "\u22EE";
-                            menuButton.textContent = "⋮";
-                            menuButton.textContent = "\u22EE";
                             menuButton.addEventListener("click", (event) => {
                                 event.stopPropagation();
                                 activeChatReactionMenuId = null;
                                 activeChatActionMenuId = activeChatActionMenuId === message.id ? null : message.id;
-                                renderChatMessages();
+                                renderChatMessages({ preserveScroll: true });
                             });
                             actions.appendChild(menuButton);
                         }
 
                         const reactionPicker = document.createElement("div");
                         reactionPicker.className = `chat-reaction-picker${activeChatReactionMenuId === message.id ? "" : " hidden"}`;
-
-                        ["❤", "😂", "😊", "😠", "😮", "😢"].forEach((emoji) => {
-                            const option = document.createElement("button");
-                            option.type = "button";
-                            option.className = "chat-reaction-option";
-                            option.textContent = emoji;
-                            option.addEventListener("click", async (event) => {
-                                event.stopPropagation();
-                                await reactToMessage(message.id, emoji);
-                            });
-                            reactionPicker.appendChild(option);
-                        });
-
-                        reactionPicker.innerHTML = "";
                         ["\u2764", "\u{1F602}", "\u{1F60A}", "\u{1F620}", "\u{1F62E}", "\u{1F622}"].forEach((emoji) => {
                             const option = document.createElement("button");
                             option.type = "button";
@@ -1155,9 +1142,13 @@
                     });
 
                     chatMessages.appendChild(fragment);
-                    chatMessages.scrollTop = chatMessages.scrollHeight;
-                }
 
+                    if (preserveScroll) {
+                        chatMessages.scrollTop = previousScrollTop;
+                    } else {
+                        chatMessages.scrollTop = chatMessages.scrollHeight;
+                    }
+                }
                 async function markConversationAsRead(otherUserId) {
                     if (!supabaseClient || !profileData?.id || !otherUserId) {
                         return;
@@ -2721,6 +2712,24 @@
                     });
 
                     if (filteredSongs.length === 0) {
+                function renderPlayerPlaylist(filterText = "") {
+                    const normalizedFilter = filterText.trim().toLowerCase();
+                    playerPlaylistList.innerHTML = "";
+                    syncPlaylistTabs();
+
+                    if (playerPlaylistCount) {
+                        playerPlaylistCount.textContent = `(${songs.length})`;
+                    }
+
+                    const filteredSongs = songs.filter((song) => {
+                        const matchesSearch = song.title.toLowerCase().includes(normalizedFilter);
+                        const matchesView = playlistViewMode === "liked"
+                            ? likedSongFiles.has(song.file)
+                            : true;
+                        return matchesSearch && matchesView;
+                    });
+
+                    if (filteredSongs.length === 0) {
                         const empty = document.createElement("div");
                         empty.className = "player-playlist-empty";
                         empty.textContent = normalizedFilter
@@ -2745,16 +2754,12 @@
 
                         const textWrap = document.createElement("span");
                         textWrap.className = "player-playlist-text";
-                        textWrap.innerHTML = `<span>♫</span><span class="player-playlist-name"></span>`;
+                        textWrap.innerHTML = `<span>\u266B</span><span class="player-playlist-name"></span>`;
                         textWrap.querySelector(".player-playlist-name").textContent = song.title;
 
                         const heart = document.createElement("button");
                         heart.type = "button";
                         heart.className = "player-playlist-heart";
-                        heart.textContent = "♡";
-
-                        textWrap.innerHTML = `<span>\u266B</span><span class="player-playlist-name"></span>`;
-                        textWrap.querySelector(".player-playlist-name").textContent = song.title;
                         heart.textContent = likedSongFiles.has(song.file) ? "\u2665" : "\u2661";
                         heart.classList.toggle("liked", likedSongFiles.has(song.file));
                         heart.setAttribute("role", "button");
@@ -2763,6 +2768,7 @@
 
                         item.appendChild(textWrap);
                         item.appendChild(heart);
+
                         heart.addEventListener("click", (event) => {
                             event.stopPropagation();
 
@@ -2775,17 +2781,20 @@
                             saveLikedSongsPreference();
                             renderPlayerPlaylist(playerSearchInput.value);
                         });
+
                         heart.addEventListener("keydown", (event) => {
                             if (event.key === "Enter" || event.key === " ") {
                                 event.preventDefault();
                                 heart.click();
                             }
                         });
+
                         item.addEventListener("click", () => {
                             setCurrentSong(actualIndex, true);
                             playerWrap.classList.remove("song-list-open");
                             resetPlayerAutoCloseTimer();
                         });
+
                         item.addEventListener("keydown", (event) => {
                             if (event.key === "Enter" || event.key === " ") {
                                 event.preventDefault();
@@ -3027,8 +3036,14 @@
                 }
 
                 function resolveThemeFile(fileName) {
-                    if (fileName === "default.mp4" && window.matchMedia("(max-width: 932px)").matches) {
-                        return "Default mobile.mp4";
+                    if (window.matchMedia("(max-width: 932px)").matches) {
+                        if (fileName === "default.mp4") {
+                            return "Default mobile.mp4";
+                        }
+
+                        if (fileName === "special.mp4") {
+                            return "Special mobile.mp4";
+                        }
                     }
 
                     return fileName;
@@ -3657,6 +3672,10 @@
                     });
 
                     document.addEventListener("pointerdown", (event) => {
+                        if (!event.target.closest(".chat-bubble-actions") && !event.target.closest(".chat-bubble-menu") && !event.target.closest(".chat-reaction-picker")) {
+                            closeOpenChatMenus(true);
+                        }
+
                         if (!isMobilePlayerLayout()) {
                             if (!playerWrap.classList.contains("song-list-open")) {
                                 return;
@@ -3708,14 +3727,6 @@
 
                         if (!clickedChat && !event.target.closest(".leaderboard-message-button")) {
                             chatPanel.classList.remove("open");
-                        }
-
-                        if (!event.target.closest(".chat-bubble-actions")) {
-                            if (activeChatActionMenuId !== null || activeChatReactionMenuId !== null) {
-                                activeChatActionMenuId = null;
-                                activeChatReactionMenuId = null;
-                                renderChatMessages();
-                            }
                         }
 
                         if (!clickedNotesMenu && event.target !== notesToggle) {
