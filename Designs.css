@@ -266,45 +266,12 @@
                 place-items: center;
             }
 
-            .orientation-phone {
-                position: relative;
-                width: 92px;
-                height: 164px;
-                border: 2px solid rgba(255, 255, 255, 0.7);
-                border-radius: 24px;
-                background: rgba(255, 255, 255, 0.06);
-                box-shadow: 0 14px 32px rgba(0, 0, 0, 0.28);
-                animation: phoneTurn 2.8s ease-in-out infinite;
-            }
-
-            .orientation-phone::before {
-                content: "";
-                position: absolute;
-                top: 12px;
-                left: 50%;
-                width: 30px;
-                height: 5px;
-                border-radius: 999px;
-                background: rgba(255, 255, 255, 0.35);
-                transform: translateX(-50%);
-            }
-
-            .orientation-phone::after {
-                content: "";
-                position: absolute;
-                inset: 18px 12px 18px;
-                border-radius: 16px;
-                background:
-                    linear-gradient(135deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0.04)),
-                    rgba(255, 255, 255, 0.03);
-            }
-
-            .orientation-arrow {
-                position: absolute;
-                font-size: clamp(2.2rem, 7vw, 3.4rem);
-                color: rgba(255, 255, 255, 0.72);
-                text-shadow: 0 10px 24px rgba(0, 0, 0, 0.28);
-                animation: arrowPulse 1.8s ease-in-out infinite;
+            .orientation-home-icon {
+                width: min(48vw, 220px);
+                height: auto;
+                display: block;
+                fill: #ffffff;
+                filter: drop-shadow(0 10px 20px rgba(0, 0, 0, 0.18));
             }
 
             .orientation-note {
@@ -754,7 +721,7 @@
 
             .leaderboard-item {
                 display: grid;
-                grid-template-columns: minmax(0, 1fr) 160px;
+                grid-template-columns: minmax(0, 1fr) auto;
                 align-items: center;
                 gap: 16px;
                 padding: 14px 16px;
@@ -765,6 +732,10 @@
 
             .leaderboard-identity {
                 min-width: 0;
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                flex-wrap: wrap;
             }
 
             .leaderboard-name {
@@ -793,6 +764,7 @@
                 border-radius: 999px;
                 background: rgba(255, 255, 255, 0.06);
                 border: 1px solid rgba(255, 255, 255, 0.08);
+                white-space: nowrap;
             }
 
             .leaderboard-status-dot {
@@ -828,11 +800,11 @@
                 min-height: 26px;
                 margin-left: 0;
                 padding: 0;
-                border: 1px solid rgba(255, 110, 110, 0.44);
-                border-radius: 999px;
+                border: 0;
+                border-radius: 0;
                 display: grid;
                 place-items: center;
-                background: rgba(255, 79, 79, 0.16);
+                background: transparent;
                 color: #ff7b7b;
                 font-size: 0.92rem;
                 font-weight: 700;
@@ -842,8 +814,9 @@
             }
 
             .leaderboard-delete:hover {
-                background: rgba(255, 79, 79, 0.24);
+                background: transparent;
                 transform: none;
+                opacity: 0.86;
             }
 
             .leaderboard-message-button {
@@ -852,11 +825,11 @@
                 min-height: 30px;
                 margin-left: 0;
                 padding: 0;
-                border: 1px solid rgba(255, 255, 255, 0.14);
-                border-radius: 10px;
+                border: 0;
+                border-radius: 0;
                 display: grid;
                 place-items: center;
-                background: rgba(255, 255, 255, 0.08);
+                background: transparent;
                 color: #fff;
                 font-size: 0.9rem;
                 line-height: 1;
@@ -865,8 +838,9 @@
             }
 
             .leaderboard-message-button:hover {
-                background: rgba(255, 255, 255, 0.16);
+                background: transparent;
                 transform: none;
+                opacity: 0.86;
             }
 
             .leaderboard-message-badge {
@@ -3024,7 +2998,7 @@
 
                 .leaderboard-columns,
                 .leaderboard-item {
-                    grid-template-columns: minmax(0, 1fr) 110px;
+                    grid-template-columns: minmax(0, 1fr) auto;
                     gap: 10px;
                     padding: 12px 12px;
                 }
@@ -3034,11 +3008,12 @@
                     padding: 7px 10px;
                 }
 
-                .leaderboard-message-button {
-                    width: 28px;
-                    height: 28px;
-                    min-height: 28px;
-                    font-size: 0.84rem;
+                .leaderboard-message-button,
+                .leaderboard-delete {
+                    width: 42px;
+                    height: 42px;
+                    min-height: 42px;
+                    font-size: 1.05rem;
                 }
 
                 .leaderboard-message-badge {
@@ -4280,4 +4255,3 @@
                     width: min(78vw, 360px) !important;
                     max-width: 78vw !important;
                 }
-            }
