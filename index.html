@@ -57,13 +57,15 @@
         <section class="screen hidden orientation-screen" id="landscapeScreen">
             <button class="orientation-back-button" id="orientationBackButton" type="button" aria-label="Back to login">&times;</button>
             <div>
-                <h2 class="orientation-title">Turn Your Phone Landscape</h2>
-                <p class="orientation-note">Rotate your phone sideways first, then continue to the main page.</p>
+                <h2 class="orientation-title">Welcome</h2>
+                <p class="orientation-note">You are about to enter Nico's place.</p>
             </div>
 
             <div class="orientation-visual" aria-hidden="true">
-                <div class="orientation-phone"></div>
-                <div class="orientation-arrow">&#8635;</div>
+                <svg class="orientation-home-icon" viewBox="0 0 64 64" aria-hidden="true">
+                    <path d="M6 30.5 32 8l26 22.5a2.5 2.5 0 0 1-3.3 3.8L50 30.2V54a4 4 0 0 1-4 4H39a2 2 0 0 1-2-2V42H27v14a2 2 0 0 1-2 2h-7a4 4 0 0 1-4-4V30.2l-4.7 4.1A2.5 2.5 0 0 1 6 30.5Z"/>
+                    <path d="M41 10h9a2 2 0 0 1 2 2v12h-4V14h-7z"/>
+                </svg>
             </div>
 
             <button class="proceed-button" id="proceedMainButton" type="button">Proceed</button>
@@ -367,6 +369,6 @@
         </section>
 
         <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-        <script src="script.js?v=131"></script>
+        <script src="script.js?v=128"></script>
     </body>
     </html>
