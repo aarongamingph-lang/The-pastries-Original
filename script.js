@@ -196,6 +196,7 @@
                 let activeChatEditMessageId = null;
                 let activeChatReactionMenuId = null;
                 let activeChatActionMenuId = null;
+                let pendingChatScrollToLatest = false;
                 let scheduledChatRenderFrame = null;
                 let scheduledChatRenderPreserveScroll = false;
                 let pendingDeleteProfile = null;
@@ -1007,7 +1008,7 @@
                         return;
                     }
 
-                    const preserveScroll = Boolean(options.preserveScroll);
+                    const preserveScroll = Boolean(options.preserveScroll) && !pendingChatScrollToLatest;
                     const previousScrollTop = preserveScroll ? chatMessages.scrollTop : 0;
                     chatMessages.innerHTML = "";
 
@@ -1188,6 +1189,10 @@
                     } else {
                         chatMessages.scrollTop = chatMessages.scrollHeight;
                     }
+
+                    if (pendingChatScrollToLatest) {
+                        pendingChatScrollToLatest = false;
+                    }
                 }
                 async function markConversationAsRead(otherUserId) {
                     if (!supabaseClient || !profileData?.id || !otherUserId) {
@@ -1241,6 +1246,7 @@
                     settingsLauncher.classList.remove("open");
                     updateMenuMessageAlert();
                     chatPanel.classList.add("open");
+                    pendingChatScrollToLatest = true;
                     renderChatMessages();
                     snapChatToLatest({ force: true });
                     await markConversationAsRead(entry.id);
