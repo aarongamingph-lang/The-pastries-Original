@@ -3875,12 +3875,15 @@
 
                 .chat-bubble {
                     padding: 9px 11px;
-                    box-shadow: 0 6px 14px rgba(0, 0, 0, 0.12);
+                    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
                 }
 
                 .chat-message-item {
                     max-width: 86%;
                     contain: layout paint;
+                    content-visibility: auto;
+                    contain-intrinsic-size: 120px;
+                    backface-visibility: hidden;
                 }
 
                 .chat-message-footer {
