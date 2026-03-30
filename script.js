@@ -196,6 +196,8 @@
                 let activeChatEditMessageId = null;
                 let activeChatReactionMenuId = null;
                 let activeChatActionMenuId = null;
+                let scheduledChatRenderFrame = null;
+                let scheduledChatRenderPreserveScroll = false;
                 let pendingDeleteProfile = null;
                 let remainingBouncingTextIndices = [];
                 let remainingSongIndices = [];
@@ -852,7 +854,23 @@
 
                     activeChatActionMenuId = null;
                     activeChatReactionMenuId = null;
-                    renderChatMessages({ preserveScroll });
+                    requestChatRender({ preserveScroll });
+                }
+
+                function requestChatRender(options = {}) {
+                    const preserveScroll = Boolean(options.preserveScroll);
+                    scheduledChatRenderPreserveScroll = scheduledChatRenderPreserveScroll || preserveScroll;
+
+                    if (scheduledChatRenderFrame !== null) {
+                        return;
+                    }
+
+                    scheduledChatRenderFrame = window.requestAnimationFrame(() => {
+                        const nextPreserveScroll = scheduledChatRenderPreserveScroll;
+                        scheduledChatRenderFrame = null;
+                        scheduledChatRenderPreserveScroll = false;
+                        renderChatMessages({ preserveScroll: nextPreserveScroll });
+                    });
                 }
 
                 function setChatReplyState(message) {
@@ -1050,7 +1068,7 @@
                             event.stopPropagation();
                             activeChatActionMenuId = null;
                             activeChatReactionMenuId = activeChatReactionMenuId === message.id ? null : message.id;
-                            renderChatMessages({ preserveScroll: true });
+                            requestChatRender({ preserveScroll: true });
                         });
 
                         const replyButton = document.createElement("button");
@@ -1075,7 +1093,7 @@
                                 event.stopPropagation();
                                 activeChatReactionMenuId = null;
                                 activeChatActionMenuId = activeChatActionMenuId === message.id ? null : message.id;
-                                renderChatMessages({ preserveScroll: true });
+                                requestChatRender({ preserveScroll: true });
                             });
                             actions.appendChild(menuButton);
                         }
@@ -1169,7 +1187,7 @@
                     });
 
                     renderLeaderboard();
-                    renderChatMessages();
+                    requestChatRender({ preserveScroll: true });
 
                     const unreadIds = unreadMessages.map((message) => message.id).filter(Boolean);
 
@@ -1226,15 +1244,17 @@
                     }
 
                     messagesEntries = data || [];
-                    await loadMessageReactions();
+                    await loadMessageReactions(false);
                     renderChatMessages();
                     renderLeaderboard();
                 }
 
-                async function loadMessageReactions() {
+                async function loadMessageReactions(shouldRenderChat = true) {
                     if (!supabaseClient) {
                         messageReactionsEntries = [];
-                        renderChatMessages();
+                        if (shouldRenderChat) {
+                            requestChatRender({ preserveScroll: true });
+                        }
                         return;
                     }
 
@@ -1248,7 +1268,9 @@
                     }
 
                     messageReactionsEntries = data || [];
-                    renderChatMessages();
+                    if (shouldRenderChat) {
+                        requestChatRender({ preserveScroll: true });
+                    }
                 }
 
                 async function sendChatMessage() {
