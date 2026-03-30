@@ -873,6 +873,28 @@
                     });
                 }
 
+                function snapChatToLatest(options = {}) {
+                    if (!chatMessages) {
+                        return;
+                    }
+
+                    const force = Boolean(options.force);
+                    const shouldSnap =
+                        force ||
+                        window.matchMedia("(max-width: 932px)").matches ||
+                        chatPanel?.classList.contains("open");
+
+                    if (!shouldSnap) {
+                        return;
+                    }
+
+                    window.requestAnimationFrame(() => {
+                        window.requestAnimationFrame(() => {
+                            chatMessages.scrollTop = chatMessages.scrollHeight;
+                        });
+                    });
+                }
+
                 function setChatReplyState(message) {
                     activeChatEditMessageId = null;
                     activeChatReplyMessageId = message?.id ?? null;
@@ -1220,7 +1242,9 @@
                     updateMenuMessageAlert();
                     chatPanel.classList.add("open");
                     renderChatMessages();
+                    snapChatToLatest({ force: true });
                     await markConversationAsRead(entry.id);
+                    snapChatToLatest({ force: true });
                 }
 
                 async function loadMessages() {
@@ -1246,6 +1270,7 @@
                     messagesEntries = data || [];
                     await loadMessageReactions(false);
                     renderChatMessages();
+                    snapChatToLatest();
                     renderLeaderboard();
                 }
 
