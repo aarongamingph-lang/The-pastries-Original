@@ -1257,21 +1257,23 @@
                     }
 
                     const targetUser = leaderboardEntries.find((entry) => entry.id === activeChatUserId);
+                    const targetUsername = targetUser?.username || chatPanelTitle.textContent.trim() || "Unknown";
                     const messageContent = chatInput.value.trim();
 
-                    if (!targetUser || !messageContent) {
+                    if (!messageContent) {
                         return;
                     }
 
                     chatSendButton.disabled = true;
                     let error = null;
+                    const timestamp = new Date().toISOString();
 
                     if (activeChatEditMessageId) {
                         ({ error } = await supabaseClient
                             .from(MESSAGES_TABLE)
                             .update({
                                 content: messageContent,
-                                edited_at: new Date().toISOString()
+                                edited_at: timestamp
                             })
                             .eq("id", activeChatEditMessageId)
                             .eq("sender_id", profileData.id));
@@ -1281,10 +1283,10 @@
                             .insert({
                                 sender_id: profileData.id,
                                 sender_username: currentUser,
-                                receiver_id: targetUser.id,
-                                receiver_username: targetUser.username,
+                                receiver_id: activeChatUserId,
+                                receiver_username: targetUsername,
                                 content: messageContent,
-                                created_at: new Date().toISOString(),
+                                created_at: timestamp,
                                 edited_at: null,
                                 parent_message_id: activeChatReplyMessageId || null,
                                 is_read: false
@@ -1297,6 +1299,25 @@
                         console.error("Could not send message:", error.message);
                         showPresenceToast("Could not send message.");
                         return;
+                    }
+
+                    if (!activeChatEditMessageId) {
+                        messagesEntries = [
+                            ...messagesEntries,
+                            {
+                                id: `local-${timestamp}`,
+                                sender_id: profileData.id,
+                                sender_username: currentUser,
+                                receiver_id: activeChatUserId,
+                                receiver_username: targetUsername,
+                                content: messageContent,
+                                created_at: timestamp,
+                                edited_at: null,
+                                parent_message_id: activeChatReplyMessageId || null,
+                                is_read: false
+                            }
+                        ];
+                        renderChatMessages();
                     }
 
                     chatInput.value = "";
