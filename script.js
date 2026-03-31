@@ -941,6 +941,10 @@
                         return;
                     }
 
+                    if (isChatOpenSequenceActive() || pendingChatScrollToLatest) {
+                        return;
+                    }
+
                     if (chatMessages.scrollTop > 48) {
                         return;
                     }
@@ -3611,6 +3615,11 @@
                         chatPanel.classList.remove("open");
                         activeChatUserId = null;
                         resetChatRenderWindow();
+                        pendingChatScrollToLatest = false;
+                        chatOpenSequenceUntil = 0;
+                        if (chatMessages) {
+                            chatMessages.scrollTop = chatMessages.scrollHeight;
+                        }
                         runChatAfterNextFrame(() => {
                             clearChatComposerState();
                             chatInput.value = "";
