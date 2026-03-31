@@ -3935,6 +3935,12 @@
                 .chat-reaction-picker {
                     padding: 8px;
                     border-radius: 14px;
+                    position: absolute;
+                    top: auto;
+                    bottom: calc(100% + 8px);
+                    right: 0;
+                    left: auto;
+                    transform: none;
                 }
 
                 .chat-reaction-picker {
@@ -3942,6 +3948,11 @@
                     width: 148px;
                     min-width: 148px;
                     right: 34px;
+                }
+
+                .chat-bubble-menu {
+                    min-width: 120px;
+                    width: auto;
                 }
 
                 .chat-bubble-menu-button {
