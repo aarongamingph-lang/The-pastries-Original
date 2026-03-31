@@ -963,12 +963,36 @@
                         renderedChatMessageCount + CHAT_RENDER_BATCH_SIZE
                     );
 
-                    renderChatMessages();
+                    renderChatMessages({ preserveScroll: true });
 
                     window.requestAnimationFrame(() => {
                         const nextScrollHeight = chatMessages.scrollHeight;
                         chatMessages.scrollTop = nextScrollHeight - previousScrollHeight + previousScrollTop;
                     });
+                }
+
+                function maybeTrimOlderChatMessages() {
+                    if (!chatMessages || !activeChatUserId) {
+                        return;
+                    }
+
+                    if (isChatOpenSequenceActive() || pendingChatScrollToLatest) {
+                        return;
+                    }
+
+                    if (renderedChatMessageCount <= CHAT_RENDER_BATCH_SIZE) {
+                        return;
+                    }
+
+                    const distanceFromBottom = chatMessages.scrollHeight - chatMessages.clientHeight - chatMessages.scrollTop;
+
+                    if (distanceFromBottom > 72) {
+                        return;
+                    }
+
+                    renderedChatMessageCount = CHAT_RENDER_BATCH_SIZE;
+                    renderChatMessages();
+                    snapChatToLatest({ force: true });
                 }
 
                 function setChatReplyState(message) {
@@ -3628,6 +3652,7 @@
 
                     chatMessages.addEventListener("scroll", () => {
                         maybeLoadOlderChatMessages();
+                        maybeTrimOlderChatMessages();
                     });
 
                     chatComposeCancel.addEventListener("click", () => {
