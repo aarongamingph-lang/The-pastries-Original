@@ -200,7 +200,9 @@
                 let chatOpenSequenceUntil = 0;
                 let scheduledChatRenderFrame = null;
                 let scheduledChatRenderPreserveScroll = false;
+                let scheduledChatRenderForceLatest = false;
                 let renderedChatMessageCount = 40;
+                let suppressChatScrollHandling = false;
                 let pendingDeleteProfile = null;
                 let remainingBouncingTextIndices = [];
                 let remainingSongIndices = [];
@@ -851,6 +853,22 @@
                     chatSendButton.textContent = "Send";
                 }
 
+                function syncChatMenuVisibility() {
+                    if (!chatMessages) {
+                        return;
+                    }
+
+                    chatMessages.querySelectorAll(".chat-reaction-picker").forEach((picker) => {
+                        const isOpen = String(picker.dataset.messageId || "") === String(activeChatReactionMenuId ?? "");
+                        picker.classList.toggle("hidden", !isOpen);
+                    });
+
+                    chatMessages.querySelectorAll(".chat-bubble-menu").forEach((menu) => {
+                        const isOpen = String(menu.dataset.messageId || "") === String(activeChatActionMenuId ?? "");
+                        menu.classList.toggle("hidden", !isOpen);
+                    });
+                }
+
                 function closeOpenChatMenus(preserveScroll = true) {
                     if (activeChatActionMenuId === null && activeChatReactionMenuId === null) {
                         return;
@@ -858,12 +876,22 @@
 
                     activeChatActionMenuId = null;
                     activeChatReactionMenuId = null;
-                    requestChatRender({ preserveScroll });
+
+                    if (preserveScroll) {
+                        syncChatMenuVisibility();
+                        return;
+                    }
+
+                    requestChatRender({ preserveScroll: false });
                 }
 
                 function requestChatRender(options = {}) {
                     const preserveScroll = Boolean(options.preserveScroll) && !isChatOpenSequenceActive();
-                    scheduledChatRenderPreserveScroll = scheduledChatRenderPreserveScroll || preserveScroll;
+                    const keepPosition = Boolean(options.keepPosition);
+                    const forceLatest = Boolean(options.forceLatest);
+                    scheduledChatRenderPreserveScroll =
+                        scheduledChatRenderPreserveScroll || (preserveScroll && keepPosition);
+                    scheduledChatRenderForceLatest = scheduledChatRenderForceLatest || forceLatest;
 
                     if (scheduledChatRenderFrame !== null) {
                         return;
@@ -871,9 +899,19 @@
 
                     scheduledChatRenderFrame = window.requestAnimationFrame(() => {
                         const nextPreserveScroll = scheduledChatRenderPreserveScroll;
+                        const nextForceLatest = scheduledChatRenderForceLatest;
                         scheduledChatRenderFrame = null;
                         scheduledChatRenderPreserveScroll = false;
-                        renderChatMessages({ preserveScroll: nextPreserveScroll });
+                        scheduledChatRenderForceLatest = false;
+                        renderChatMessages({
+                            preserveScroll: nextPreserveScroll,
+                            keepPosition: nextPreserveScroll,
+                            forceLatest: nextForceLatest
+                        });
+
+                        if (nextForceLatest && isChatOpenSequenceActive()) {
+                            snapChatToLatest({ force: true });
+                        }
                     });
                 }
 
@@ -892,6 +930,41 @@
                     }, 820);
                 }
 
+                function shouldForceChatLatestView() {
+                    return Boolean(
+                        activeChatUserId &&
+                        chatPanel?.classList.contains("open") &&
+                        (pendingChatScrollToLatest || isChatOpenSequenceActive())
+                    );
+                }
+
+                function shouldPinChatToBottom() {
+                    return Boolean(activeChatUserId && chatPanel?.classList.contains("open"));
+                }
+
+                function isChatScrolledNearBottom(threshold = 72) {
+                    if (!chatMessages) {
+                        return false;
+                    }
+
+                    const distanceFromBottom =
+                        chatMessages.scrollHeight - chatMessages.clientHeight - chatMessages.scrollTop;
+
+                    return distanceFromBottom <= threshold;
+                }
+
+                function beginProgrammaticChatScroll() {
+                    suppressChatScrollHandling = true;
+                }
+
+                function endProgrammaticChatScrollSoon() {
+                    window.requestAnimationFrame(() => {
+                        window.requestAnimationFrame(() => {
+                            suppressChatScrollHandling = false;
+                        });
+                    });
+                }
+
                 function snapChatToLatest(options = {}) {
                     if (!chatMessages) {
                         return;
@@ -908,13 +981,9 @@
                     }
 
                     const scrollToLatestMessage = () => {
-                        const lastMessage = chatMessages.lastElementChild;
-
-                        if (lastMessage && typeof lastMessage.scrollIntoView === "function") {
-                            lastMessage.scrollIntoView({ block: "end", inline: "nearest" });
-                        }
-
+                        beginProgrammaticChatScroll();
                         chatMessages.scrollTop = chatMessages.scrollHeight;
+                        endProgrammaticChatScrollSoon();
                     };
 
                     window.requestAnimationFrame(() => {
@@ -967,6 +1036,10 @@
                         return;
                     }
 
+                    if (suppressChatScrollHandling) {
+                        return;
+                    }
+
                     if (isChatOpenSequenceActive() || pendingChatScrollToLatest) {
                         return;
                     }
@@ -989,7 +1062,7 @@
                         renderedChatMessageCount + CHAT_RENDER_BATCH_SIZE
                     );
 
-                    renderChatMessages({ preserveScroll: true });
+                    renderChatMessages({ preserveScroll: true, keepPosition: true });
 
                     window.requestAnimationFrame(() => {
                         const nextScrollHeight = chatMessages.scrollHeight;
@@ -999,6 +1072,10 @@
 
                 function maybeTrimOlderChatMessages() {
                     if (!chatMessages || !activeChatUserId) {
+                        return;
+                    }
+
+                    if (suppressChatScrollHandling) {
                         return;
                     }
 
@@ -1133,9 +1210,20 @@
                         return;
                     }
 
-                    const preserveScroll = Boolean(options.preserveScroll) && !pendingChatScrollToLatest && !isChatOpenSequenceActive();
+                    const preserveScroll =
+                        Boolean(options.preserveScroll) &&
+                        Boolean(options.keepPosition) &&
+                        !pendingChatScrollToLatest &&
+                        !isChatOpenSequenceActive() &&
+                        !Boolean(options.forceLatest);
                     const previousScrollTop = preserveScroll ? chatMessages.scrollTop : 0;
-                    chatMessages.innerHTML = "";
+                    const wasNearBottom = preserveScroll ? isChatScrolledNearBottom() : false;
+                    const hideDuringRender = !preserveScroll;
+                    beginProgrammaticChatScroll();
+                    if (hideDuringRender) {
+                        chatMessages.style.visibility = "hidden";
+                    }
+                    chatMessages.replaceChildren();
 
                     if (!activeChatUserId) {
                         const empty = document.createElement("div");
@@ -1217,7 +1305,7 @@
                             event.stopPropagation();
                             activeChatActionMenuId = null;
                             activeChatReactionMenuId = activeChatReactionMenuId === message.id ? null : message.id;
-                            requestChatRender({ preserveScroll: true });
+                            syncChatMenuVisibility();
                         });
 
                         const replyButton = document.createElement("button");
@@ -1242,13 +1330,14 @@
                                 event.stopPropagation();
                                 activeChatReactionMenuId = null;
                                 activeChatActionMenuId = activeChatActionMenuId === message.id ? null : message.id;
-                                requestChatRender({ preserveScroll: true });
+                                syncChatMenuVisibility();
                             });
                             actions.appendChild(menuButton);
                         }
 
                         const reactionPicker = document.createElement("div");
                         reactionPicker.className = `chat-reaction-picker${activeChatReactionMenuId === message.id ? "" : " hidden"}`;
+                        reactionPicker.dataset.messageId = String(message.id);
                         ["\u2764", "\uD83D\uDE02", "\uD83D\uDE0A", "\uD83D\uDE20", "\uD83D\uDE2E", "\uD83D\uDE22"].forEach((emoji) => {
                             const option = document.createElement("button");
                             option.type = "button";
@@ -1265,6 +1354,7 @@
                         if (isOwnMessage) {
                             const actionMenu = document.createElement("div");
                             actionMenu.className = `chat-bubble-menu${activeChatActionMenuId === message.id ? "" : " hidden"}`;
+                            actionMenu.dataset.messageId = String(message.id);
 
                             const editButton = document.createElement("button");
                             editButton.type = "button";
@@ -1311,14 +1401,18 @@
                     chatMessages.appendChild(fragment);
 
                     if (preserveScroll) {
-                        chatMessages.scrollTop = previousScrollTop;
+                        chatMessages.scrollTop = wasNearBottom ? chatMessages.scrollHeight : previousScrollTop;
                     } else {
-                        const lastMessage = chatMessages.lastElementChild;
-                        if (lastMessage && typeof lastMessage.scrollIntoView === "function") {
-                            lastMessage.scrollIntoView({ block: "end", inline: "nearest" });
-                        }
                         chatMessages.scrollTop = chatMessages.scrollHeight;
                     }
+
+                    if (hideDuringRender) {
+                        window.requestAnimationFrame(() => {
+                            chatMessages.style.visibility = "";
+                        });
+                    }
+
+                    endProgrammaticChatScrollSoon();
 
                     if (pendingChatScrollToLatest && !isChatOpenSequenceActive()) {
                         pendingChatScrollToLatest = false;
@@ -1343,8 +1437,9 @@
                         message.is_read = true;
                     });
 
+                    const forceLatest = shouldForceChatLatestView() || shouldPinChatToBottom();
                     renderLeaderboard();
-                    requestChatRender({ preserveScroll: true });
+                    requestChatRender({ preserveScroll: !forceLatest, forceLatest });
 
                     const unreadIds = unreadMessages.map((message) => message.id).filter(Boolean);
 
@@ -1378,15 +1473,13 @@
                     updateMenuMessageAlert();
                     chatPanel.classList.add("open");
                     chatPanel.scrollTop = 0;
+                    if (chatMessages) {
+                        chatMessages.scrollTop = chatMessages.scrollHeight;
+                    }
                     beginChatOpenSequence();
-                    runChatAfterNextFrame(() => {
-                        renderChatMessages();
-                        snapChatToLatest({ force: true });
-                    });
+                    requestChatRender({ forceLatest: true });
                     await markConversationAsRead(entry.id);
-                    runChatAfterNextFrame(() => {
-                        snapChatToLatest({ force: true });
-                    });
+                    requestChatRender({ forceLatest: true });
                 }
 
                 async function loadMessages() {
@@ -1411,11 +1504,8 @@
 
                     messagesEntries = data || [];
                     await loadMessageReactions(false);
-                    renderChatMessages();
-                    if (chatPanel?.classList.contains("open")) {
-                        chatPanel.scrollTop = 0;
-                    }
-                    snapChatToLatest();
+                    const forceLatest = shouldForceChatLatestView() || shouldPinChatToBottom();
+                    requestChatRender({ preserveScroll: !forceLatest, forceLatest });
                     renderLeaderboard();
                 }
 
@@ -1423,7 +1513,8 @@
                     if (!supabaseClient) {
                         messageReactionsEntries = [];
                         if (shouldRenderChat) {
-                            requestChatRender({ preserveScroll: true });
+                            const forceLatest = shouldPinChatToBottom();
+                            requestChatRender({ preserveScroll: !forceLatest, forceLatest });
                         }
                         return;
                     }
@@ -1439,7 +1530,8 @@
 
                     messageReactionsEntries = data || [];
                     if (shouldRenderChat) {
-                        requestChatRender({ preserveScroll: true });
+                        const forceLatest = shouldPinChatToBottom();
+                        requestChatRender({ preserveScroll: !forceLatest, forceLatest });
                     }
                 }
 
@@ -1459,15 +1551,17 @@
                     chatSendButton.disabled = true;
                     let error = null;
                     const timestamp = new Date().toISOString();
+                    const replyTargetId = activeChatReplyMessageId || null;
+                    const editingMessageId = activeChatEditMessageId;
 
-                    if (activeChatEditMessageId) {
+                    if (editingMessageId) {
                         ({ error } = await supabaseClient
                             .from(MESSAGES_TABLE)
                             .update({
                                 content: messageContent,
                                 edited_at: timestamp
                             })
-                            .eq("id", activeChatEditMessageId)
+                            .eq("id", editingMessageId)
                             .eq("sender_id", profileData.id));
                     } else {
                         ({ error } = await supabaseClient
@@ -1480,7 +1574,7 @@
                                 content: messageContent,
                                 created_at: timestamp,
                                 edited_at: null,
-                                parent_message_id: activeChatReplyMessageId || null,
+                                parent_message_id: replyTargetId,
                                 is_read: false
                             }));
                     }
@@ -1493,30 +1587,12 @@
                         return;
                     }
 
-                    if (!activeChatEditMessageId) {
-                        messagesEntries = [
-                            ...messagesEntries,
-                            {
-                                id: `local-${timestamp}`,
-                                sender_id: profileData.id,
-                                sender_username: currentUser,
-                                receiver_id: activeChatUserId,
-                                receiver_username: targetUsername,
-                                content: messageContent,
-                                created_at: timestamp,
-                                edited_at: null,
-                                parent_message_id: activeChatReplyMessageId || null,
-                                is_read: false
-                            }
-                        ];
-                        renderChatMessages();
-                        snapChatToLatest({ force: true });
-                    }
-
                     chatInput.value = "";
                     clearChatComposerState();
-                    await loadMessages();
-                    snapChatToLatest({ force: true });
+
+                    if (!messagesChannel) {
+                        await loadMessages();
+                    }
                 }
 
                 async function connectMessagesRealtime() {
