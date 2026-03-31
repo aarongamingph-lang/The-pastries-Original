@@ -188,6 +188,8 @@
                 let presenceSyncStarted = false;
                 let knownPresenceUserIds = new Set();
                 let suppressPresenceJoinToastsUntil = 0;
+                let presenceOrderCounter = 0;
+                let presenceOrderMap = new Map();
                 let welcomeNowPlayingTimeout = null;
                 let editingNoteId = null;
                 let activeViewerNoteId = null;
@@ -273,6 +275,15 @@
                     return String(username || "")
                         .trim()
                         .toLowerCase();
+                }
+
+                function rememberPresenceOrder(userId) {
+                    if (!userId) {
+                        return;
+                    }
+
+                    presenceOrderCounter += 1;
+                    presenceOrderMap.set(userId, presenceOrderCounter);
                 }
 
                 function normalizeSongIdentity(value) {
@@ -626,6 +637,7 @@
 
                 function syncOnlineUsersFromPresence() {
                     onlineUsers = getPresenceUsers();
+                    onlineUsers.forEach((user) => rememberPresenceOrder(user.id));
                     renderLeaderboard();
                 }
 
@@ -633,6 +645,34 @@
                     leaderboardList.innerHTML = "";
                     const onlineCount = onlineUsers.length;
                     const onlineUserIds = new Set(onlineUsers.map((user) => user.id));
+                    const currentProfileId = profileData?.id || "";
+                    const currentUsername = normalizeAuthUsername(currentUser);
+                    const sortedEntries = leaderboardEntries
+                        .map((entry, index) => ({
+                            entry,
+                            index,
+                            isSelf:
+                                entry.id === currentProfileId ||
+                                normalizeAuthUsername(entry.username) === currentUsername,
+                            isOnline: onlineUserIds.has(entry.id),
+                            presenceOrder: presenceOrderMap.get(entry.id) || 0,
+                        }))
+                        .sort((left, right) => {
+                            if (left.isSelf !== right.isSelf) {
+                                return left.isSelf ? -1 : 1;
+                            }
+
+                            if (left.presenceOrder !== right.presenceOrder) {
+                                return right.presenceOrder - left.presenceOrder;
+                            }
+
+                            if (left.isOnline !== right.isOnline) {
+                                return left.isOnline ? -1 : 1;
+                            }
+
+                            return left.index - right.index;
+                        })
+                        .map(({ entry }) => entry);
 
                     if (leaderboardToggleCount) {
                         leaderboardToggleCount.textContent = String(onlineCount);
@@ -660,7 +700,7 @@
                         return;
                     }
 
-                    leaderboardEntries.forEach((entry) => {
+                    sortedEntries.forEach((entry) => {
                         const isOnline = onlineUserIds.has(entry.id);
                         const unreadCount = getUnreadCountForSender(entry.id);
                         const item = document.createElement("div");
@@ -2541,6 +2581,7 @@
                                 }
 
                                 knownPresenceUserIds.add(presenceUserId);
+                                rememberPresenceOrder(presenceUserId);
 
                                 if (Date.now() < suppressPresenceJoinToastsUntil) {
                                     return;
