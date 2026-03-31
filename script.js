@@ -200,6 +200,7 @@
                 let chatOpenSequenceUntil = 0;
                 let scheduledChatRenderFrame = null;
                 let scheduledChatRenderPreserveScroll = false;
+                let renderedChatMessageCount = 40;
                 let pendingDeleteProfile = null;
                 let remainingBouncingTextIndices = [];
                 let remainingSongIndices = [];
@@ -211,6 +212,7 @@
                 const LOCAL_NOTE_READS_PREFIX = "pastries_note_reads_";
                 const LOCAL_NOTES_VISIBILITY_PREFIX = "pastries_notes_visibility_";
                 const LOCAL_LIKED_SONGS_PREFIX = "pastries_liked_songs_";
+                const CHAT_RENDER_BATCH_SIZE = 40;
 
                 // Shows small text messages in the audio settings area.
                 function setAudioStatus(message, tone = "neutral", autoClearMs = 0) {
@@ -930,6 +932,41 @@
                     });
                 }
 
+                function resetChatRenderWindow() {
+                    renderedChatMessageCount = CHAT_RENDER_BATCH_SIZE;
+                }
+
+                function maybeLoadOlderChatMessages() {
+                    if (!chatMessages || !activeChatUserId) {
+                        return;
+                    }
+
+                    if (chatMessages.scrollTop > 48) {
+                        return;
+                    }
+
+                    const conversation = getConversationMessages(activeChatUserId);
+
+                    if (renderedChatMessageCount >= conversation.length) {
+                        return;
+                    }
+
+                    const previousScrollTop = chatMessages.scrollTop;
+                    const previousScrollHeight = chatMessages.scrollHeight;
+
+                    renderedChatMessageCount = Math.min(
+                        conversation.length,
+                        renderedChatMessageCount + CHAT_RENDER_BATCH_SIZE
+                    );
+
+                    renderChatMessages();
+
+                    window.requestAnimationFrame(() => {
+                        const nextScrollHeight = chatMessages.scrollHeight;
+                        chatMessages.scrollTop = nextScrollHeight - previousScrollHeight + previousScrollTop;
+                    });
+                }
+
                 function setChatReplyState(message) {
                     activeChatEditMessageId = null;
                     activeChatReplyMessageId = message?.id ?? null;
@@ -1055,6 +1092,7 @@
                     }
 
                     const conversation = getConversationMessages(activeChatUserId);
+                    const visibleConversation = conversation.slice(-renderedChatMessageCount);
                     const fragment = document.createDocumentFragment();
 
                     if (conversation.length === 0) {
@@ -1065,7 +1103,7 @@
                         return;
                     }
 
-                    conversation.forEach((message) => {
+                    visibleConversation.forEach((message) => {
                         const messageItem = document.createElement("div");
                         const isOwnMessage = message.sender_id === profileData?.id;
                         messageItem.className = `chat-message-item ${isOwnMessage ? "own" : "other"}`;
@@ -1277,6 +1315,7 @@
 
                     activeChatUserId = entry.id;
                     clearChatComposerState();
+                    resetChatRenderWindow();
                     chatPanelTitle.textContent = entry.username || "Messages";
                     chatPanelStatus.textContent = formatChatStatus(entry);
                     chatInput.value = "";
@@ -1417,11 +1456,13 @@
                             }
                         ];
                         renderChatMessages();
+                        snapChatToLatest({ force: true });
                     }
 
                     chatInput.value = "";
                     clearChatComposerState();
                     await loadMessages();
+                    snapChatToLatest({ force: true });
                 }
 
                 async function connectMessagesRealtime() {
@@ -3569,10 +3610,15 @@
                     chatClose.addEventListener("click", () => {
                         chatPanel.classList.remove("open");
                         activeChatUserId = null;
+                        resetChatRenderWindow();
                         runChatAfterNextFrame(() => {
                             clearChatComposerState();
                             chatInput.value = "";
                         });
+                    });
+
+                    chatMessages.addEventListener("scroll", () => {
+                        maybeLoadOlderChatMessages();
                     });
 
                     chatComposeCancel.addEventListener("click", () => {
