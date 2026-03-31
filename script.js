@@ -924,6 +924,12 @@
                     window.setTimeout(scrollToLatestMessage, 320);
                 }
 
+                function runChatAfterNextFrame(callback) {
+                    window.requestAnimationFrame(() => {
+                        callback();
+                    });
+                }
+
                 function setChatReplyState(message) {
                     activeChatEditMessageId = null;
                     activeChatReplyMessageId = message?.id ?? null;
@@ -1280,10 +1286,14 @@
                     chatPanel.classList.add("open");
                     chatPanel.scrollTop = 0;
                     beginChatOpenSequence();
-                    renderChatMessages();
-                    snapChatToLatest({ force: true });
+                    runChatAfterNextFrame(() => {
+                        renderChatMessages();
+                        snapChatToLatest({ force: true });
+                    });
                     await markConversationAsRead(entry.id);
-                    snapChatToLatest({ force: true });
+                    runChatAfterNextFrame(() => {
+                        snapChatToLatest({ force: true });
+                    });
                 }
 
                 async function loadMessages() {
@@ -3559,8 +3569,10 @@
                     chatClose.addEventListener("click", () => {
                         chatPanel.classList.remove("open");
                         activeChatUserId = null;
-                        clearChatComposerState();
-                        chatInput.value = "";
+                        runChatAfterNextFrame(() => {
+                            clearChatComposerState();
+                            chatInput.value = "";
+                        });
                     });
 
                     chatComposeCancel.addEventListener("click", () => {
