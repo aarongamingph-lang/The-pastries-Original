@@ -4236,7 +4236,7 @@
             @media (max-width: 932px) {
                 body.main-page-active {
                     background:
-                        radial-gradient(circle at 20% 18%, rgba(255, 255, 255, 0.08), transparent 28%) !important,
+                        radial-gradient(circle at 20% 18%, rgba(255, 255, 255, 0.08), transparent 28%),
                         radial-gradient(circle at 82% 78%, rgba(255, 255, 255, 0.05), transparent 24%) !important;
                 }
 
@@ -4291,9 +4291,7 @@
                 .chat-input-wrap {
                     flex: 0 0 auto !important;
                 }
-            }
 
-            @media (max-width: 932px) {
                 .chat-panel,
                 .chat-panel.open {
                     left: 50% !important;
