@@ -216,6 +216,7 @@
                 const LOCAL_NOTES_VISIBILITY_PREFIX = "pastries_notes_visibility_";
                 const LOCAL_LIKED_SONGS_PREFIX = "pastries_liked_songs_";
                 const CHAT_RENDER_BATCH_SIZE = 40;
+                const MOBILE_CHAT_RENDER_BATCH_SIZE = 80;
 
                 // Shows small text messages in the audio settings area.
                 function setAudioStatus(message, tone = "neutral", autoClearMs = 0) {
@@ -969,6 +970,12 @@
                     return Boolean(activeChatUserId && chatPanel?.classList.contains("open"));
                 }
 
+                function getCurrentChatRenderBatchSize() {
+                    return window.matchMedia("(max-width: 932px)").matches
+                        ? MOBILE_CHAT_RENDER_BATCH_SIZE
+                        : CHAT_RENDER_BATCH_SIZE;
+                }
+
                 function isChatScrolledNearBottom(threshold = 72) {
                     if (!chatMessages) {
                         return false;
@@ -1029,7 +1036,7 @@
                 }
 
                 function resetChatRenderWindow() {
-                    renderedChatMessageCount = CHAT_RENDER_BATCH_SIZE;
+                    renderedChatMessageCount = getCurrentChatRenderBatchSize();
                 }
 
                 function closeChatPanel() {
@@ -1087,7 +1094,7 @@
 
                     renderedChatMessageCount = Math.min(
                         conversation.length,
-                        renderedChatMessageCount + CHAT_RENDER_BATCH_SIZE
+                        renderedChatMessageCount + getCurrentChatRenderBatchSize()
                     );
 
                     renderChatMessages({ preserveScroll: true, keepPosition: true });
@@ -1103,6 +1110,10 @@
                         return;
                     }
 
+                    if (window.matchMedia("(max-width: 932px)").matches) {
+                        return;
+                    }
+
                     if (suppressChatScrollHandling) {
                         return;
                     }
@@ -1111,7 +1122,7 @@
                         return;
                     }
 
-                    if (renderedChatMessageCount <= CHAT_RENDER_BATCH_SIZE) {
+                    if (renderedChatMessageCount <= getCurrentChatRenderBatchSize()) {
                         return;
                     }
 
@@ -1121,7 +1132,7 @@
                         return;
                     }
 
-                    renderedChatMessageCount = CHAT_RENDER_BATCH_SIZE;
+                    renderedChatMessageCount = getCurrentChatRenderBatchSize();
                     renderChatMessages();
                     snapChatToLatest({ force: true });
                 }
