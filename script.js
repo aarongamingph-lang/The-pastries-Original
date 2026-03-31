@@ -192,6 +192,7 @@
                 let editingNoteId = null;
                 let activeViewerNoteId = null;
                 let activeChatUserId = null;
+                let activeChatUsername = "";
                 let activeChatReplyMessageId = null;
                 let activeChatEditMessageId = null;
                 let activeChatReactionMenuId = null;
@@ -261,6 +262,10 @@
                         .trim()
                         .toLowerCase()
                         .replace(/\s+/g, " ");
+                }
+
+                function getCurrentChatUsername() {
+                    return String(activeChatUsername || chatPanelTitle?.textContent || "").trim();
                 }
 
                 function normalizeAuthUsername(username) {
@@ -792,11 +797,33 @@
                         return [];
                     }
 
+                    const currentProfileUsername = normalizeSavedUserName(profileData?.username || currentUser);
+                    const otherUsername = normalizeSavedUserName(getCurrentChatUsername());
+
                     return messagesEntries
-                        .filter((message) =>
-                            (message.sender_id === profileData.id && message.receiver_id === otherUserId) ||
-                            (message.sender_id === otherUserId && message.receiver_id === profileData.id)
-                        )
+                        .filter((message) => {
+                            const senderId = String(message.sender_id || "");
+                            const receiverId = String(message.receiver_id || "");
+                            const senderUsername = normalizeSavedUserName(message.sender_username);
+                            const receiverUsername = normalizeSavedUserName(message.receiver_username);
+
+                            const exactIdMatch =
+                                (senderId === String(profileData.id) && receiverId === String(otherUserId)) ||
+                                (senderId === String(otherUserId) && receiverId === String(profileData.id));
+
+                            if (exactIdMatch) {
+                                return true;
+                            }
+
+                            if (!currentProfileUsername || !otherUsername) {
+                                return false;
+                            }
+
+                            return (
+                                (senderUsername === currentProfileUsername && receiverUsername === otherUsername) ||
+                                (senderUsername === otherUsername && receiverUsername === currentProfileUsername)
+                            );
+                        })
                         .sort((left, right) => new Date(left.created_at) - new Date(right.created_at));
                 }
 
@@ -1012,6 +1039,7 @@
 
                     chatPanel.classList.remove("open");
                     activeChatUserId = null;
+                    activeChatUsername = "";
                     resetChatRenderWindow();
                     pendingChatScrollToLatest = false;
                     chatOpenSequenceUntil = 0;
@@ -1463,6 +1491,7 @@
                     }
 
                     activeChatUserId = entry.id;
+                    activeChatUsername = entry.username || "";
                     clearChatComposerState();
                     resetChatRenderWindow();
                     chatPanelTitle.textContent = entry.username || "Messages";
@@ -1491,10 +1520,17 @@
                         return;
                     }
 
+                    const currentProfileUsername = String(profileData?.username || currentUser || "").trim();
+
                     const { data, error } = await supabaseClient
                         .from(MESSAGES_TABLE)
                         .select("id, sender_id, sender_username, receiver_id, receiver_username, content, created_at, edited_at, parent_message_id, is_read")
-                        .or(`sender_id.eq.${profileData.id},receiver_id.eq.${profileData.id}`)
+                        .or([
+                            `sender_id.eq.${profileData.id}`,
+                            `receiver_id.eq.${profileData.id}`,
+                            currentProfileUsername ? `sender_username.eq.${currentProfileUsername}` : "",
+                            currentProfileUsername ? `receiver_username.eq.${currentProfileUsername}` : ""
+                        ].filter(Boolean).join(","))
                         .order("created_at", { ascending: true });
 
                     if (error) {
