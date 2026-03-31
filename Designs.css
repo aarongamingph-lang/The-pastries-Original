@@ -3382,6 +3382,10 @@
                 .chat-panel {
                     width: min(32vw, 280px);
                     max-width: 280px;
+                    display: flex;
+                    flex-direction: column;
+                    overflow: hidden;
+                    min-height: 0;
                 }
 
                 .pinned-note {
@@ -3509,10 +3513,14 @@
                 .chat-messages {
                     min-height: 0;
                     max-height: none;
+                    flex: 1 1 auto;
+                    overflow-y: auto;
+                    overflow-x: hidden;
                 }
 
                 .chat-input-wrap {
                     margin-top: 6px;
+                    flex: 0 0 auto;
                 }
 
                 .chat-input {
@@ -3785,6 +3793,10 @@
                     width: min(78vw, 360px);
                     max-width: 78vw;
                     max-height: min(82dvh, 720px);
+                    display: flex;
+                    flex-direction: column;
+                    overflow: hidden;
+                    min-height: 0;
                 }
 
                 .settings-head,
@@ -3871,6 +3883,9 @@
                     min-height: 0;
                     max-height: none;
                     gap: 8px;
+                    flex: 1 1 auto;
+                    overflow-y: auto;
+                    overflow-x: hidden;
                 }
 
                 .chat-bubble {
@@ -3973,6 +3988,7 @@
                     grid-template-columns: 1fr;
                     gap: 8px;
                     margin-top: 8px;
+                    flex: 0 0 auto;
                 }
 
                 .chat-input {
@@ -4256,4 +4272,22 @@
                 .note-viewer-panel {
                     width: min(78vw, 360px) !important;
                     max-width: 78vw !important;
+                }
+
+                .chat-panel {
+                    display: flex !important;
+                    flex-direction: column !important;
+                    overflow: hidden !important;
+                    min-height: 0 !important;
+                }
+
+                .chat-messages {
+                    flex: 1 1 auto !important;
+                    min-height: 0 !important;
+                    overflow-y: auto !important;
+                    overflow-x: hidden !important;
+                }
+
+                .chat-input-wrap {
+                    flex: 0 0 auto !important;
                 }
