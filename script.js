@@ -1270,6 +1270,7 @@
                     settingsLauncher.classList.remove("open");
                     updateMenuMessageAlert();
                     chatPanel.classList.add("open");
+                    chatPanel.scrollTop = 0;
                     beginChatOpenSequence();
                     renderChatMessages();
                     snapChatToLatest({ force: true });
@@ -1300,6 +1301,9 @@
                     messagesEntries = data || [];
                     await loadMessageReactions(false);
                     renderChatMessages();
+                    if (chatPanel?.classList.contains("open")) {
+                        chatPanel.scrollTop = 0;
+                    }
                     snapChatToLatest();
                     renderLeaderboard();
                 }
