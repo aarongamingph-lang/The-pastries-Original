@@ -936,6 +936,32 @@
                     renderedChatMessageCount = CHAT_RENDER_BATCH_SIZE;
                 }
 
+                function closeChatPanel() {
+                    if (!chatPanel) {
+                        return;
+                    }
+
+                    chatPanel.classList.remove("open");
+                    activeChatUserId = null;
+                    resetChatRenderWindow();
+                    pendingChatScrollToLatest = false;
+                    chatOpenSequenceUntil = 0;
+                    activeChatReactionMenuId = null;
+                    activeChatActionMenuId = null;
+
+                    if (chatMessages) {
+                        chatMessages.scrollTop = chatMessages.scrollHeight;
+                    }
+
+                    runChatAfterNextFrame(() => {
+                        clearChatComposerState();
+
+                        if (chatInput) {
+                            chatInput.value = "";
+                        }
+                    });
+                }
+
                 function maybeLoadOlderChatMessages() {
                     if (!chatMessages || !activeChatUserId) {
                         return;
@@ -2549,7 +2575,7 @@
                     updateMenuMessageAlert();
                     settingsPanel.classList.remove("open");
                     leaderboardPanel.classList.remove("open");
-                    chatPanel.classList.remove("open");
+                    closeChatPanel();
                     notesMenuPanel.classList.remove("open");
                     notesListPanel.classList.remove("open");
                     notesPanel.classList.remove("open");
@@ -2557,10 +2583,7 @@
                     noteReplyComposer.classList.add("hidden");
                     noteReplyTextarea.value = "";
                     activeViewerNoteId = null;
-                    activeChatUserId = null;
-                    clearChatComposerState();
                     closeDeleteConfirm();
-                    chatInput.value = "";
                     nameInput.value = "";
                     passwordInput.value = "";
                     confirmPasswordInput.value = "";
@@ -3599,7 +3622,7 @@
                         settingsLauncher.classList.remove("open");
                         updateMenuMessageAlert();
                         settingsPanel.classList.remove("open");
-                        chatPanel.classList.remove("open");
+                        closeChatPanel();
                         notesMenuPanel.classList.remove("open");
                         notesListPanel.classList.remove("open");
                         notesPanel.classList.remove("open");
@@ -3636,18 +3659,7 @@
                     });
 
                     chatClose.addEventListener("click", () => {
-                        chatPanel.classList.remove("open");
-                        activeChatUserId = null;
-                        resetChatRenderWindow();
-                        pendingChatScrollToLatest = false;
-                        chatOpenSequenceUntil = 0;
-                        if (chatMessages) {
-                            chatMessages.scrollTop = chatMessages.scrollHeight;
-                        }
-                        runChatAfterNextFrame(() => {
-                            clearChatComposerState();
-                            chatInput.value = "";
-                        });
+                        closeChatPanel();
                     });
 
                     chatMessages.addEventListener("scroll", () => {
@@ -3742,7 +3754,7 @@
                         localStorage.removeItem(LOCAL_SESSION_KEY);
                         settingsPanel.classList.remove("open");
                         leaderboardPanel.classList.remove("open");
-                        chatPanel.classList.remove("open");
+                        closeChatPanel();
                         notesMenuPanel.classList.remove("open");
                         notesListPanel.classList.remove("open");
                         notesPanel.classList.remove("open");
@@ -3751,10 +3763,6 @@
                         noteReplyComposer.classList.add("hidden");
                         noteReplyTextarea.value = "";
                         activeViewerNoteId = null;
-                        activeChatUserId = null;
-                        clearChatComposerState();
-                        activeChatReactionMenuId = null;
-                        activeChatActionMenuId = null;
                         likedSongFiles = new Set();
                         playlistViewMode = "songs";
                         syncPlaylistTabs();
@@ -3909,7 +3917,7 @@
                         }
 
                         if (!clickedChat && !event.target.closest(".leaderboard-message-button")) {
-                            chatPanel.classList.remove("open");
+                            closeChatPanel();
                         }
 
                         if (!clickedNotesMenu && event.target !== notesToggle) {
