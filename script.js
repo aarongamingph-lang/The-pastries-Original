@@ -905,19 +905,23 @@
                         return;
                     }
 
+                    const scrollToLatestMessage = () => {
+                        const lastMessage = chatMessages.lastElementChild;
+
+                        if (lastMessage && typeof lastMessage.scrollIntoView === "function") {
+                            lastMessage.scrollIntoView({ block: "end", inline: "nearest" });
+                        }
+
+                        chatMessages.scrollTop = chatMessages.scrollHeight;
+                    };
+
                     window.requestAnimationFrame(() => {
-                        window.requestAnimationFrame(() => {
-                            chatMessages.scrollTop = chatMessages.scrollHeight;
-                        });
+                        window.requestAnimationFrame(scrollToLatestMessage);
                     });
 
-                    window.setTimeout(() => {
-                        chatMessages.scrollTop = chatMessages.scrollHeight;
-                    }, 80);
-
-                    window.setTimeout(() => {
-                        chatMessages.scrollTop = chatMessages.scrollHeight;
-                    }, 180);
+                    window.setTimeout(scrollToLatestMessage, 80);
+                    window.setTimeout(scrollToLatestMessage, 180);
+                    window.setTimeout(scrollToLatestMessage, 320);
                 }
 
                 function setChatReplyState(message) {
@@ -1211,6 +1215,10 @@
                     if (preserveScroll) {
                         chatMessages.scrollTop = previousScrollTop;
                     } else {
+                        const lastMessage = chatMessages.lastElementChild;
+                        if (lastMessage && typeof lastMessage.scrollIntoView === "function") {
+                            lastMessage.scrollIntoView({ block: "end", inline: "nearest" });
+                        }
                         chatMessages.scrollTop = chatMessages.scrollHeight;
                     }
 
