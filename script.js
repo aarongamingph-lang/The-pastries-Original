@@ -1257,11 +1257,7 @@
                         !Boolean(options.forceLatest);
                     const previousScrollTop = preserveScroll ? chatMessages.scrollTop : 0;
                     const wasNearBottom = preserveScroll ? isChatScrolledNearBottom() : false;
-                    const hideDuringRender = !preserveScroll;
                     beginProgrammaticChatScroll();
-                    if (hideDuringRender) {
-                        chatMessages.style.visibility = "hidden";
-                    }
                     chatMessages.replaceChildren();
 
                     if (!activeChatUserId) {
@@ -1443,12 +1439,6 @@
                         chatMessages.scrollTop = wasNearBottom ? chatMessages.scrollHeight : previousScrollTop;
                     } else {
                         chatMessages.scrollTop = chatMessages.scrollHeight;
-                    }
-
-                    if (hideDuringRender) {
-                        window.requestAnimationFrame(() => {
-                            chatMessages.style.visibility = "";
-                        });
                     }
 
                     endProgrammaticChatScrollSoon();
