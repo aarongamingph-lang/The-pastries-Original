@@ -197,6 +197,7 @@
                 let activeChatReactionMenuId = null;
                 let activeChatActionMenuId = null;
                 let pendingChatScrollToLatest = false;
+                let chatOpenSequenceUntil = 0;
                 let scheduledChatRenderFrame = null;
                 let scheduledChatRenderPreserveScroll = false;
                 let pendingDeleteProfile = null;
@@ -859,7 +860,7 @@
                 }
 
                 function requestChatRender(options = {}) {
-                    const preserveScroll = Boolean(options.preserveScroll);
+                    const preserveScroll = Boolean(options.preserveScroll) && !isChatOpenSequenceActive();
                     scheduledChatRenderPreserveScroll = scheduledChatRenderPreserveScroll || preserveScroll;
 
                     if (scheduledChatRenderFrame !== null) {
@@ -872,6 +873,21 @@
                         scheduledChatRenderPreserveScroll = false;
                         renderChatMessages({ preserveScroll: nextPreserveScroll });
                     });
+                }
+
+                function isChatOpenSequenceActive() {
+                    return Date.now() < chatOpenSequenceUntil;
+                }
+
+                function beginChatOpenSequence() {
+                    pendingChatScrollToLatest = true;
+                    chatOpenSequenceUntil = Date.now() + 800;
+
+                    window.setTimeout(() => {
+                        if (Date.now() >= chatOpenSequenceUntil) {
+                            pendingChatScrollToLatest = false;
+                        }
+                    }, 820);
                 }
 
                 function snapChatToLatest(options = {}) {
@@ -894,6 +910,14 @@
                             chatMessages.scrollTop = chatMessages.scrollHeight;
                         });
                     });
+
+                    window.setTimeout(() => {
+                        chatMessages.scrollTop = chatMessages.scrollHeight;
+                    }, 80);
+
+                    window.setTimeout(() => {
+                        chatMessages.scrollTop = chatMessages.scrollHeight;
+                    }, 180);
                 }
 
                 function setChatReplyState(message) {
@@ -1008,7 +1032,7 @@
                         return;
                     }
 
-                    const preserveScroll = Boolean(options.preserveScroll) && !pendingChatScrollToLatest;
+                    const preserveScroll = Boolean(options.preserveScroll) && !pendingChatScrollToLatest && !isChatOpenSequenceActive();
                     const previousScrollTop = preserveScroll ? chatMessages.scrollTop : 0;
                     chatMessages.innerHTML = "";
 
@@ -1190,7 +1214,7 @@
                         chatMessages.scrollTop = chatMessages.scrollHeight;
                     }
 
-                    if (pendingChatScrollToLatest) {
+                    if (pendingChatScrollToLatest && !isChatOpenSequenceActive()) {
                         pendingChatScrollToLatest = false;
                     }
                 }
@@ -1246,7 +1270,7 @@
                     settingsLauncher.classList.remove("open");
                     updateMenuMessageAlert();
                     chatPanel.classList.add("open");
-                    pendingChatScrollToLatest = true;
+                    beginChatOpenSequence();
                     renderChatMessages();
                     snapChatToLatest({ force: true });
                     await markConversationAsRead(entry.id);
