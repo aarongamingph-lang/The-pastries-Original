@@ -1521,17 +1521,9 @@
                         return;
                     }
 
-                    const currentProfileUsername = String(profileData?.username || currentUser || "").trim();
-
                     const { data, error } = await supabaseClient
                         .from(MESSAGES_TABLE)
                         .select("id, sender_id, sender_username, receiver_id, receiver_username, content, created_at, edited_at, parent_message_id, is_read")
-                        .or([
-                            `sender_id.eq.${profileData.id}`,
-                            `receiver_id.eq.${profileData.id}`,
-                            currentProfileUsername ? `sender_username.eq.${currentProfileUsername}` : "",
-                            currentProfileUsername ? `receiver_username.eq.${currentProfileUsername}` : ""
-                        ].filter(Boolean).join(","))
                         .order("created_at", { ascending: true });
 
                     if (error) {
