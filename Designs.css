@@ -2092,6 +2092,33 @@
                 color: rgba(255, 255, 255, 0.66);
             }
 
+            .gallery-likes {
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                gap: 6px;
+                margin-top: 2px;
+            }
+
+            .gallery-like-button {
+                padding: 0;
+                border: 0;
+                background: transparent;
+                color: rgba(255, 255, 255, 0.64);
+                font-size: 1rem;
+                line-height: 1;
+            }
+
+            .gallery-like-button.liked {
+                color: #ff5a6b;
+            }
+
+            .gallery-like-count {
+                font-size: 0.76rem;
+                color: rgba(255, 255, 255, 0.82);
+                line-height: 1;
+            }
+
             .gallery-load-more {
                 display: block;
                 margin: 14px auto 0;
