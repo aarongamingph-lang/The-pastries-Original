@@ -1959,14 +1959,15 @@
                     const { data, error } = await supabaseClient
                         .from(MESSAGES_TABLE)
                         .select("id, sender_id, sender_username, receiver_id, receiver_username, content, created_at, edited_at, parent_message_id, is_read")
-                        .order("created_at", { ascending: true });
+                        .order("created_at", { ascending: false })
+                        .limit(1000);
 
                     if (error) {
                         console.error("Could not load messages:", error.message);
                         return;
                     }
 
-                    messagesEntries = data || [];
+                    messagesEntries = Array.isArray(data) ? [...data].reverse() : [];
                     await loadMessageReactions(false);
                     const forceLatest = shouldForceChatLatestView() || shouldPinChatToBottom();
                     requestChatRender({ preserveScroll: !forceLatest, forceLatest });
@@ -2005,7 +2006,7 @@
                     }
 
                     const targetUser = leaderboardEntries.find((entry) => entry.id === activeChatUserId);
-                    const targetUsername = targetUser?.username || chatPanelTitle.textContent.trim() || "Unknown";
+                    const targetUsername = targetUser?.username || activeChatUsername || chatPanelTitle.textContent.trim() || "Unknown";
                     const messageContent = chatInput.value.trim();
 
                     if (!messageContent) {
@@ -2017,6 +2018,27 @@
                     const timestamp = new Date().toISOString();
                     const replyTargetId = activeChatReplyMessageId || null;
                     const editingMessageId = activeChatEditMessageId;
+                    let senderProfileId = profileData.id;
+                    let receiverProfileId = activeChatUserId;
+
+                    const currentProfile = await getProfileByUsername(currentUser);
+                    const receiverProfile = targetUsername ? await getProfileByUsername(targetUsername) : null;
+
+                    if (currentProfile?.id) {
+                        senderProfileId = currentProfile.id;
+                        if (profileData.id !== currentProfile.id) {
+                            profileData.id = currentProfile.id;
+                            localStorage.setItem(LOCAL_SESSION_KEY, JSON.stringify({
+                                id: profileData.id,
+                                username: profileData.username
+                            }));
+                        }
+                    }
+
+                    if (receiverProfile?.id) {
+                        receiverProfileId = receiverProfile.id;
+                        activeChatUserId = receiverProfile.id;
+                    }
 
                     if (editingMessageId) {
                         ({ error } = await supabaseClient
@@ -2026,14 +2048,14 @@
                                 edited_at: timestamp
                             })
                             .eq("id", editingMessageId)
-                            .eq("sender_id", profileData.id));
+                            .eq("sender_id", senderProfileId));
                     } else {
                         ({ error } = await supabaseClient
                             .from(MESSAGES_TABLE)
                             .insert({
-                                sender_id: profileData.id,
+                                sender_id: senderProfileId,
                                 sender_username: currentUser,
-                                receiver_id: activeChatUserId,
+                                receiver_id: receiverProfileId,
                                 receiver_username: targetUsername,
                                 content: messageContent,
                                 created_at: timestamp,
@@ -2047,7 +2069,7 @@
 
                     if (error) {
                         console.error("Could not send message:", error.message);
-                        showPresenceToast("Could not send message.");
+                        showPresenceToast(`Could not send message: ${error.message}`);
                         return;
                     }
 
