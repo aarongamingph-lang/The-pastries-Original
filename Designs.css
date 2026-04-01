@@ -1891,6 +1891,12 @@
                 border-color: rgba(255, 255, 255, 0.32);
             }
 
+            .settings-toggle-svg {
+                display: block;
+                width: 20px;
+                height: 20px;
+            }
+
             .hidden-admin-tab {
                 display: none;
             }
@@ -2014,6 +2020,141 @@
 
             .audio-status.error {
                 color: var(--danger);
+            }
+
+            .gallery-grid {
+                display: grid;
+                grid-template-columns: repeat(5, minmax(0, 1fr));
+                gap: 12px;
+                align-items: start;
+            }
+
+            .gallery-panel {
+                width: min(92vw, 760px);
+            }
+
+            .gallery-panel-grid {
+                position: relative;
+                z-index: 1;
+                max-height: min(62vh, 560px);
+                overflow: auto;
+                padding-right: 4px;
+            }
+
+            .gallery-card {
+                display: grid;
+                grid-template-columns: minmax(0, 1fr);
+                align-items: start;
+                gap: 8px;
+                width: 100%;
+                max-width: none;
+                overflow: hidden;
+                border: 1px solid rgba(255, 255, 255, 0.1);
+                border-radius: 14px;
+                background: rgba(255, 255, 255, 0.06);
+                cursor: pointer;
+                justify-self: stretch;
+                padding: 10px;
+            }
+
+            .gallery-image {
+                display: block;
+                width: 100%;
+                aspect-ratio: 1 / 1;
+                object-fit: cover;
+                border-radius: 10px;
+                background: rgba(255, 255, 255, 0.06);
+            }
+
+            .gallery-meta {
+                display: grid;
+                gap: 4px;
+                min-width: 0;
+                text-align: center;
+            }
+
+            .gallery-owner,
+            .gallery-time,
+            .gallery-empty {
+                margin: 0;
+            }
+
+            .gallery-owner {
+                font-size: 0.78rem;
+                color: rgba(255, 255, 255, 0.92);
+                word-break: break-word;
+                line-height: 1.35;
+            }
+
+            .gallery-time,
+            .gallery-empty {
+                font-size: 0.72rem;
+                color: rgba(255, 255, 255, 0.66);
+            }
+
+            .gallery-load-more {
+                display: block;
+                margin: 14px auto 0;
+                padding: 0;
+                border: 0;
+                background: transparent;
+                color: rgba(255, 255, 255, 0.82);
+                letter-spacing: 0.06em;
+                text-transform: uppercase;
+                text-decoration: underline;
+            }
+
+            .gallery-viewer-panel {
+                width: min(92vw, 880px);
+            }
+
+            .gallery-viewer-body {
+                position: relative;
+                z-index: 1;
+                display: grid;
+                gap: 12px;
+            }
+
+            .gallery-viewer-image {
+                display: block;
+                width: 100%;
+                max-height: min(68vh, 720px);
+                object-fit: contain;
+                border-radius: 18px;
+                background: rgba(255, 255, 255, 0.05);
+            }
+
+            .gallery-viewer-nav {
+                position: absolute;
+                top: 50%;
+                z-index: 2;
+                width: 42px;
+                height: 42px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                border: 1px solid rgba(255, 255, 255, 0.14);
+                border-radius: 999px;
+                background: rgba(18, 18, 18, 0.54);
+                color: #fff;
+                transform: translateY(-50%);
+                font-size: 1.7rem;
+                line-height: 1;
+                padding: 0;
+                text-align: center;
+            }
+
+            .gallery-viewer-prev {
+                left: 12px;
+            }
+
+            .gallery-viewer-next {
+                right: 12px;
+            }
+
+            .gallery-viewer-nav:hover,
+            .gallery-viewer-nav:focus-visible {
+                transform: translateY(-50%);
             }
 
             .saved-user-list {
@@ -4343,5 +4484,13 @@
                     width: auto !important;
                     min-width: 96px !important;
                     min-height: 44px !important;
+                }
+
+                .gallery-grid {
+                    grid-template-columns: repeat(2, minmax(0, 1fr));
+                }
+
+                .gallery-card {
+                    padding: 8px;
                 }
             }
