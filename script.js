@@ -158,6 +158,7 @@
                 const MESSAGES_TABLE = "messages";
                 const MESSAGE_REACTIONS_TABLE = "message_reactions";
                 const GALLERY_TABLE = "gallery_images";
+                const GALLERY_LIKES_TABLE = "gallery_likes";
                 const supabaseClient = window.supabase
                     ? window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY)
                     : null;
@@ -198,6 +199,7 @@
                 let messagesEntries = [];
                 let messageReactionsEntries = [];
                 let galleryEntries = [];
+                let galleryLikesEntries = [];
                 let renderedGalleryCount = 10;
                 let activeGalleryIndex = -1;
                 let onlineUsers = [];
@@ -207,6 +209,7 @@
                 let messagesChannel = null;
                 let messageReactionsChannel = null;
                 let galleryChannel = null;
+                let galleryLikesChannel = null;
                 let presenceSyncStarted = false;
                 let knownPresenceUserIds = new Set();
                 let suppressPresenceJoinToastsUntil = 0;
@@ -362,6 +365,21 @@
                         .toLowerCase()
                         .replace(/\s+/g, " ")
                         .replace(/[^a-z0-9._-]/g, "");
+                }
+
+                function getGalleryLikesForImage(imageId) {
+                    return galleryLikesEntries.filter((entry) => String(entry.image_id) === String(imageId));
+                }
+
+                function hasLikedGalleryImage(imageId) {
+                    if (!profileData?.id) {
+                        return false;
+                    }
+
+                    return galleryLikesEntries.some((entry) =>
+                        String(entry.image_id) === String(imageId) &&
+                        entry.user_id === profileData.id
+                    );
                 }
 
                 function getLikedSongsStorageKey() {
@@ -618,6 +636,9 @@
                     }
 
                     galleryEntries.slice(0, renderedGalleryCount).forEach((entry, entryIndex) => {
+                        const likeEntries = getGalleryLikesForImage(entry.id);
+                        const likeCount = likeEntries.length;
+                        const isLiked = hasLikedGalleryImage(entry.id);
                         const card = document.createElement("article");
                         card.className = "gallery-card";
                         card.tabIndex = 0;
@@ -639,8 +660,30 @@
                         time.className = "gallery-time";
                         time.textContent = formatEntryTime(entry.created_at);
 
+                        const likes = document.createElement("div");
+                        likes.className = "gallery-likes";
+
+                        const likeButton = document.createElement("button");
+                        likeButton.type = "button";
+                        likeButton.className = "gallery-like-button";
+                        likeButton.classList.toggle("liked", isLiked);
+                        likeButton.setAttribute("aria-label", `Like ${entry.file_name || "image"}`);
+                        likeButton.textContent = "\u2665";
+                        likeButton.addEventListener("click", async (event) => {
+                            event.stopPropagation();
+                            await toggleGalleryLike(entry.id);
+                        });
+
+                        const likeCountText = document.createElement("span");
+                        likeCountText.className = "gallery-like-count";
+                        likeCountText.textContent = String(likeCount);
+
+                        likes.appendChild(likeButton);
+                        likes.appendChild(likeCountText);
+
                         meta.appendChild(owner);
                         meta.appendChild(time);
+                        meta.appendChild(likes);
                         card.appendChild(image);
                         card.appendChild(meta);
                         card.addEventListener("click", () => {
@@ -682,11 +725,22 @@
                     galleryViewerPanel.classList.add("open");
                 }
 
-                function renderGallery() {
+                function renderGallery(options = {}) {
+                    const preserveScroll = Boolean(options.preserveScroll);
+                    const previousScrollTop = galleryPanelGrid?.scrollTop || 0;
+                    const previousScrollHeight = galleryPanelGrid?.scrollHeight || 0;
+
                     renderGalleryInto(galleryPanelGrid);
                     if (galleryLoadMoreButton) {
                         const hasMoreImages = renderedGalleryCount < galleryEntries.length;
                         galleryLoadMoreButton.classList.toggle("hidden", !hasMoreImages);
+                    }
+
+                    if (preserveScroll) {
+                        requestAnimationFrame(() => {
+                            const scrollHeightDelta = galleryPanelGrid.scrollHeight - previousScrollHeight;
+                            galleryPanelGrid.scrollTop = previousScrollTop + Math.max(0, scrollHeightDelta);
+                        });
                     }
                 }
 
@@ -710,6 +764,67 @@
                     galleryEntries = Array.isArray(data) ? data : [];
                     renderedGalleryCount = GALLERY_RENDER_BATCH_SIZE;
                     renderGallery();
+                }
+
+                async function loadGalleryLikes(shouldRenderGallery = true) {
+                    if (!supabaseClient) {
+                        galleryLikesEntries = [];
+                        if (shouldRenderGallery) {
+                            renderGallery();
+                        }
+                        return;
+                    }
+
+                    const { data, error } = await supabaseClient
+                        .from(GALLERY_LIKES_TABLE)
+                        .select("id, image_id, user_id, username, created_at");
+
+                    if (error) {
+                        console.error("Could not load gallery likes:", error.message);
+                        return;
+                    }
+
+                    galleryLikesEntries = Array.isArray(data) ? data : [];
+                    if (shouldRenderGallery) {
+                        renderGallery();
+                    }
+                }
+
+                async function toggleGalleryLike(imageId) {
+                    if (!supabaseClient || !profileData?.id || !imageId) {
+                        return;
+                    }
+
+                    const existingLike = galleryLikesEntries.find((entry) =>
+                        String(entry.image_id) === String(imageId) &&
+                        entry.user_id === profileData.id
+                    );
+
+                    let error = null;
+
+                    if (existingLike) {
+                        ({ error } = await supabaseClient
+                            .from(GALLERY_LIKES_TABLE)
+                            .delete()
+                            .eq("id", existingLike.id));
+                    } else {
+                        ({ error } = await supabaseClient
+                            .from(GALLERY_LIKES_TABLE)
+                            .insert({
+                                image_id: imageId,
+                                user_id: profileData.id,
+                                username: currentUser,
+                                created_at: new Date().toISOString()
+                            }));
+                    }
+
+                    if (error) {
+                        console.error("Could not update gallery like:", error.message);
+                        setGalleryStatus("Could not update like.", "error", 2400);
+                        return;
+                    }
+
+                    await loadGalleryLikes();
                 }
 
                 async function uploadGalleryImage(file) {
@@ -782,6 +897,23 @@
                             table: GALLERY_TABLE
                         }, async () => {
                             await loadGalleryImages();
+                        })
+                        .subscribe();
+                }
+
+                async function connectGalleryLikesRealtime() {
+                    if (!supabaseClient || galleryLikesChannel) {
+                        return;
+                    }
+
+                    galleryLikesChannel = supabaseClient
+                        .channel("gallery-likes")
+                        .on("postgres_changes", {
+                            event: "*",
+                            schema: "public",
+                            table: GALLERY_LIKES_TABLE
+                        }, async () => {
+                            await loadGalleryLikes();
                         })
                         .subscribe();
                 }
@@ -2963,11 +3095,13 @@
                     loadLikedSongsPreference();
                     onlineUsers = [];
                     renderLeaderboard();
-                    await Promise.all([loadNotes(), loadNoteReads(), loadNoteReplies(), loadMessages(), loadGalleryImages()]);
+                    await Promise.all([loadNotes(), loadNoteReads(), loadNoteReplies(), loadMessages(), loadGalleryImages(), loadGalleryLikes(false)]);
                     await connectNotesRealtime();
                     await connectMessagesRealtime();
                     await connectMessageReactionsRealtime();
                     await connectGalleryRealtime();
+                    await connectGalleryLikesRealtime();
+                    renderGallery();
                     setActiveScreen(landscapeScreen);
                 }
 
@@ -2978,6 +3112,7 @@
                     noteReadMap = new Map();
                     messagesEntries = [];
                     galleryEntries = [];
+                    galleryLikesEntries = [];
                     likedSongFiles = new Set();
                     playlistViewMode = "songs";
                     localStorage.removeItem(LOCAL_SESSION_KEY);
@@ -4169,7 +4304,7 @@
                             renderedGalleryCount + GALLERY_RENDER_BATCH_SIZE,
                             galleryEntries.length
                         );
-                        renderGallery();
+                        renderGallery({ preserveScroll: true });
                     });
 
                     [deleteConfirmClose, deleteConfirmCancel].forEach((button) => {
