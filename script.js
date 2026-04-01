@@ -33,6 +33,7 @@
                 const settingsMenuToggle = document.getElementById("settingsMenuToggle");
                 const menuMessageAlert = document.getElementById("menuMessageAlert");
                 const settingsToggle = document.getElementById("settingsToggle");
+                const galleryToggle = document.getElementById("galleryToggle");
                 const notesToggle = document.getElementById("notesToggle");
                 const leaderboardToggle = document.getElementById("leaderboardToggle");
                 const leaderboardToggleCount = document.getElementById("leaderboardToggleCount");
@@ -52,6 +53,21 @@
                 const audioUploadInput = document.getElementById("audioUploadInput");
                 const audioUploadLabel = document.getElementById("audioUploadLabel");
                 const audioHelp = document.getElementById("audioHelp");
+                const galleryUploadInput = document.getElementById("galleryUploadInput");
+                const galleryUploadLabel = document.getElementById("galleryUploadLabel");
+                const galleryHelp = document.getElementById("galleryHelp");
+                const galleryStatus = document.getElementById("galleryStatus");
+                const galleryPanel = document.getElementById("galleryPanel");
+                const galleryClose = document.getElementById("galleryClose");
+                const galleryPanelGrid = document.getElementById("galleryPanelGrid");
+                const galleryViewerPanel = document.getElementById("galleryViewerPanel");
+                const galleryViewerClose = document.getElementById("galleryViewerClose");
+                const galleryViewerImage = document.getElementById("galleryViewerImage");
+                const galleryViewerTitle = document.getElementById("galleryViewerTitle");
+                const galleryViewerMeta = document.getElementById("galleryViewerMeta");
+                const galleryViewerPrev = document.getElementById("galleryViewerPrev");
+                const galleryViewerNext = document.getElementById("galleryViewerNext");
+                const galleryLoadMoreButton = document.getElementById("galleryLoadMoreButton");
                 const leaderboardPanel = document.getElementById("leaderboardPanel");
                 const leaderboardClose = document.getElementById("leaderboardClose");
                 const leaderboardList = document.getElementById("leaderboardList");
@@ -133,6 +149,7 @@
                 const SUPABASE_URL = "https://qptgeftudyxqdlmvvotk.supabase.co";
                 const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_CJsr9sctO5mrbuVmG4G3jA_YDXnkynM";
                 const SUPABASE_BUCKET = "songs";
+                const GALLERY_BUCKET = "gallery";
                 const PROFILE_TABLE = "profiles";
                 const ENTRY_LOG_TABLE = "entry_logs";
                 const NOTES_TABLE = "notes";
@@ -140,6 +157,7 @@
                 const NOTE_REPLIES_TABLE = "note_replies";
                 const MESSAGES_TABLE = "messages";
                 const MESSAGE_REACTIONS_TABLE = "message_reactions";
+                const GALLERY_TABLE = "gallery_images";
                 const supabaseClient = window.supabase
                     ? window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY)
                     : null;
@@ -179,12 +197,16 @@
                 let noteReadMap = new Map();
                 let messagesEntries = [];
                 let messageReactionsEntries = [];
+                let galleryEntries = [];
+                let renderedGalleryCount = 10;
+                let activeGalleryIndex = -1;
                 let onlineUsers = [];
                 let presenceChannel = null;
                 let notesChannel = null;
                 let noteRepliesChannel = null;
                 let messagesChannel = null;
                 let messageReactionsChannel = null;
+                let galleryChannel = null;
                 let presenceSyncStarted = false;
                 let knownPresenceUserIds = new Set();
                 let suppressPresenceJoinToastsUntil = 0;
@@ -219,6 +241,7 @@
                 const LOCAL_LIKED_SONGS_PREFIX = "pastries_liked_songs_";
                 const CHAT_RENDER_BATCH_SIZE = 40;
                 const MOBILE_CHAT_RENDER_BATCH_SIZE = 80;
+                const GALLERY_RENDER_BATCH_SIZE = 10;
 
                 // Shows small text messages in the audio settings area.
                 function setAudioStatus(message, tone = "neutral", autoClearMs = 0) {
@@ -240,6 +263,34 @@
                             setTimeout(() => {
                                 if (!audioStatus.classList.contains("visible")) {
                                     audioStatus.textContent = "";
+                                }
+                        }, 320);
+                    }, autoClearMs);
+                    }
+                }
+
+                function setGalleryStatus(message, tone = "neutral", autoClearMs = 0) {
+                    if (!galleryStatus) {
+                        return;
+                    }
+
+                    galleryStatus.textContent = message;
+                    galleryStatus.classList.remove("success", "error", "visible");
+
+                    if (tone === "success" || tone === "error") {
+                        galleryStatus.classList.add(tone);
+                    }
+
+                    if (message) {
+                        galleryStatus.classList.add("visible");
+                    }
+
+                    if (autoClearMs > 0) {
+                        setTimeout(() => {
+                            galleryStatus.classList.remove("visible", "success", "error");
+                            setTimeout(() => {
+                                if (!galleryStatus.classList.contains("visible")) {
+                                    galleryStatus.textContent = "";
                                 }
                             }, 320);
                         }, autoClearMs);
@@ -294,6 +345,23 @@
                         .replace(/\.mp3$/i, "")
                         .replace(/\s+/g, " ")
                         .replace(/[^a-z0-9 ]/g, "");
+                }
+
+                function sanitizeGalleryFileName(fileName) {
+                    const cleanedName = String(fileName || "")
+                        .trim()
+                        .replace(/\s+/g, "-")
+                        .replace(/[^a-zA-Z0-9._-]/g, "");
+
+                    return cleanedName || `image-${Date.now()}.jpg`;
+                }
+
+                function normalizeGalleryIdentity(fileName) {
+                    return String(fileName || "")
+                        .trim()
+                        .toLowerCase()
+                        .replace(/\s+/g, " ")
+                        .replace(/[^a-z0-9._-]/g, "");
                 }
 
                 function getLikedSongsStorageKey() {
@@ -518,9 +586,204 @@
                     audioUploadInput.disabled = !isAuthenticatedUser();
                     audioUploadLabel.classList.toggle("disabled", !isAuthenticatedUser());
                     audioUploadLabel.setAttribute("aria-disabled", String(!isAuthenticatedUser()));
+                    galleryUploadInput.disabled = !isAuthenticatedUser();
+                    const canManageGallery = isAuthenticatedUser() && isAdminUser();
+                    galleryUploadInput.disabled = !canManageGallery;
+                    galleryUploadLabel.classList.toggle("disabled", !canManageGallery);
+                    galleryUploadLabel.setAttribute("aria-disabled", String(!canManageGallery));
                     audioHelp.textContent = isAuthenticatedUser()
                         ? "Pick MP3 files from your phone or computer and they will be uploaded to Supabase storage so they can be used again later."
                         : "Log in first to upload songs.";
+                    galleryHelp.textContent = !isAuthenticatedUser()
+                        ? "Log in first to add images."
+                        : canManageGallery
+                            ? "Pick images from your phone or computer. Everyone can see them in this shared gallery."
+                            : "Only Nico can add images. Everyone can still view the gallery.";
+                    setGalleryStatus("");
+                }
+
+                function renderGalleryInto(container) {
+                    if (!container) {
+                        return;
+                    }
+
+                    container.innerHTML = "";
+
+                    if (galleryEntries.length === 0) {
+                        const empty = document.createElement("p");
+                        empty.className = "gallery-empty";
+                        empty.textContent = "No shared images yet.";
+                        container.appendChild(empty);
+                        return;
+                    }
+
+                    galleryEntries.slice(0, renderedGalleryCount).forEach((entry, entryIndex) => {
+                        const card = document.createElement("article");
+                        card.className = "gallery-card";
+                        card.tabIndex = 0;
+
+                        const image = document.createElement("img");
+                        image.className = "gallery-image";
+                        image.src = entry.image_url;
+                        image.alt = entry.file_name || `${entry.username}'s image`;
+                        image.loading = "lazy";
+
+                        const meta = document.createElement("div");
+                        meta.className = "gallery-meta";
+
+                        const owner = document.createElement("p");
+                        owner.className = "gallery-owner";
+                        owner.textContent = entry.username || "Unknown";
+
+                        const time = document.createElement("p");
+                        time.className = "gallery-time";
+                        time.textContent = formatEntryTime(entry.created_at);
+
+                        meta.appendChild(owner);
+                        meta.appendChild(time);
+                        card.appendChild(image);
+                        card.appendChild(meta);
+                        card.addEventListener("click", () => {
+                            openGalleryViewer(entryIndex);
+                        });
+                        card.addEventListener("keydown", (event) => {
+                            if (event.key === "Enter" || event.key === " ") {
+                                event.preventDefault();
+                                openGalleryViewer(entryIndex);
+                            }
+                        });
+                        container.appendChild(card);
+                    });
+
+                }
+
+                function updateGalleryViewer() {
+                    const entry = galleryEntries[activeGalleryIndex];
+
+                    if (!entry || !galleryViewerPanel || !galleryViewerImage) {
+                        return;
+                    }
+
+                    galleryViewerImage.src = entry.image_url;
+                    galleryViewerImage.alt = entry.file_name || `${entry.username}'s image`;
+                    galleryViewerTitle.textContent = entry.username || "Gallery";
+                    galleryViewerMeta.textContent = `${entry.file_name || "Image"} | ${formatEntryTime(entry.created_at)}`;
+                    galleryViewerPrev.classList.toggle("hidden", activeGalleryIndex <= 0);
+                    galleryViewerNext.classList.toggle("hidden", activeGalleryIndex >= galleryEntries.length - 1);
+                }
+
+                function openGalleryViewer(entryIndex) {
+                    if (!galleryViewerPanel || !galleryViewerImage) {
+                        return;
+                    }
+
+                    activeGalleryIndex = entryIndex;
+                    updateGalleryViewer();
+                    galleryViewerPanel.classList.add("open");
+                }
+
+                function renderGallery() {
+                    renderGalleryInto(galleryPanelGrid);
+                    if (galleryLoadMoreButton) {
+                        const hasMoreImages = renderedGalleryCount < galleryEntries.length;
+                        galleryLoadMoreButton.classList.toggle("hidden", !hasMoreImages);
+                    }
+                }
+
+                async function loadGalleryImages() {
+                    if (!supabaseClient) {
+                        return;
+                    }
+
+                    const { data, error } = await supabaseClient
+                        .from(GALLERY_TABLE)
+                        .select("id, user_id, username, file_name, image_url, created_at")
+                        .order("created_at", { ascending: false });
+
+                    if (error) {
+                        console.error("Could not load gallery images:", error.message);
+                        galleryHelp.textContent = `Could not load gallery: ${error.message}`;
+                        setGalleryStatus("Could not load gallery.", "error", 2400);
+                        return;
+                    }
+
+                    galleryEntries = Array.isArray(data) ? data : [];
+                    renderedGalleryCount = GALLERY_RENDER_BATCH_SIZE;
+                    renderGallery();
+                }
+
+                async function uploadGalleryImage(file) {
+                    if (!supabaseClient || !profileData?.id) {
+                        galleryHelp.textContent = "Log in first to add images.";
+                        setGalleryStatus("Log in first to add images.", "error", 2400);
+                        return false;
+                    }
+
+                    if (!isAdminUser()) {
+                        galleryHelp.textContent = "Only Nico can add images.";
+                        setGalleryStatus("Only Nico can add images.", "error", 2400);
+                        return false;
+                    }
+
+                    const incomingImageKey = normalizeGalleryIdentity(file.name);
+                    const alreadyExists = galleryEntries.some((entry) =>
+                        normalizeGalleryIdentity(entry.file_name) === incomingImageKey
+                    );
+
+                    if (alreadyExists) {
+                        return false;
+                    }
+
+                    const safeName = `${Date.now()}-${sanitizeGalleryFileName(file.name)}`;
+                    setGalleryStatus("Uploading image...");
+
+                    const { error: uploadError } = await supabaseClient.storage
+                        .from(GALLERY_BUCKET)
+                        .upload(safeName, file, {
+                            contentType: file.type || "image/jpeg",
+                            upsert: false
+                        });
+
+                    if (uploadError) {
+                        setGalleryStatus(`Upload failed: ${uploadError.message}`, "error", 2800);
+                        return false;
+                    }
+
+                    const { data: publicUrlData } = supabaseClient.storage
+                        .from(GALLERY_BUCKET)
+                        .getPublicUrl(safeName);
+
+                    const { error: insertError } = await supabaseClient
+                        .from(GALLERY_TABLE)
+                        .insert({
+                            username: currentUser,
+                            file_name: file.name,
+                            image_url: publicUrlData.publicUrl
+                        });
+
+                    if (insertError) {
+                        setGalleryStatus(`Could not save image: ${insertError.message}`, "error", 2800);
+                        return false;
+                    }
+
+                    return true;
+                }
+
+                async function connectGalleryRealtime() {
+                    if (!supabaseClient || galleryChannel) {
+                        return;
+                    }
+
+                    galleryChannel = supabaseClient
+                        .channel("gallery-images")
+                        .on("postgres_changes", {
+                            event: "*",
+                            schema: "public",
+                            table: GALLERY_TABLE
+                        }, async () => {
+                            await loadGalleryImages();
+                        })
+                        .subscribe();
                 }
 
                 function setAuthMode(mode) {
@@ -1963,6 +2226,8 @@
                     return [
                         settingsPanel,
                         leaderboardPanel,
+                        galleryPanel,
+                        galleryViewerPanel,
                         chatPanel,
                         notesMenuPanel,
                         notesListPanel,
@@ -2698,10 +2963,11 @@
                     loadLikedSongsPreference();
                     onlineUsers = [];
                     renderLeaderboard();
-                    await Promise.all([loadNotes(), loadNoteReads(), loadNoteReplies(), loadMessages()]);
+                    await Promise.all([loadNotes(), loadNoteReads(), loadNoteReplies(), loadMessages(), loadGalleryImages()]);
                     await connectNotesRealtime();
                     await connectMessagesRealtime();
                     await connectMessageReactionsRealtime();
+                    await connectGalleryRealtime();
                     setActiveScreen(landscapeScreen);
                 }
 
@@ -2711,15 +2977,19 @@
                     onlineUsers = [];
                     noteReadMap = new Map();
                     messagesEntries = [];
+                    galleryEntries = [];
                     likedSongFiles = new Set();
                     playlistViewMode = "songs";
                     localStorage.removeItem(LOCAL_SESSION_KEY);
                     renderPinnedNotes();
                     renderLeaderboard();
                     renderChatMessages();
+                    renderGallery();
                     settingsLauncher.classList.remove("open");
                     updateMenuMessageAlert();
                     settingsPanel.classList.remove("open");
+                    galleryPanel.classList.remove("open");
+                    galleryViewerPanel.classList.remove("open");
                     leaderboardPanel.classList.remove("open");
                     closeChatPanel();
                     notesMenuPanel.classList.remove("open");
@@ -3683,6 +3953,61 @@
 
                         audioUploadInput.value = "";
                     });
+
+                    galleryUploadInput.addEventListener("change", async () => {
+                        if (!isAuthenticatedUser()) {
+                            galleryHelp.textContent = "Log in first to add images.";
+                            setGalleryStatus("Log in first to add images.", "error", 2400);
+                            galleryUploadInput.value = "";
+                            return;
+                        }
+
+                        if (!isAdminUser()) {
+                            galleryHelp.textContent = "Only Nico can add images.";
+                            setGalleryStatus("Only Nico can add images.", "error", 2400);
+                            galleryUploadInput.value = "";
+                            return;
+                        }
+
+                        const files = Array.from(galleryUploadInput.files || []);
+                        let uploadedCount = 0;
+                        let skippedCount = 0;
+                        const seenGalleryKeys = new Set(
+                            galleryEntries.map((entry) => normalizeGalleryIdentity(entry.file_name))
+                        );
+
+                        for (const file of files) {
+                            if (!file.type.startsWith("image/")) {
+                                continue;
+                            }
+
+                            const fileKey = normalizeGalleryIdentity(file.name);
+
+                            if (seenGalleryKeys.has(fileKey)) {
+                                skippedCount += 1;
+                                continue;
+                            }
+
+                            const uploaded = await uploadGalleryImage(file);
+
+                            if (uploaded) {
+                                uploadedCount += 1;
+                                seenGalleryKeys.add(fileKey);
+                            } else {
+                                skippedCount += 1;
+                            }
+                        }
+
+                        if (uploadedCount > 0 && skippedCount > 0) {
+                            setGalleryStatus(`Uploaded ${uploadedCount}. Skipped ${skippedCount} duplicate image(s).`, "success", 3200);
+                        } else if (uploadedCount > 0) {
+                            setGalleryStatus(`Successfully uploaded ${uploadedCount} image(s).`, "success", 2600);
+                        } else if (skippedCount > 0) {
+                            setGalleryStatus(`Skipped ${skippedCount} duplicate image(s).`, "error", 2800);
+                        }
+
+                        galleryUploadInput.value = "";
+                    });
                 }
 
                 // Wires all music player controls.
@@ -3718,6 +4043,7 @@
                     settingsToggle.addEventListener("click", async () => {
                         settingsLauncher.classList.remove("open");
                         updateMenuMessageAlert();
+                        galleryPanel.classList.remove("open");
                         notesMenuPanel.classList.remove("open");
                         notesListPanel.classList.remove("open");
                         notesPanel.classList.remove("open");
@@ -3731,6 +4057,25 @@
                         }
                     });
 
+                    galleryToggle.addEventListener("click", async () => {
+                        settingsLauncher.classList.remove("open");
+                        updateMenuMessageAlert();
+                        notesMenuPanel.classList.remove("open");
+                        notesListPanel.classList.remove("open");
+                        notesPanel.classList.remove("open");
+                        noteViewerPanel.classList.remove("open");
+                        galleryViewerPanel.classList.remove("open");
+                        leaderboardPanel.classList.remove("open");
+                        settingsPanel.classList.remove("open");
+                        closeChatPanel();
+                        const willOpen = !galleryPanel.classList.contains("open");
+                        galleryPanel.classList.toggle("open");
+                        await loadGalleryImages();
+                        if (willOpen) {
+                            renderGallery();
+                        }
+                    });
+
                     settingsMenuToggle.addEventListener("click", () => {
                         settingsLauncher.classList.toggle("open");
                         updateMenuMessageAlert();
@@ -3740,6 +4085,7 @@
                         settingsLauncher.classList.remove("open");
                         updateMenuMessageAlert();
                         settingsPanel.classList.remove("open");
+                        galleryPanel.classList.remove("open");
                         leaderboardPanel.classList.remove("open");
                         noteViewerPanel.classList.remove("open");
                         notesListPanel.classList.remove("open");
@@ -3768,6 +4114,8 @@
                         settingsLauncher.classList.remove("open");
                         updateMenuMessageAlert();
                         settingsPanel.classList.remove("open");
+                        galleryViewerPanel.classList.remove("open");
+                        galleryPanel.classList.remove("open");
                         closeChatPanel();
                         notesMenuPanel.classList.remove("open");
                         notesListPanel.classList.remove("open");
@@ -3787,6 +4135,41 @@
 
                     leaderboardClose.addEventListener("click", () => {
                         leaderboardPanel.classList.remove("open");
+                    });
+
+                    galleryClose.addEventListener("click", () => {
+                        galleryPanel.classList.remove("open");
+                    });
+
+                    galleryViewerClose.addEventListener("click", () => {
+                        galleryViewerPanel.classList.remove("open");
+                        activeGalleryIndex = -1;
+                    });
+
+                    galleryViewerPrev?.addEventListener("click", () => {
+                        if (activeGalleryIndex <= 0) {
+                            return;
+                        }
+
+                        activeGalleryIndex -= 1;
+                        updateGalleryViewer();
+                    });
+
+                    galleryViewerNext?.addEventListener("click", () => {
+                        if (activeGalleryIndex >= galleryEntries.length - 1) {
+                            return;
+                        }
+
+                        activeGalleryIndex += 1;
+                        updateGalleryViewer();
+                    });
+
+                    galleryLoadMoreButton?.addEventListener("click", () => {
+                        renderedGalleryCount = Math.min(
+                            renderedGalleryCount + GALLERY_RENDER_BATCH_SIZE,
+                            galleryEntries.length
+                        );
+                        renderGallery();
                     });
 
                     [deleteConfirmClose, deleteConfirmCancel].forEach((button) => {
