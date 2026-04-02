@@ -34,6 +34,7 @@
                 const menuMessageAlert = document.getElementById("menuMessageAlert");
                 const settingsToggle = document.getElementById("settingsToggle");
                 const galleryToggle = document.getElementById("galleryToggle");
+                const galleryToggleAlert = document.getElementById("galleryToggleAlert");
                 const notesToggle = document.getElementById("notesToggle");
                 const leaderboardToggle = document.getElementById("leaderboardToggle");
                 const leaderboardToggleCount = document.getElementById("leaderboardToggleCount");
@@ -68,6 +69,7 @@
                 const galleryViewerPrev = document.getElementById("galleryViewerPrev");
                 const galleryViewerNext = document.getElementById("galleryViewerNext");
                 const galleryLoadMoreButton = document.getElementById("galleryLoadMoreButton");
+                const galleryLoadLessButton = document.getElementById("galleryLoadLessButton");
                 const leaderboardPanel = document.getElementById("leaderboardPanel");
                 const leaderboardClose = document.getElementById("leaderboardClose");
                 const leaderboardList = document.getElementById("leaderboardList");
@@ -242,6 +244,7 @@
                 const LOCAL_NOTE_READS_PREFIX = "pastries_note_reads_";
                 const LOCAL_NOTES_VISIBILITY_PREFIX = "pastries_notes_visibility_";
                 const LOCAL_LIKED_SONGS_PREFIX = "pastries_liked_songs_";
+                const LOCAL_GALLERY_SEEN_PREFIX = "pastries_gallery_seen_";
                 const CHAT_RENDER_BATCH_SIZE = 40;
                 const MOBILE_CHAT_RENDER_BATCH_SIZE = 80;
                 const GALLERY_RENDER_BATCH_SIZE = 10;
@@ -387,6 +390,48 @@
                     return `${LOCAL_LIKED_SONGS_PREFIX}${userKey}`;
                 }
 
+                function getGallerySeenStorageKey() {
+                    const userKey = profileData?.id || normalizeAuthUsername(currentUser) || "guest";
+                    return `${LOCAL_GALLERY_SEEN_PREFIX}${userKey}`;
+                }
+
+                function getGallerySeenTimestamp() {
+                    try {
+                        return localStorage.getItem(getGallerySeenStorageKey()) || "";
+                    } catch (error) {
+                        return "";
+                    }
+                }
+
+                function markGalleryAsSeen() {
+                    try {
+                        const newestGalleryTime = galleryEntries[0]?.created_at || "";
+                        if (newestGalleryTime) {
+                            localStorage.setItem(getGallerySeenStorageKey(), newestGalleryTime);
+                        }
+                    } catch (error) {
+                        // Ignore localStorage write failures.
+                    }
+
+                    galleryToggleAlert?.classList.add("hidden");
+                }
+
+                function updateGalleryAlert() {
+                    if (!galleryToggleAlert) {
+                        return;
+                    }
+
+                    const newestGalleryTime = galleryEntries[0]?.created_at || "";
+                    const seenGalleryTime = getGallerySeenTimestamp();
+                    const shouldShow = Boolean(
+                        newestGalleryTime &&
+                        newestGalleryTime !== seenGalleryTime &&
+                        !galleryPanel?.classList.contains("open")
+                    );
+
+                    galleryToggleAlert.classList.toggle("hidden", !shouldShow);
+                }
+
                 function loadLikedSongsPreference() {
                     try {
                         const raw = localStorage.getItem(getLikedSongsStorageKey());
@@ -488,7 +533,28 @@
                         return;
                     }
 
-                    leaderboardEntries = data || [];
+                    const { data: entryLogData, error: entryLogError } = await supabaseClient
+                        .from(ENTRY_LOG_TABLE)
+                        .select("user_id, entered_at")
+                        .order("entered_at", { ascending: false });
+
+                    if (entryLogError) {
+                        console.error("Could not load entry logs:", entryLogError.message);
+                    }
+
+                    const latestEnteredAtByUserId = new Map();
+                    (entryLogData || []).forEach((entry) => {
+                        if (!entry?.user_id || latestEnteredAtByUserId.has(entry.user_id)) {
+                            return;
+                        }
+
+                        latestEnteredAtByUserId.set(entry.user_id, entry.entered_at || null);
+                    });
+
+                    leaderboardEntries = (data || []).map((entry) => ({
+                        ...entry,
+                        latest_entered_at: latestEnteredAtByUserId.get(entry.id) || null
+                    }));
                 }
 
                 function formatLastOnline(dateValue) {
@@ -735,13 +801,18 @@
                         const hasMoreImages = renderedGalleryCount < galleryEntries.length;
                         galleryLoadMoreButton.classList.toggle("hidden", !hasMoreImages);
                     }
+                    if (galleryLoadLessButton) {
+                        const canLoadLess = renderedGalleryCount > GALLERY_RENDER_BATCH_SIZE;
+                        galleryLoadLessButton.classList.toggle("hidden", !canLoadLess);
+                    }
 
                     if (preserveScroll) {
                         requestAnimationFrame(() => {
-                            const scrollHeightDelta = galleryPanelGrid.scrollHeight - previousScrollHeight;
-                            galleryPanelGrid.scrollTop = previousScrollTop + Math.max(0, scrollHeightDelta);
+                            galleryPanelGrid.scrollTop = previousScrollTop;
                         });
                     }
+
+                    updateGalleryAlert();
                 }
 
                 async function loadGalleryImages() {
@@ -1050,15 +1121,17 @@
                                 entry.id === currentProfileId ||
                                 normalizeAuthUsername(entry.username) === currentUsername,
                             isOnline: onlineUserIds.has(entry.id),
-                            presenceOrder: presenceOrderMap.get(entry.id) || 0,
+                            latestEnteredAt: entry.latest_entered_at
+                                ? new Date(entry.latest_entered_at).getTime()
+                                : 0,
                         }))
                         .sort((left, right) => {
                             if (left.isSelf !== right.isSelf) {
                                 return left.isSelf ? -1 : 1;
                             }
 
-                            if (left.presenceOrder !== right.presenceOrder) {
-                                return right.presenceOrder - left.presenceOrder;
+                            if (left.latestEnteredAt !== right.latestEnteredAt) {
+                                return right.latestEnteredAt - left.latestEnteredAt;
                             }
 
                             if (left.isOnline !== right.isOnline) {
@@ -2983,8 +3056,8 @@
                     });
 
                     presenceChannel
-                        .on("presence", { event: "sync" }, () => {
-                            syncOnlineUsersFromPresence();
+                        .on("presence", { event: "sync" }, async () => {
+                            await refreshLeaderboard();
                             knownPresenceUserIds = new Set(onlineUsers.map((user) => user.id));
                         })
                         .on("presence", { event: "join" }, ({ newPresences }) => {
@@ -3036,10 +3109,10 @@
                         if (status !== "SUBSCRIBED") {
                             return;
                         }
-                        syncOnlineUsersFromPresence();
+                        await refreshLeaderboard();
                         knownPresenceUserIds = new Set(onlineUsers.map((user) => user.id));
                         await trackCurrentPresence();
-                        syncOnlineUsersFromPresence();
+                        await refreshLeaderboard();
                         knownPresenceUserIds = new Set(onlineUsers.map((user) => user.id));
                         suppressPresenceJoinToastsUntil = Date.now() + 1600;
                         presenceSyncStarted = true;
@@ -4230,6 +4303,7 @@
                         await loadGalleryImages();
                         if (willOpen) {
                             renderGallery();
+                            markGalleryAsSeen();
                         }
                     });
 
@@ -4296,6 +4370,7 @@
 
                     galleryClose.addEventListener("click", () => {
                         galleryPanel.classList.remove("open");
+                        markGalleryAsSeen();
                     });
 
                     galleryViewerClose.addEventListener("click", () => {
@@ -4327,6 +4402,14 @@
                             galleryEntries.length
                         );
                         renderGallery({ preserveScroll: true });
+                    });
+
+                    galleryLoadLessButton?.addEventListener("click", () => {
+                        renderedGalleryCount = GALLERY_RENDER_BATCH_SIZE;
+                        renderGallery();
+                        if (galleryPanelGrid) {
+                            galleryPanelGrid.scrollTop = 0;
+                        }
                     });
 
                     [deleteConfirmClose, deleteConfirmCancel].forEach((button) => {
