@@ -93,6 +93,7 @@
                                 <circle cx="16.4" cy="10" r="2.1" fill="currentColor"></circle>
                                 <path d="M5.5 18.2l5.6-6 4.2 4.5 1.9-1.9 2.8 3.4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"></path>
                             </svg>
+                            <span class="settings-toggle-alert hidden" id="galleryToggleAlert">!</span>
                         </button>
                         <button class="settings-toggle" id="notesToggle" type="button" aria-label="Write a note" title="Notes">&#128221;</button>
                         <button class="settings-toggle settings-toggle-status" id="leaderboardToggle" type="button" aria-label="Open online users" title="Online">
@@ -227,6 +228,7 @@
                     </div>
                     <div class="gallery-grid gallery-panel-grid" id="galleryPanelGrid"></div>
                     <button class="gallery-load-more hidden" id="galleryLoadMoreButton" type="button">Load More</button>
+                    <button class="gallery-load-more hidden" id="galleryLoadLessButton" type="button">Load Less</button>
                 </div>
 
                 <div class="leaderboard-panel gallery-viewer-panel" id="galleryViewerPanel">
@@ -408,6 +410,6 @@
         </section>
 
         <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-        <script src="script.js?v=189"></script>
+        <script src="script.js?v=193"></script>
     </body>
     </html>
