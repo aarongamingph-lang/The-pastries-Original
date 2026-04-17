@@ -148,10 +148,11 @@
                     });
                 }
 
-                const SUPABASE_URL = "https://qptgeftudyxqdlmvvotk.supabase.co";
-                const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_CJsr9sctO5mrbuVmG4G3jA_YDXnkynM";
+                const SUPABASE_URL = "https://jbpjvgyvrfblykqxyicc.supabase.co";
+                const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_55bGulbB0m9wgD1KsFaw1g_lClSo3Gm";
                 const SUPABASE_BUCKET = "songs";
                 const GALLERY_BUCKET = "gallery";
+                const SONGS_TABLE = "songs_metadata";
                 const PROFILE_TABLE = "profiles";
                 const ENTRY_LOG_TABLE = "entry_logs";
                 const NOTES_TABLE = "notes";
@@ -192,7 +193,7 @@
                 let notesRevealTimeout = null;
                 let savedUsersCache = [];
                 let lastNameProceedAt = null;
-                let authMode = "login";
+                let authMode = "username";
                 let profileData = null;
                 let leaderboardEntries = [];
                 let notesEntries = [];
@@ -206,6 +207,7 @@
                 let activeGalleryIndex = -1;
                 let onlineUsers = [];
                 let presenceChannel = null;
+                let songsChannel = null;
                 let notesChannel = null;
                 let noteRepliesChannel = null;
                 let messagesChannel = null;
@@ -240,14 +242,23 @@
                 let notesVisibilityEnabled = true;
                 let likedSongFiles = new Set();
                 let playlistViewMode = "songs";
+                let playbackMode = "shuffle";
                 const LOCAL_SESSION_KEY = "pastries_active_profile";
+                const LOCAL_CHAT_MESSAGES_KEY = "pastries_local_messages_v1";
+                const NOTE_TTL_MS = 24 * 60 * 60 * 1000;
                 const LOCAL_NOTE_READS_PREFIX = "pastries_note_reads_";
                 const LOCAL_NOTES_VISIBILITY_PREFIX = "pastries_notes_visibility_";
                 const LOCAL_LIKED_SONGS_PREFIX = "pastries_liked_songs_";
                 const LOCAL_GALLERY_SEEN_PREFIX = "pastries_gallery_seen_";
+                const CHAT_BROADCAST_CHANNEL = "shared-chat-broadcast";
+                const CHAT_BROADCAST_EVENT = "chat-message";
+                const CHAT_HISTORY_LIMIT = 300;
                 const CHAT_RENDER_BATCH_SIZE = 40;
                 const MOBILE_CHAT_RENDER_BATCH_SIZE = 80;
                 const GALLERY_RENDER_BATCH_SIZE = 10;
+                const CHAT_CLIENT_ID = window.crypto?.randomUUID
+                    ? window.crypto.randomUUID()
+                    : `chat-client-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 
                 // Shows small text messages in the audio settings area.
                 function setAudioStatus(message, tone = "neutral", autoClearMs = 0) {
@@ -494,10 +505,12 @@
 
                     const { error } = await supabaseClient
                         .from(ENTRY_LOG_TABLE)
-                        .insert({
+                        .upsert({
                             user_id: userId,
                             username: cleanName,
                             entered_at: new Date(lastNameProceedAt || Date.now()).toISOString()
+                        }, {
+                            onConflict: "user_id"
                         });
 
                     if (error) {
@@ -670,20 +683,27 @@
                     audioUploadInput.disabled = !isAuthenticatedUser();
                     audioUploadLabel.classList.toggle("disabled", !isAuthenticatedUser());
                     audioUploadLabel.setAttribute("aria-disabled", String(!isAuthenticatedUser()));
-                    galleryUploadInput.disabled = !isAuthenticatedUser();
                     const canManageGallery = isAuthenticatedUser() && isAdminUser();
-                    galleryUploadInput.disabled = !canManageGallery;
-                    galleryUploadLabel.classList.toggle("disabled", !canManageGallery);
-                    galleryUploadLabel.setAttribute("aria-disabled", String(!canManageGallery));
+                    if (galleryUploadInput) {
+                        galleryUploadInput.disabled = !canManageGallery;
+                    }
+                    if (galleryUploadLabel) {
+                        galleryUploadLabel.classList.toggle("disabled", !canManageGallery);
+                        galleryUploadLabel.setAttribute("aria-disabled", String(!canManageGallery));
+                    }
                     audioHelp.textContent = isAuthenticatedUser()
                         ? "Pick MP3 files from your phone or computer and they will be uploaded to Supabase storage so they can be used again later."
                         : "Log in first to upload songs.";
-                    galleryHelp.textContent = !isAuthenticatedUser()
-                        ? "Log in first to add images."
-                        : canManageGallery
-                            ? "Pick images from your phone or computer. Everyone can see them in this shared gallery."
-                            : "Only Nico can add images. Everyone can still view the gallery.";
-                    setGalleryStatus("");
+                    if (galleryHelp) {
+                        galleryHelp.textContent = !isAuthenticatedUser()
+                            ? "Log in first to add images."
+                            : canManageGallery
+                                ? "Pick images from your phone or computer. Everyone can see them in this shared gallery."
+                                : "Only Nico can add images. Everyone can still view the gallery.";
+                    }
+                    if (galleryStatus) {
+                        setGalleryStatus("");
+                    }
                 }
 
                 function renderGalleryInto(container) {
@@ -989,21 +1009,23 @@
                         .subscribe();
                 }
 
-                function setAuthMode(mode) {
-                    authMode = mode === "signup" ? "signup" : "login";
-                    loginModeButton.classList.toggle("active", authMode === "login");
-                    signupModeButton.classList.toggle("active", authMode === "signup");
-                    confirmPasswordWrap.classList.toggle("hidden", authMode !== "signup");
-                    confirmPasswordInput.required = authMode === "signup";
-                    authTitle.textContent = authMode === "signup" ? "Sign Up" : "Log In";
-                    authDescription.textContent = authMode === "signup"
-                        ? "Create a username and password first, then log in with that account."
-                        : "Enter your username and password to continue.";
-                    nameInput.placeholder = authMode === "signup" ? "Create username" : "Username";
-                    passwordInput.placeholder = authMode === "signup" ? "Create password" : "Password";
-                    passwordInput.autocomplete = authMode === "signup" ? "new-password" : "current-password";
-                    confirmPasswordInput.placeholder = "Confirm password";
-                    unlockButton.textContent = authMode === "signup" ? "CREATE ACCOUNT" : "LOG IN";
+                function setAuthMode() {
+                    authMode = "account";
+                    authTitle.textContent = "Enter Account";
+                    authDescription.textContent = "First time creates your account. Same username and password signs you back in.";
+                    nameInput.placeholder = "Username";
+                    if (passwordInput) {
+                        passwordInput.value = "";
+                    }
+                    if (confirmPasswordInput) {
+                        confirmPasswordInput.value = "";
+                    }
+                    if (confirmPasswordWrap) {
+                        confirmPasswordWrap.classList.add("hidden");
+                    }
+                    if (unlockButton) {
+                        unlockButton.textContent = "PROCEED";
+                    }
                     lockMessage.textContent = "";
                     lockMessage.className = "message";
                 }
@@ -1034,7 +1056,7 @@
 
                     const { data, error } = await supabaseClient
                         .from(PROFILE_TABLE)
-                        .select("id, username, password_hash, created_at")
+                        .select("id, username, password_hash, created_at, last_online")
                         .ilike("username", normalizedUsername)
                         .order("created_at", { ascending: true })
                         .limit(1);
@@ -1045,6 +1067,25 @@
                     }
 
                     return Array.isArray(data) ? data[0] || null : null;
+                }
+
+                async function restoreRememberedSession(storedSession) {
+                    if (!storedSession?.username) {
+                        localStorage.removeItem(LOCAL_SESSION_KEY);
+                        return;
+                    }
+
+                    const profile = await getProfileByUsername(storedSession.username);
+
+                    if (!profile) {
+                        localStorage.removeItem(LOCAL_SESSION_KEY);
+                        return;
+                    }
+
+                    await handleAuthenticatedSession({
+                        id: profile.id,
+                        username: profile.username
+                    });
                 }
 
                 async function ensureProfile(session, usernameOverride = "") {
@@ -1170,9 +1211,9 @@
 
                     sortedEntries.forEach((entry) => {
                         const isOnline = onlineUserIds.has(entry.id);
-                        const unreadCount = getUnreadCountForSender(entry.id);
                         const item = document.createElement("div");
                         item.className = "leaderboard-item";
+                        const canOpenChat = Boolean(profileData?.id && entry.id && entry.id !== profileData.id);
 
                         const identity = document.createElement("div");
                         identity.className = "leaderboard-identity";
@@ -1220,39 +1261,100 @@
                         status.appendChild(dot);
                         status.appendChild(statusText);
 
-                        if (entry.id !== profileData?.id) {
-                            const messageButton = document.createElement("button");
-                            messageButton.type = "button";
-                            messageButton.className = "leaderboard-message-button";
-                            messageButton.setAttribute("aria-label", `Message ${entry.username}`);
-                            messageButton.textContent = "\u2709";
-                            messageButton.addEventListener("click", async (event) => {
-                                event.stopPropagation();
-                                await openChatPanelWithUser(entry);
-                            });
-                            status.appendChild(messageButton);
-
-                            if (unreadCount > 0) {
-                                const unreadBadge = document.createElement("span");
-                                unreadBadge.className = "leaderboard-message-badge";
-                                unreadBadge.textContent = String(unreadCount);
-                                status.appendChild(unreadBadge);
-                            }
-                        }
-
                         item.appendChild(identity);
                         item.appendChild(status);
+
+                        if (canOpenChat) {
+                            item.tabIndex = 0;
+                            item.setAttribute("role", "button");
+                            item.setAttribute("aria-label", `Open chat with ${entry.username}`);
+                            item.addEventListener("click", () => {
+                                openChatPanelWithUser(entry);
+                            });
+                            item.addEventListener("keydown", (event) => {
+                                if (event.key === "Enter" || event.key === " ") {
+                                    event.preventDefault();
+                                    openChatPanelWithUser(entry);
+                                }
+                            });
+                        }
+
                         leaderboardList.appendChild(item);
                     });
                 }
 
+                function normalizeChatParticipant(value) {
+                    return normalizeSavedUserName(value);
+                }
+
+                function loadLocalChatMessages() {
+                    try {
+                        const rawValue = localStorage.getItem(LOCAL_CHAT_MESSAGES_KEY);
+                        const parsedValue = rawValue ? JSON.parse(rawValue) : [];
+
+                        if (!Array.isArray(parsedValue)) {
+                            return [];
+                        }
+
+                        return parsedValue
+                            .filter((entry) => entry && typeof entry === "object")
+                            .map((entry) => ({
+                                id: String(entry.id || ""),
+                                sender_id: entry.sender_id || null,
+                                sender_username: String(entry.sender_username || ""),
+                                receiver_id: entry.receiver_id || null,
+                                receiver_username: String(entry.receiver_username || ""),
+                                content: String(entry.content || ""),
+                                created_at: entry.created_at || new Date().toISOString(),
+                                edited_at: entry.edited_at || null,
+                                parent_message_id: entry.parent_message_id || null,
+                                is_read: Boolean(entry.is_read)
+                            }))
+                            .filter((entry) => entry.id && entry.sender_username && entry.receiver_username)
+                            .sort((left, right) => new Date(left.created_at) - new Date(right.created_at));
+                    } catch {
+                        return [];
+                    }
+                }
+
+                function storeLocalChatMessages(nextMessages) {
+                    messagesEntries = [...nextMessages]
+                        .sort((left, right) => new Date(left.created_at) - new Date(right.created_at))
+                        .slice(-CHAT_HISTORY_LIMIT);
+
+                    try {
+                        localStorage.setItem(LOCAL_CHAT_MESSAGES_KEY, JSON.stringify(messagesEntries));
+                    } catch {
+                        // Ignore localStorage write failures.
+                    }
+                }
+
+                function upsertLocalChatMessage(message) {
+                    const existingMessages = loadLocalChatMessages();
+                    const nextMessages = [...existingMessages];
+                    const messageIndex = nextMessages.findIndex((entry) => String(entry.id) === String(message.id));
+
+                    if (messageIndex >= 0) {
+                        nextMessages[messageIndex] = {
+                            ...nextMessages[messageIndex],
+                            ...message
+                        };
+                    } else {
+                        nextMessages.push(message);
+                    }
+
+                    storeLocalChatMessages(nextMessages);
+                }
+
                 function getTotalUnreadMessageCount() {
-                    if (!profileData?.id) {
+                    if (!currentUser) {
                         return 0;
                     }
 
+                    const currentUsername = normalizeChatParticipant(profileData?.username || currentUser);
+
                     return messagesEntries.filter((message) =>
-                        message.receiver_id === profileData.id &&
+                        normalizeChatParticipant(message.receiver_username) === currentUsername &&
                         !message.is_read
                     ).length;
                 }
@@ -1278,13 +1380,17 @@
                 }
 
                 function getUnreadCountForSender(senderId) {
-                    if (!profileData?.id || !senderId) {
+                    if (!currentUser || !senderId) {
                         return 0;
                     }
 
+                    const currentUsername = normalizeChatParticipant(profileData?.username || currentUser);
+                    const senderEntry = leaderboardEntries.find((entry) => entry.id === senderId);
+                    const senderUsername = normalizeChatParticipant(senderEntry?.username || "");
+
                     return messagesEntries.filter((message) =>
-                        message.receiver_id === profileData.id &&
-                        message.sender_id === senderId &&
+                        normalizeChatParticipant(message.receiver_username) === currentUsername &&
+                        normalizeChatParticipant(message.sender_username) === senderUsername &&
                         !message.is_read
                     ).length;
                 }
@@ -1678,26 +1784,18 @@
                 }
 
                 async function deleteChatMessage(messageId) {
-                    if (!supabaseClient || !profileData?.id || !messageId) {
+                    if (!messageId) {
                         return;
                     }
 
                     const targetMessage = getMessageById(messageId);
 
-                    if (!targetMessage || targetMessage.sender_id !== profileData.id) {
+                    if (!targetMessage || targetMessage.sender_id !== profileData?.id) {
                         return;
                     }
 
-                    const { error } = await supabaseClient
-                        .from(MESSAGES_TABLE)
-                        .delete()
-                        .eq("id", messageId);
-
-                    if (error) {
-                        console.error("Could not delete message:", error.message);
-                        showPresenceToast("Could not delete message.");
-                        return;
-                    }
+                    const nextMessages = loadLocalChatMessages().filter((message) => String(message.id) !== String(messageId));
+                    storeLocalChatMessages(nextMessages);
 
                     if (String(activeChatEditMessageId) === String(messageId) || String(activeChatReplyMessageId) === String(messageId)) {
                         clearChatComposerState();
@@ -1705,51 +1803,12 @@
                     }
 
                     activeChatActionMenuId = null;
-                    await loadMessages();
+                    renderLeaderboard();
+                    requestChatRender();
                 }
 
                 async function reactToMessage(messageId, emoji) {
-                    if (!supabaseClient || !profileData?.id || !messageId || !emoji) {
-                        return;
-                    }
-
-                    const existingReaction = messageReactionsEntries.find((entry) =>
-                        String(entry.message_id) === String(messageId) &&
-                        entry.user_id === profileData.id
-                    );
-
-                    let error = null;
-
-                    if (existingReaction && existingReaction.emoji === emoji) {
-                        ({ error } = await supabaseClient
-                            .from(MESSAGE_REACTIONS_TABLE)
-                            .delete()
-                            .eq("id", existingReaction.id));
-                    } else if (existingReaction) {
-                        ({ error } = await supabaseClient
-                            .from(MESSAGE_REACTIONS_TABLE)
-                            .update({ emoji })
-                            .eq("id", existingReaction.id));
-                    } else {
-                        ({ error } = await supabaseClient
-                            .from(MESSAGE_REACTIONS_TABLE)
-                            .insert({
-                                message_id: messageId,
-                                user_id: profileData.id,
-                                username: currentUser,
-                                emoji,
-                                created_at: new Date().toISOString()
-                            }));
-                    }
-
-                    if (error) {
-                        console.error("Could not react to message:", error.message);
-                        showPresenceToast("Could not react to message.");
-                        return;
-                    }
-
-                    activeChatReactionMenuId = null;
-                    await loadMessageReactions();
+                    return;
                 }
 
                 function renderChatMessages(options = {}) {
@@ -1819,37 +1878,8 @@
                         const editedMetaSuffix = message.edited_at ? " \u00B7 edited" : "";
                         meta.textContent = `${message.sender_username || "Unknown"} | ${formatNoteDate(message.edited_at || message.created_at)}${editedMetaSuffix}`;
 
-                        const reactions = getReactionSummary(message.id);
-                        let reactionWrap = null;
-
-                        if (reactions.length > 0) {
-                            reactionWrap = document.createElement("div");
-                            reactionWrap.className = "chat-bubble-reactions";
-                            reactions.forEach((reaction) => {
-                                const chip = document.createElement("div");
-                                chip.className = `chat-reaction-chip${reaction.mine ? " mine" : ""}`;
-                                if (reaction.emoji === "\u2764") {
-                                    chip.classList.add("heart");
-                                }
-                                chip.textContent = `${reaction.emoji} ${reaction.count}`;
-                                reactionWrap.appendChild(chip);
-                            });
-                        }
-
                         const actions = document.createElement("div");
                         actions.className = "chat-bubble-actions";
-
-                        const reactionButton = document.createElement("button");
-                        reactionButton.type = "button";
-                        reactionButton.className = "chat-bubble-action";
-                        reactionButton.setAttribute("aria-label", "React to message");
-                        reactionButton.textContent = "\u263A";
-                        reactionButton.addEventListener("click", (event) => {
-                            event.stopPropagation();
-                            activeChatActionMenuId = null;
-                            activeChatReactionMenuId = activeChatReactionMenuId === message.id ? null : message.id;
-                            syncChatMenuVisibility();
-                        });
 
                         const replyButton = document.createElement("button");
                         replyButton.type = "button";
@@ -1860,66 +1890,7 @@
                             setChatReplyState(message);
                         });
 
-                        actions.appendChild(reactionButton);
                         actions.appendChild(replyButton);
-
-                        if (isOwnMessage) {
-                            const menuButton = document.createElement("button");
-                            menuButton.type = "button";
-                            menuButton.className = "chat-bubble-action";
-                            menuButton.setAttribute("aria-label", "Message actions");
-                            menuButton.textContent = "\u22EE";
-                            menuButton.addEventListener("click", (event) => {
-                                event.stopPropagation();
-                                activeChatReactionMenuId = null;
-                                activeChatActionMenuId = activeChatActionMenuId === message.id ? null : message.id;
-                                syncChatMenuVisibility();
-                            });
-                            actions.appendChild(menuButton);
-                        }
-
-                        const reactionPicker = document.createElement("div");
-                        reactionPicker.className = `chat-reaction-picker${activeChatReactionMenuId === message.id ? "" : " hidden"}`;
-                        reactionPicker.dataset.messageId = String(message.id);
-                        ["\u2764", "\uD83D\uDE02", "\uD83D\uDE0A", "\uD83D\uDE20", "\uD83D\uDE2E", "\uD83D\uDE22"].forEach((emoji) => {
-                            const option = document.createElement("button");
-                            option.type = "button";
-                            option.className = "chat-reaction-option";
-                            option.textContent = emoji;
-                            option.addEventListener("click", async (event) => {
-                                event.stopPropagation();
-                                await reactToMessage(message.id, emoji);
-                            });
-                            reactionPicker.appendChild(option);
-                        });
-                        actions.appendChild(reactionPicker);
-
-                        if (isOwnMessage) {
-                            const actionMenu = document.createElement("div");
-                            actionMenu.className = `chat-bubble-menu${activeChatActionMenuId === message.id ? "" : " hidden"}`;
-                            actionMenu.dataset.messageId = String(message.id);
-
-                            const editButton = document.createElement("button");
-                            editButton.type = "button";
-                            editButton.className = "chat-bubble-menu-button";
-                            editButton.textContent = "Edit";
-                            editButton.addEventListener("click", () => {
-                                activeChatActionMenuId = null;
-                                setChatEditState(message);
-                            });
-
-                            const deleteButton = document.createElement("button");
-                            deleteButton.type = "button";
-                            deleteButton.className = "chat-bubble-menu-button delete";
-                            deleteButton.textContent = "Delete";
-                            deleteButton.addEventListener("click", async () => {
-                                await deleteChatMessage(message.id);
-                            });
-
-                            actionMenu.appendChild(editButton);
-                            actionMenu.appendChild(deleteButton);
-                            actions.appendChild(actionMenu);
-                        }
 
                         const footer = document.createElement("div");
                         footer.className = "chat-message-footer";
@@ -1928,13 +1899,9 @@
                         bubble.appendChild(meta);
                         messageItem.appendChild(bubble);
 
-                        if (reactionWrap) {
-                            footer.appendChild(reactionWrap);
-                        } else {
-                            const reactionSpacer = document.createElement("div");
-                            reactionSpacer.className = "chat-message-footer-spacer";
-                            footer.appendChild(reactionSpacer);
-                        }
+                        const reactionSpacer = document.createElement("div");
+                        reactionSpacer.className = "chat-message-footer-spacer";
+                        footer.appendChild(reactionSpacer);
 
                         footer.appendChild(actions);
                         messageItem.appendChild(footer);
@@ -1956,42 +1923,34 @@
                     }
                 }
                 async function markConversationAsRead(otherUserId) {
-                    if (!supabaseClient || !profileData?.id || !otherUserId) {
+                    if (!currentUser || !otherUserId) {
                         return;
                     }
 
-                    const unreadMessages = messagesEntries.filter((message) =>
-                        message.receiver_id === profileData.id &&
-                        message.sender_id === otherUserId &&
-                        !message.is_read
-                    );
+                    const otherEntry = leaderboardEntries.find((entry) => entry.id === otherUserId);
+                    const currentUsername = normalizeChatParticipant(profileData?.username || currentUser);
+                    const otherUsername = normalizeChatParticipant(otherEntry?.username || activeChatUsername || "");
+                    const nextMessages = loadLocalChatMessages().map((message) => {
+                        const isUnreadConversationMessage =
+                            normalizeChatParticipant(message.receiver_username) === currentUsername &&
+                            normalizeChatParticipant(message.sender_username) === otherUsername &&
+                            !message.is_read;
 
-                    if (unreadMessages.length === 0) {
-                        return;
-                    }
-
-                    unreadMessages.forEach((message) => {
-                        message.is_read = true;
+                        return isUnreadConversationMessage
+                            ? { ...message, is_read: true }
+                            : message;
                     });
 
+                    const hasChanged = nextMessages.some((message, index) => message.is_read !== messagesEntries[index]?.is_read);
+
+                    if (!hasChanged) {
+                        return;
+                    }
+
+                    storeLocalChatMessages(nextMessages);
                     const forceLatest = shouldForceChatLatestView() || shouldPinChatToBottom();
                     renderLeaderboard();
                     requestChatRender({ preserveScroll: !forceLatest, forceLatest });
-
-                    const unreadIds = unreadMessages.map((message) => message.id).filter(Boolean);
-
-                    if (unreadIds.length === 0) {
-                        return;
-                    }
-
-                    const { error } = await supabaseClient
-                        .from(MESSAGES_TABLE)
-                        .update({ is_read: true })
-                        .in("id", unreadIds);
-
-                    if (error) {
-                        console.error("Could not mark messages as read:", error.message);
-                    }
                 }
 
                 async function openChatPanelWithUser(entry) {
@@ -2021,7 +1980,7 @@
                 }
 
                 async function loadMessages() {
-                    if (!supabaseClient || !profileData?.id) {
+                    if (!currentUser) {
                         messagesEntries = [];
                         messageReactionsEntries = [];
                         renderChatMessages();
@@ -2029,44 +1988,15 @@
                         return;
                     }
 
-                    const { data, error } = await supabaseClient
-                        .from(MESSAGES_TABLE)
-                        .select("id, sender_id, sender_username, receiver_id, receiver_username, content, created_at, edited_at, parent_message_id, is_read")
-                        .order("created_at", { ascending: false })
-                        .limit(1000);
-
-                    if (error) {
-                        console.error("Could not load messages:", error.message);
-                        return;
-                    }
-
-                    messagesEntries = Array.isArray(data) ? [...data].reverse() : [];
-                    await loadMessageReactions(false);
+                    messagesEntries = loadLocalChatMessages();
+                    messageReactionsEntries = [];
                     const forceLatest = shouldForceChatLatestView() || shouldPinChatToBottom();
                     requestChatRender({ preserveScroll: !forceLatest, forceLatest });
                     renderLeaderboard();
                 }
 
                 async function loadMessageReactions(shouldRenderChat = true) {
-                    if (!supabaseClient) {
-                        messageReactionsEntries = [];
-                        if (shouldRenderChat) {
-                            const forceLatest = shouldPinChatToBottom();
-                            requestChatRender({ preserveScroll: !forceLatest, forceLatest });
-                        }
-                        return;
-                    }
-
-                    const { data, error } = await supabaseClient
-                        .from(MESSAGE_REACTIONS_TABLE)
-                        .select("id, message_id, user_id, username, emoji, created_at");
-
-                    if (error) {
-                        console.error("Could not load message reactions:", error.message);
-                        return;
-                    }
-
-                    messageReactionsEntries = data || [];
+                    messageReactionsEntries = [];
                     if (shouldRenderChat) {
                         const forceLatest = shouldPinChatToBottom();
                         requestChatRender({ preserveScroll: !forceLatest, forceLatest });
@@ -2087,70 +2017,49 @@
                     }
 
                     chatSendButton.disabled = true;
-                    let error = null;
                     const timestamp = new Date().toISOString();
                     const replyTargetId = activeChatReplyMessageId || null;
-                    const editingMessageId = activeChatEditMessageId;
-                    let senderProfileId = profileData.id;
-                    let receiverProfileId = activeChatUserId;
+                    const chatMessage = {
+                        id: window.crypto?.randomUUID
+                            ? window.crypto.randomUUID()
+                            : `message-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+                        sender_id: profileData.id,
+                        sender_username: currentUser,
+                        receiver_id: activeChatUserId,
+                        receiver_username: targetUsername,
+                        content: messageContent,
+                        created_at: timestamp,
+                        edited_at: null,
+                        parent_message_id: replyTargetId,
+                        is_read: false
+                    };
 
-                    const currentProfile = await getProfileByUsername(currentUser);
-                    const receiverProfile = targetUsername ? await getProfileByUsername(targetUsername) : null;
-
-                    if (currentProfile?.id) {
-                        senderProfileId = currentProfile.id;
-                        if (profileData.id !== currentProfile.id) {
-                            profileData.id = currentProfile.id;
-                            localStorage.setItem(LOCAL_SESSION_KEY, JSON.stringify({
-                                id: profileData.id,
-                                username: profileData.username
-                            }));
-                        }
-                    }
-
-                    if (receiverProfile?.id) {
-                        receiverProfileId = receiverProfile.id;
-                        activeChatUserId = receiverProfile.id;
-                    }
-
-                    if (editingMessageId) {
-                        ({ error } = await supabaseClient
-                            .from(MESSAGES_TABLE)
-                            .update({
-                                content: messageContent,
-                                edited_at: timestamp
-                            })
-                            .eq("id", editingMessageId)
-                            .eq("sender_id", senderProfileId));
-                    } else {
-                        ({ error } = await supabaseClient
-                            .from(MESSAGES_TABLE)
-                            .insert({
-                                sender_id: senderProfileId,
-                                sender_username: currentUser,
-                                receiver_id: receiverProfileId,
-                                receiver_username: targetUsername,
-                                content: messageContent,
-                                created_at: timestamp,
-                                edited_at: null,
-                                parent_message_id: replyTargetId,
-                                is_read: false
-                            }));
-                    }
-
-                    chatSendButton.disabled = false;
-
-                    if (error) {
-                        console.error("Could not send message:", error.message);
-                        showPresenceToast(`Could not send message: ${error.message}`);
-                        return;
-                    }
+                    upsertLocalChatMessage(chatMessage);
 
                     chatInput.value = "";
                     clearChatComposerState();
 
+                    const forceLatest = shouldForceChatLatestView() || shouldPinChatToBottom();
+                    renderLeaderboard();
+                    requestChatRender({ preserveScroll: !forceLatest, forceLatest });
+                    chatSendButton.disabled = false;
+
                     if (!messagesChannel) {
-                        await loadMessages();
+                        return;
+                    }
+
+                    try {
+                        await messagesChannel.send({
+                            type: "broadcast",
+                            event: CHAT_BROADCAST_EVENT,
+                            payload: {
+                                message: chatMessage,
+                                sender_client_id: CHAT_CLIENT_ID
+                            }
+                        });
+                    } catch (error) {
+                        console.error("Could not broadcast message:", error?.message || error);
+                        showPresenceToast("Message stayed on this device only.");
                     }
                 }
 
@@ -2164,18 +2073,46 @@
                     }
 
                     messagesChannel = supabaseClient
-                        .channel("shared-messages")
+                        .channel(CHAT_BROADCAST_CHANNEL)
                         .on(
-                            "postgres_changes",
-                            { event: "*", schema: "public", table: MESSAGES_TABLE },
-                            async () => {
-                                await loadMessages();
+                            "broadcast",
+                            { event: CHAT_BROADCAST_EVENT },
+                            async ({ payload }) => {
+                                const incomingMessage = payload?.message;
+                                const senderClientId = payload?.sender_client_id;
 
-                                if (activeChatUserId) {
-                                    await markConversationAsRead(activeChatUserId);
-                                    const activeEntry = leaderboardEntries.find((entry) => entry.id === activeChatUserId);
-                                    chatPanelStatus.textContent = formatChatStatus(activeEntry);
+                                if (!incomingMessage || senderClientId === CHAT_CLIENT_ID || !currentUser) {
+                                    return;
                                 }
+
+                                const currentUsername = normalizeChatParticipant(profileData?.username || currentUser);
+                                const senderUsername = normalizeChatParticipant(incomingMessage.sender_username);
+                                const receiverUsername = normalizeChatParticipant(incomingMessage.receiver_username);
+                                const isRelevantMessage = currentUsername === senderUsername || currentUsername === receiverUsername;
+
+                                if (!isRelevantMessage) {
+                                    return;
+                                }
+
+                                const activeUsername = normalizeChatParticipant(activeChatUsername || "");
+                                const shouldMarkRead =
+                                    chatPanel?.classList.contains("open") &&
+                                    currentUsername === receiverUsername &&
+                                    activeUsername === senderUsername;
+
+                                upsertLocalChatMessage({
+                                    ...incomingMessage,
+                                    is_read: shouldMarkRead ? true : Boolean(incomingMessage.is_read)
+                                });
+
+                                if (shouldMarkRead && activeChatUserId) {
+                                    await markConversationAsRead(activeChatUserId);
+                                }
+
+                                const forceLatest = shouldForceChatLatestView() || shouldPinChatToBottom();
+                                renderLeaderboard();
+                                requestChatRender({ preserveScroll: !forceLatest, forceLatest });
+                                updateMenuMessageAlert();
                             }
                         );
 
@@ -2183,21 +2120,7 @@
                 }
 
                 async function connectMessageReactionsRealtime() {
-                    if (!supabaseClient || messageReactionsChannel) {
-                        return;
-                    }
-
-                    messageReactionsChannel = supabaseClient
-                        .channel("shared-message-reactions")
-                        .on(
-                            "postgres_changes",
-                            { event: "*", schema: "public", table: MESSAGE_REACTIONS_TABLE },
-                            async () => {
-                                await loadMessageReactions();
-                            }
-                        );
-
-                    messageReactionsChannel.subscribe();
+                    return;
                 }
 
                 function formatNoteDate(dateValue) {
@@ -2460,7 +2383,7 @@
                         notesListPanel,
                         notesPanel,
                         noteViewerPanel
-                    ].filter((panel) => panel.classList.contains("open"));
+                    ].filter(Boolean).filter((panel) => panel.classList.contains("open"));
                 }
 
                 function updateViewportHeightVariable() {
@@ -2506,11 +2429,6 @@
                 }
 
                 function openNotesEditor(note = null) {
-                    if (!note && getOwnNotesCount() >= 3) {
-                        showPresenceToast("You can only create up to 3 notes.");
-                        return;
-                    }
-
                     closeAllNotePanels();
                     editingNoteId = note?.id || null;
                     notesPanelTitle.textContent = editingNoteId ? "Edit Note" : "Write Note";
@@ -2686,6 +2604,8 @@
                         return;
                     }
 
+                    await cleanupExpiredNotes();
+
                     const { data, error } = await supabaseClient
                         .from(NOTES_TABLE)
                         .select("id, user_id, username, content, created_at")
@@ -2700,6 +2620,23 @@
                     noteLayoutMap = new Map();
                     renderPinnedNotes();
                     renderSubmittedNotes();
+                }
+
+                async function cleanupExpiredNotes() {
+                    if (!supabaseClient) {
+                        return;
+                    }
+
+                    const cutoffIso = new Date(Date.now() - NOTE_TTL_MS).toISOString();
+
+                    try {
+                        await supabaseClient
+                            .from(NOTES_TABLE)
+                            .delete()
+                            .lt("created_at", cutoffIso);
+                    } catch (error) {
+                        console.error("Could not delete expired notes:", error?.message || error);
+                    }
                 }
 
                 function renderNoteReplies(noteId) {
@@ -2847,10 +2784,7 @@
                         return;
                     }
 
-                    if (!editingNoteId && getOwnNotesCount() >= 3) {
-                        showPresenceToast("You can only create up to 3 notes.");
-                        return;
-                    }
+                    await cleanupExpiredNotes();
 
                     const noteContent = notesTextarea.value.trim();
 
@@ -2957,8 +2891,8 @@
                             .on(
                                 "postgres_changes",
                                 { event: "*", schema: "public", table: NOTES_TABLE },
-                                () => {
-                                    loadNotes();
+                                async () => {
+                                    await loadNotes();
                                 }
                             );
 
@@ -3079,7 +3013,7 @@
                                     return;
                                 }
 
-                                showPresenceToast(`User ${presence.username} has entered.`);
+                                showPresenceToast(`${presence.username} has entered.`);
                             });
 
                             refreshLeaderboard();
@@ -3100,7 +3034,7 @@
 
                                 knownPresenceUserIds.delete(presenceUserId);
                                 setLocalLastOnline(presenceUserId, leftAt);
-                                showPresenceToast(`User ${presence.username} has left.`);
+                                showPresenceToast(`${presence.username} has left.`);
                             });
 
                             renderLeaderboard();
@@ -3116,7 +3050,7 @@
                         knownPresenceUserIds = new Set(onlineUsers.map((user) => user.id));
                         suppressPresenceJoinToastsUntil = Date.now() + 1600;
                         presenceSyncStarted = true;
-                        showPresenceToast(`User ${currentUser} has entered.`);
+                        showPresenceToast(`${currentUser} has entered.`);
                     });
             }
 
@@ -3190,13 +3124,10 @@
                     loadLikedSongsPreference();
                     onlineUsers = [];
                     renderLeaderboard();
-                    await Promise.all([loadNotes(), loadNoteReads(), loadNoteReplies(), loadMessages(), loadGalleryImages(), loadGalleryLikes(false)]);
+                    await Promise.all([loadNotes(), loadNoteReads(), loadNoteReplies(), loadMessages()]);
                     await connectNotesRealtime();
                     await connectMessagesRealtime();
                     await connectMessageReactionsRealtime();
-                    await connectGalleryRealtime();
-                    await connectGalleryLikesRealtime();
-                    renderGallery();
                     setActiveScreen(landscapeScreen);
                 }
 
@@ -3214,12 +3145,11 @@
                     renderPinnedNotes();
                     renderLeaderboard();
                     renderChatMessages();
-                    renderGallery();
                     settingsLauncher.classList.remove("open");
                     updateMenuMessageAlert();
                     settingsPanel.classList.remove("open");
-                    galleryPanel.classList.remove("open");
-                    galleryViewerPanel.classList.remove("open");
+                    galleryPanel?.classList.remove("open");
+                    galleryViewerPanel?.classList.remove("open");
                     leaderboardPanel.classList.remove("open");
                     closeChatPanel();
                     notesMenuPanel.classList.remove("open");
@@ -3231,10 +3161,14 @@
                     activeViewerNoteId = null;
                     closeDeleteConfirm();
                     nameInput.value = "";
-                    passwordInput.value = "";
-                    confirmPasswordInput.value = "";
-                    setAuthMode("login");
-                    showAuthMessage("Session cleared. Log in again to continue.", "success");
+                    if (passwordInput) {
+                        passwordInput.value = "";
+                    }
+                    if (confirmPasswordInput) {
+                        confirmPasswordInput.value = "";
+                    }
+                    setAuthMode();
+                    showAuthMessage("Enter your username and password to continue.", "success");
                     setActiveScreen(lockScreen);
                 }
 
@@ -3486,6 +3420,59 @@
                     }
 
                     currentSongIndex = nextSongIndex;
+                    return true;
+                }
+
+                function updatePlaybackModeButton() {
+                    if (!loopButton) {
+                        return;
+                    }
+
+                    if (playbackMode === "repeat") {
+                        loopButton.textContent = "\u21BB";
+                        loopButton.setAttribute("aria-label", "Repeat current song");
+                        loopButton.title = "Repeat current song";
+                    } else if (playbackMode === "ordered") {
+                        loopButton.textContent = "\u21F6";
+                        loopButton.setAttribute("aria-label", "Play songs in order");
+                        loopButton.title = "Play songs in order";
+                    } else {
+                        loopButton.textContent = "\u2928";
+                        loopButton.setAttribute("aria-label", "Shuffle songs");
+                        loopButton.title = "Shuffle songs";
+                    }
+
+                    loopButton.classList.toggle("is-active", playbackMode !== "ordered");
+                    audioPlayer.loop = playbackMode === "repeat";
+                }
+
+                function cyclePlaybackMode() {
+                    if (playbackMode === "repeat") {
+                        playbackMode = "ordered";
+                    } else if (playbackMode === "ordered") {
+                        playbackMode = "shuffle";
+                    } else {
+                        playbackMode = "repeat";
+                    }
+
+                    updatePlaybackModeButton();
+                }
+
+                function playNextSongForCurrentMode() {
+                    if (songs.length === 0) {
+                        return false;
+                    }
+
+                    if (playbackMode === "shuffle") {
+                        return chooseRandomSong();
+                    }
+
+                    const nextIndex = getNextPlayableIndex(1);
+                    if (nextIndex < 0) {
+                        return false;
+                    }
+
+                    currentSongIndex = nextIndex;
                     return true;
                 }
 
@@ -3987,6 +3974,14 @@
                     }
                 }
 
+                function getSongPublicUrl(filePath) {
+                    const { data: publicUrlData } = supabaseClient.storage
+                        .from(SUPABASE_BUCKET)
+                        .getPublicUrl(filePath);
+
+                    return publicUrlData.publicUrl;
+                }
+
                 // Makes the player hide into its idle state after some time.
                 function closePlayerUi() {
                     clearTimeout(playerAutoCloseTimeout);
@@ -4023,7 +4018,7 @@
                     }, 5200);
                 }
 
-                // Loads songs from the Supabase bucket.
+                // Loads songs from the realtime-backed metadata table.
                 async function loadSupabaseSongs() {
                     if (!supabaseClient) {
                         setAudioStatus("Supabase client did not load.", "error");
@@ -4037,33 +4032,56 @@
                     nowPlayingTitle.textContent = "Loading songs...";
                     renderPlayerPlaylist(playerSearchInput.value);
 
-                    const { data, error } = await supabaseClient.storage
-                        .from(SUPABASE_BUCKET)
-                        .list("", { limit: 100, offset: 0 });
+                    const { data, error } = await supabaseClient
+                        .from(SONGS_TABLE)
+                        .select("id, title, file_path, created_at")
+                        .order("created_at", { ascending: true });
 
                     if (error) {
-                        setAudioStatus(`Could not load online songs: ${error.message}`, "error");
+                        setAudioStatus(`Could not load songs: ${error.message}`, "error");
                         return;
                     }
 
                     let loadedCount = 0;
 
-                    data
-                        .filter((file) => file.name && /\.mp3$/i.test(file.name))
-                        .forEach((file) => {
-                            const { data: publicUrlData } = supabaseClient.storage
-                                .from(SUPABASE_BUCKET)
-                                .getPublicUrl(file.name);
+                    (Array.isArray(data) ? data : []).forEach((songRow) => {
+                            if (!songRow.file_path) {
+                                return;
+                            }
 
                             addSongToPlayer(
                                 {
-                                    title: file.name.replace(/^\d+-/, "").replace(/\.mp3$/i, ""),
-                                    file: publicUrlData.publicUrl
+                                    title: songRow.title || songRow.file_path.replace(/^\d+-/, "").replace(/\.[^.]+$/i, ""),
+                                    file: getSongPublicUrl(songRow.file_path)
+                                },
+                                true
+                            );
+                            loadedCount += 1;
+                        });
+
+                    if (loadedCount === 0) {
+                        const { data: bucketFiles, error: bucketError } = await supabaseClient.storage
+                            .from(SUPABASE_BUCKET)
+                            .list("", { limit: 100, offset: 0 });
+
+                        if (bucketError) {
+                            setAudioStatus(`Could not load songs: ${bucketError.message}`, "error");
+                            return;
+                        }
+
+                        (Array.isArray(bucketFiles) ? bucketFiles : [])
+                            .filter((file) => file.name && /\.(mp3|mpeg|wav|ogg|m4a)$/i.test(file.name))
+                            .forEach((file) => {
+                                addSongToPlayer(
+                                    {
+                                        title: file.name.replace(/^\d+-/, "").replace(/\.[^.]+$/i, ""),
+                                        file: getSongPublicUrl(file.name)
                                     },
                                     true
                                 );
-                            loadedCount += 1;
-                        });
+                                loadedCount += 1;
+                            });
+                    }
 
                     if (loadedCount > 0) {
                         if (songs.length > 0) {
@@ -4100,16 +4118,42 @@
                         return null;
                     }
 
-                    const { data: publicUrlData } = supabaseClient.storage
-                        .from(SUPABASE_BUCKET)
-                        .getPublicUrl(safeName);
+                    const songTitle = file.name.replace(/\.[^.]+$/i, "");
+                    const { error: insertError } = await supabaseClient
+                        .from(SONGS_TABLE)
+                        .insert({
+                            title: songTitle,
+                            file_path: safeName
+                        });
+
+                    if (insertError) {
+                        setAudioStatus(`Could not save song: ${insertError.message}`, "error");
+                        return null;
+                    }
 
                     setAudioStatus(`Successfully uploaded: ${file.name}`, "success", 2800);
 
                     return {
-                        title: file.name.replace(/\.mp3$/i, ""),
-                        file: publicUrlData.publicUrl
+                        title: songTitle,
+                        file: getSongPublicUrl(safeName)
                     };
+                }
+
+                async function connectSongsRealtime() {
+                    if (!supabaseClient || songsChannel) {
+                        return;
+                    }
+
+                    songsChannel = supabaseClient
+                        .channel("songs-metadata")
+                        .on("postgres_changes", {
+                            event: "*",
+                            schema: "public",
+                            table: SONGS_TABLE
+                        }, async () => {
+                            await loadSupabaseSongs();
+                        })
+                        .subscribe();
                 }
 
                 // Switches the visible tab inside the settings panel.
@@ -4184,7 +4228,7 @@
                         audioUploadInput.value = "";
                     });
 
-                    galleryUploadInput.addEventListener("change", async () => {
+                    galleryUploadInput?.addEventListener("change", async () => {
                         if (!isAuthenticatedUser()) {
                             galleryHelp.textContent = "Log in first to add images.";
                             setGalleryStatus("Log in first to add images.", "error", 2400);
@@ -4273,7 +4317,7 @@
                     settingsToggle.addEventListener("click", async () => {
                         settingsLauncher.classList.remove("open");
                         updateMenuMessageAlert();
-                        galleryPanel.classList.remove("open");
+                        galleryPanel?.classList.remove("open");
                         notesMenuPanel.classList.remove("open");
                         notesListPanel.classList.remove("open");
                         notesPanel.classList.remove("open");
@@ -4287,26 +4331,6 @@
                         }
                     });
 
-                    galleryToggle.addEventListener("click", async () => {
-                        settingsLauncher.classList.remove("open");
-                        updateMenuMessageAlert();
-                        notesMenuPanel.classList.remove("open");
-                        notesListPanel.classList.remove("open");
-                        notesPanel.classList.remove("open");
-                        noteViewerPanel.classList.remove("open");
-                        galleryViewerPanel.classList.remove("open");
-                        leaderboardPanel.classList.remove("open");
-                        settingsPanel.classList.remove("open");
-                        closeChatPanel();
-                        const willOpen = !galleryPanel.classList.contains("open");
-                        galleryPanel.classList.toggle("open");
-                        await loadGalleryImages();
-                        if (willOpen) {
-                            renderGallery();
-                            markGalleryAsSeen();
-                        }
-                    });
-
                     settingsMenuToggle.addEventListener("click", () => {
                         settingsLauncher.classList.toggle("open");
                         updateMenuMessageAlert();
@@ -4316,7 +4340,7 @@
                         settingsLauncher.classList.remove("open");
                         updateMenuMessageAlert();
                         settingsPanel.classList.remove("open");
-                        galleryPanel.classList.remove("open");
+                        galleryPanel?.classList.remove("open");
                         leaderboardPanel.classList.remove("open");
                         noteViewerPanel.classList.remove("open");
                         notesListPanel.classList.remove("open");
@@ -4345,8 +4369,8 @@
                         settingsLauncher.classList.remove("open");
                         updateMenuMessageAlert();
                         settingsPanel.classList.remove("open");
-                        galleryViewerPanel.classList.remove("open");
-                        galleryPanel.classList.remove("open");
+                        galleryViewerPanel?.classList.remove("open");
+                        galleryPanel?.classList.remove("open");
                         closeChatPanel();
                         notesMenuPanel.classList.remove("open");
                         notesListPanel.classList.remove("open");
@@ -4366,50 +4390,6 @@
 
                     leaderboardClose.addEventListener("click", () => {
                         leaderboardPanel.classList.remove("open");
-                    });
-
-                    galleryClose.addEventListener("click", () => {
-                        galleryPanel.classList.remove("open");
-                        markGalleryAsSeen();
-                    });
-
-                    galleryViewerClose.addEventListener("click", () => {
-                        galleryViewerPanel.classList.remove("open");
-                        activeGalleryIndex = -1;
-                    });
-
-                    galleryViewerPrev?.addEventListener("click", () => {
-                        if (activeGalleryIndex <= 0) {
-                            return;
-                        }
-
-                        activeGalleryIndex -= 1;
-                        updateGalleryViewer();
-                    });
-
-                    galleryViewerNext?.addEventListener("click", () => {
-                        if (activeGalleryIndex >= galleryEntries.length - 1) {
-                            return;
-                        }
-
-                        activeGalleryIndex += 1;
-                        updateGalleryViewer();
-                    });
-
-                    galleryLoadMoreButton?.addEventListener("click", () => {
-                        renderedGalleryCount = Math.min(
-                            renderedGalleryCount + GALLERY_RENDER_BATCH_SIZE,
-                            galleryEntries.length
-                        );
-                        renderGallery({ preserveScroll: true });
-                    });
-
-                    galleryLoadLessButton?.addEventListener("click", () => {
-                        renderedGalleryCount = GALLERY_RENDER_BATCH_SIZE;
-                        renderGallery();
-                        if (galleryPanelGrid) {
-                            galleryPanelGrid.scrollTop = 0;
-                        }
                     });
 
                     [deleteConfirmClose, deleteConfirmCancel].forEach((button) => {
@@ -4592,15 +4572,14 @@
                             return;
                         }
 
-                        if (chooseRandomSong()) {
+                        if (playNextSongForCurrentMode()) {
                             setCurrentSong(currentSongIndex, true);
                         }
                         resetPlayerAutoCloseTimer();
                     });
 
                     loopButton.addEventListener("click", () => {
-                        audioPlayer.loop = !audioPlayer.loop;
-                        loopButton.classList.toggle("is-active", audioPlayer.loop);
+                        cyclePlaybackMode();
                         resetPlayerAutoCloseTimer();
                     });
 
@@ -4609,7 +4588,7 @@
                     audioPlayer.addEventListener("play", updatePlayPauseButton);
                     audioPlayer.addEventListener("pause", updatePlayPauseButton);
                     audioPlayer.addEventListener("ended", () => {
-                        if (!audioPlayer.loop && songs.length > 0 && chooseRandomSong()) {
+                        if (!audioPlayer.loop && songs.length > 0 && playNextSongForCurrentMode()) {
                             setCurrentSong(currentSongIndex, true);
                         }
                     });
@@ -4784,9 +4763,9 @@
 
                     if (preferredSongIndex >= 0) {
                         currentSongIndex = preferredSongIndex;
-                        setCurrentSong(currentSongIndex, false);
+                        setCurrentSong(currentSongIndex, true);
                     } else if (chooseRandomSong()) {
-                        setCurrentSong(currentSongIndex, false);
+                        setCurrentSong(currentSongIndex, true);
                     }
 
                     await requestLandscapeFullscreenIfMobile();
@@ -4799,93 +4778,89 @@
                     clearRememberedSessionAndReturnToLogin();
                 });
 
-                loginModeButton.addEventListener("click", () => {
-                    setAuthMode("login");
-                });
-
-                signupModeButton.addEventListener("click", () => {
-                    setAuthMode("signup");
-                });
-
                 lockForm.addEventListener("submit", async (event) => {
                     event.preventDefault();
                     lastNameProceedAt = Date.now();
 
                     const enteredUsername = nameInput.value.trim();
                     const cleanUsername = normalizeAuthUsername(enteredUsername);
-                    const enteredPassword = passwordInput.value;
-                    const confirmedPassword = confirmPasswordInput.value;
+                    const enteredPassword = passwordInput?.value || "";
 
-                    if (!cleanUsername || !enteredPassword) {
-                        showAuthMessage("Fill in username and password.", "error");
+                    if (!cleanUsername) {
+                        showAuthMessage("Enter a username first.", "error");
                         return;
                     }
 
-                    if (authMode === "signup" && enteredPassword !== confirmedPassword) {
-                        showAuthMessage("Passwords do not match.", "error");
+                    if (!enteredPassword) {
+                        showAuthMessage("Enter a password too.", "error");
+                        return;
+                    }
+
+                    if (!supabaseClient) {
+                        showAuthMessage("Could not connect to Supabase.", "error");
                         return;
                     }
 
                     unlockButton.disabled = true;
 
-                    if (authMode === "signup") {
-                        const existingProfile = await getProfileByUsername(cleanUsername);
-
-                        if (existingProfile) {
-                            showAuthMessage("Username already taken.", "error");
-                            unlockButton.disabled = false;
-                            return;
-                        }
-
-                        const passwordHash = await hashPassword(enteredPassword);
-                        const userId = crypto.randomUUID();
-                        const { error } = await supabaseClient
-                            .from(PROFILE_TABLE)
-                            .insert({
-                                id: userId,
-                                username: cleanUsername,
-                                password_hash: passwordHash
-                            });
-
-                        if (error) {
-                            showAuthMessage(error.message, "error");
-                            unlockButton.disabled = false;
-                            return;
-                        }
-
-                        showAuthMessage("Account created. Signing you in...", "success");
-                        await handleAuthenticatedSession({
-                            id: userId,
-                            username: cleanUsername
-                        });
-                    } else {
+                    try {
                         const profile = await getProfileByUsername(cleanUsername);
 
-                        if (!profile) {
-                            showAuthMessage("Account not found. Create one first.", "error");
-                            unlockButton.disabled = false;
-                            return;
+                        if (profile) {
+                            const passwordHash = await hashPassword(enteredPassword);
+
+                            if ((profile.password_hash || "") !== passwordHash) {
+                                showAuthMessage("Wrong password.", "error");
+                                return;
+                            }
+
+                            showAuthMessage("Welcome back.", "success");
+                            await handleAuthenticatedSession({
+                                id: profile.id,
+                                username: profile.username
+                            });
+                        } else {
+                            const passwordHash = await hashPassword(enteredPassword);
+                            const userId = crypto.randomUUID();
+                            const { error } = await supabaseClient
+                                .from(PROFILE_TABLE)
+                                .insert({
+                                    id: userId,
+                                    username: cleanUsername,
+                                    password_hash: passwordHash
+                                });
+
+                            if (error) {
+                                const existingProfile = await getProfileByUsername(cleanUsername);
+
+                                if (existingProfile) {
+                                    if ((existingProfile.password_hash || "") === passwordHash) {
+                                        showAuthMessage("Welcome back.", "success");
+                                        await handleAuthenticatedSession({
+                                            id: existingProfile.id,
+                                            username: existingProfile.username
+                                        });
+                                        return;
+                                    }
+
+                                    showAuthMessage("That username already exists. Use the right password.", "error");
+                                    return;
+                                }
+
+                                showAuthMessage(error.message, "error");
+                                return;
+                            }
+
+                            showAuthMessage("Account saved. Letting you in...", "success");
+                            await handleAuthenticatedSession({
+                                id: userId,
+                                username: cleanUsername
+                            });
                         }
-
-                        const passwordHash = await hashPassword(enteredPassword);
-
-                        if (profile.password_hash !== passwordHash) {
-                            showAuthMessage("Wrong password.", "error");
-                            unlockButton.disabled = false;
-                            return;
-                        }
-
-                        showAuthMessage("Login successful.", "success");
-                        await handleAuthenticatedSession({
-                            id: profile.id,
-                            username: profile.username
-                        });
+                    } finally {
+                        unlockButton.disabled = false;
+                        lastNameProceedAt = null;
                     }
-
-                    unlockButton.disabled = false;
-                    passwordInput.value = "";
-                    confirmPasswordInput.value = "";
-                    lastNameProceedAt = null;
                 });
 
                 // Start everything when the page loads.
@@ -4896,7 +4871,9 @@
                 setupSettingsPanel();
                 applyThemeSelection("default.mp4");
                 loadSupabaseSongs();
-                setAuthMode("login");
+                connectSongsRealtime();
+                setAuthMode();
+                updatePlaybackModeButton();
 
                 const storedProfile = localStorage.getItem(LOCAL_SESSION_KEY);
 
@@ -4904,8 +4881,10 @@
                     try {
                         const parsedProfile = JSON.parse(storedProfile);
 
-                        if (parsedProfile?.id && parsedProfile?.username) {
-                            handleAuthenticatedSession(parsedProfile);
+                        if (parsedProfile?.username) {
+                            restoreRememberedSession(parsedProfile);
+                        } else {
+                            localStorage.removeItem(LOCAL_SESSION_KEY);
                         }
                     } catch {
                         localStorage.removeItem(LOCAL_SESSION_KEY);
