@@ -12,15 +12,11 @@
 
         <!-- Screen 1: name input -->
         <main class="screen active" id="lockScreen">
-            <div class="lock-icon">AUTH</div>
-            <h1 id="authTitle">Log In</h1>
-            <p id="authDescription">Enter your username and password to continue.</p>
+            <div class="lock-icon">ENTER</div>
+            <h1 id="authTitle">Enter Account</h1>
+            <p id="authDescription">First time creates your account. Same username and password signs you back in.</p>
 
             <form id="lockForm">
-                <div class="auth-mode-switch">
-                    <button class="auth-mode-button active" id="loginModeButton" type="button">Log In</button>
-                    <button class="auth-mode-button" id="signupModeButton" type="button">Sign Up</button>
-                </div>
                 <input
                     id="nameInput"
                     type="text"
@@ -38,15 +34,6 @@
                     autocomplete="current-password"
                     required
                 >
-                <div class="auth-confirm-wrap hidden" id="confirmPasswordWrap">
-                    <input
-                        id="confirmPasswordInput"
-                        type="password"
-                        name="confirm-password"
-                        placeholder="Confirm password"
-                        autocomplete="new-password"
-                    >
-                </div>
                 <button type="submit" id="unlockButton">PROCEED</button>
             </form>
 
@@ -55,7 +42,7 @@
 
         <!-- Screen 2: reminder before the main page -->
         <section class="screen hidden orientation-screen" id="landscapeScreen">
-            <button class="orientation-back-button" id="orientationBackButton" type="button" aria-label="Back to login">&times;</button>
+            <button class="orientation-back-button" id="orientationBackButton" type="button" aria-label="Back to account entry">&times;</button>
             <div>
                 <h2 class="orientation-title">Welcome</h2>
                 <p class="orientation-note">You are about to enter Nico's place.</p>
@@ -87,14 +74,6 @@
                         </button>
                     <div class="settings-quick-menu" id="settingsQuickMenu">
                         <button class="settings-toggle" id="settingsToggle" type="button" aria-label="Open settings" title="Settings">&#9881;</button>
-                        <button class="settings-toggle" id="galleryToggle" type="button" aria-label="Open gallery" title="Gallery">
-                            <svg class="settings-toggle-svg" viewBox="0 0 24 24" aria-hidden="true">
-                                <rect x="3.5" y="5" width="17" height="14" rx="0.8" ry="0.8" fill="none" stroke="currentColor" stroke-width="1.8"></rect>
-                                <circle cx="16.4" cy="10" r="2.1" fill="currentColor"></circle>
-                                <path d="M5.5 18.2l5.6-6 4.2 4.5 1.9-1.9 2.8 3.4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"></path>
-                            </svg>
-                            <span class="settings-toggle-alert hidden" id="galleryToggleAlert">!</span>
-                        </button>
                         <button class="settings-toggle" id="notesToggle" type="button" aria-label="Write a note" title="Notes">&#128221;</button>
                         <button class="settings-toggle settings-toggle-status" id="leaderboardToggle" type="button" aria-label="Open online users" title="Online">
                             <span class="settings-toggle-icon">&#128100;</span>
@@ -126,7 +105,6 @@
                         <button class="settings-tab active" type="button" data-settings-tab="settings">Settings</button>
                         <button class="settings-tab" type="button" data-settings-tab="theme">Theme</button>
                         <button class="settings-tab" type="button" data-settings-tab="audio">Audio</button>
-                        <button class="settings-tab" type="button" data-settings-tab="gallery">Gallery</button>
                         <button class="settings-tab hidden-admin-tab" id="userAdminTab" type="button" data-settings-tab="users">User</button>
                     </div>
 
@@ -192,15 +170,6 @@
                         </div>
                     </div>
 
-                    <div class="settings-section" data-settings-section="gallery">
-                        <div class="audio-actions">
-                            <label class="audio-upload" id="galleryUploadLabel" for="galleryUploadInput">Add Images</label>
-                            <input id="galleryUploadInput" type="file" accept="image/*" multiple hidden>
-                            <p class="audio-help" id="galleryHelp">Pick one or more images from your phone or computer. Everyone can see them in this shared gallery.</p>
-                            <p class="audio-status" id="galleryStatus"></p>
-                        </div>
-                    </div>
-
                     <!-- Admin-only user list -->
                     <div class="settings-section" id="userAdminSection" data-settings-section="users">
                         <div class="settings-group">
@@ -219,29 +188,6 @@
                         <button class="settings-close" id="leaderboardClose" type="button" aria-label="Close leaderboard">x</button>
                     </div>
                     <div class="leaderboard-list" id="leaderboardList"></div>
-                </div>
-
-                <div class="leaderboard-panel gallery-panel" id="galleryPanel">
-                    <div class="leaderboard-head">
-                        <p class="leaderboard-title">Gallery</p>
-                        <button class="settings-close" id="galleryClose" type="button" aria-label="Close gallery">x</button>
-                    </div>
-                    <div class="gallery-grid gallery-panel-grid" id="galleryPanelGrid"></div>
-                    <button class="gallery-load-more hidden" id="galleryLoadMoreButton" type="button">Load More</button>
-                    <button class="gallery-load-more hidden" id="galleryLoadLessButton" type="button">Load Less</button>
-                </div>
-
-                <div class="leaderboard-panel gallery-viewer-panel" id="galleryViewerPanel">
-                    <div class="leaderboard-head">
-                        <p class="leaderboard-title" id="galleryViewerTitle">Image</p>
-                        <button class="settings-close" id="galleryViewerClose" type="button" aria-label="Close image viewer">x</button>
-                    </div>
-                    <div class="gallery-viewer-body">
-                        <button class="gallery-viewer-nav gallery-viewer-prev" id="galleryViewerPrev" type="button" aria-label="Previous image">&#8249;</button>
-                        <img class="gallery-viewer-image" id="galleryViewerImage" alt="Gallery preview">
-                        <button class="gallery-viewer-nav gallery-viewer-next" id="galleryViewerNext" type="button" aria-label="Next image">&#8250;</button>
-                        <p class="gallery-time" id="galleryViewerMeta"></p>
-                    </div>
                 </div>
 
                 <div class="delete-confirm-panel" id="deleteConfirmPanel">
@@ -410,6 +356,6 @@
         </section>
 
         <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-        <script src="script.js?v=193"></script>
-    </body>
-    </html>
+    <script src="script.js?v=224"></script>
+</body>
+</html>
