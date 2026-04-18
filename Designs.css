@@ -738,12 +738,35 @@
                 flex-wrap: wrap;
             }
 
+            .leaderboard-name-row {
+                display: inline-flex;
+                align-items: center;
+                gap: 8px;
+                min-width: 0;
+            }
+
             .leaderboard-name {
                 margin: 0;
                 font-size: 0.96rem;
                 font-weight: 700;
                 letter-spacing: 0.02em;
                 color: #fff;
+            }
+
+            .leaderboard-unread-badge {
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                min-width: 20px;
+                height: 20px;
+                padding: 0 6px;
+                border-radius: 999px;
+                background: #ff5d73;
+                color: #fff;
+                font-size: 0.68rem;
+                font-weight: 700;
+                line-height: 1;
+                box-shadow: 0 8px 18px rgba(255, 93, 115, 0.34);
             }
 
             .leaderboard-last-online {
@@ -963,12 +986,23 @@
                 border-radius: 14px;
                 background: rgba(255, 255, 255, 0.96);
                 box-shadow: 0 12px 24px rgba(0, 0, 0, 0.18);
+                transition: transform 0.18s ease;
+                touch-action: pan-y;
+                will-change: transform;
             }
 
             .chat-bubble.own {
                 align-self: flex-end;
                 background: rgba(245, 255, 226, 0.96);
                 border-color: rgba(115, 126, 54, 0.26);
+            }
+
+            .chat-bubble.swiping {
+                transition: none;
+            }
+
+            .chat-message-item.reply-ready .chat-bubble {
+                box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.22), 0 16px 30px rgba(255, 255, 255, 0.16);
             }
 
             .chat-bubble-text {
