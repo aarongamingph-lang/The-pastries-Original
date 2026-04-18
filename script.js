@@ -250,15 +250,11 @@
                 const LOCAL_NOTES_VISIBILITY_PREFIX = "pastries_notes_visibility_";
                 const LOCAL_LIKED_SONGS_PREFIX = "pastries_liked_songs_";
                 const LOCAL_GALLERY_SEEN_PREFIX = "pastries_gallery_seen_";
-                const CHAT_BROADCAST_CHANNEL = "shared-chat-broadcast";
-                const CHAT_BROADCAST_EVENT = "chat-message";
                 const CHAT_HISTORY_LIMIT = 300;
+                const REMOTE_CHAT_HISTORY_LIMIT = 100;
                 const CHAT_RENDER_BATCH_SIZE = 40;
                 const MOBILE_CHAT_RENDER_BATCH_SIZE = 80;
                 const GALLERY_RENDER_BATCH_SIZE = 10;
-                const CHAT_CLIENT_ID = window.crypto?.randomUUID
-                    ? window.crypto.randomUUID()
-                    : `chat-client-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 
                 // Shows small text messages in the audio settings area.
                 function setAudioStatus(message, tone = "neutral", autoClearMs = 0) {
@@ -1218,11 +1214,25 @@
                         const identity = document.createElement("div");
                         identity.className = "leaderboard-identity";
 
+                        const nameRow = document.createElement("div");
+                        nameRow.className = "leaderboard-name-row";
+
                         const name = document.createElement("p");
                         name.className = "leaderboard-name";
                         name.textContent = entry.username;
 
-                        identity.appendChild(name);
+                        nameRow.appendChild(name);
+
+                        const unreadCount = getUnreadCountForSender(entry.id);
+                        if (unreadCount > 0) {
+                            const unreadBadge = document.createElement("span");
+                            unreadBadge.className = "leaderboard-unread-badge";
+                            unreadBadge.textContent = unreadCount > 99 ? "99+" : String(unreadCount);
+                            unreadBadge.setAttribute("aria-label", `${unreadCount} unread messages`);
+                            nameRow.appendChild(unreadBadge);
+                        }
+
+                        identity.appendChild(nameRow);
 
                         if (isAdminUser()) {
                             const deleteButton = document.createElement("button");
@@ -1344,6 +1354,65 @@
                     }
 
                     storeLocalChatMessages(nextMessages);
+                }
+
+                function mergeChatMessages(localMessages, remoteMessages) {
+                    const merged = new Map();
+
+                    [...localMessages, ...remoteMessages].forEach((message) => {
+                        const messageId = String(message?.id || "");
+
+                        if (!messageId) {
+                            return;
+                        }
+
+                        const existingMessage = merged.get(messageId);
+
+                        if (!existingMessage) {
+                            merged.set(messageId, { ...message });
+                            return;
+                        }
+
+                        merged.set(messageId, {
+                            ...existingMessage,
+                            ...message,
+                            is_read: Boolean(existingMessage.is_read || message.is_read)
+                        });
+                    });
+
+                    return Array.from(merged.values()).sort((left, right) => new Date(left.created_at) - new Date(right.created_at));
+                }
+
+                async function pruneSupabaseMessages() {
+                    if (!supabaseClient) {
+                        return;
+                    }
+
+                    const { data, error } = await supabaseClient
+                        .from(MESSAGES_TABLE)
+                        .select("id")
+                        .order("created_at", { ascending: false })
+                        .range(REMOTE_CHAT_HISTORY_LIMIT, REMOTE_CHAT_HISTORY_LIMIT + 399);
+
+                    if (error) {
+                        console.error("Could not check old messages for cleanup:", error.message);
+                        return;
+                    }
+
+                    const oldIds = (data || []).map((entry) => entry.id).filter(Boolean);
+
+                    if (oldIds.length === 0) {
+                        return;
+                    }
+
+                    const { error: deleteError } = await supabaseClient
+                        .from(MESSAGES_TABLE)
+                        .delete()
+                        .in("id", oldIds);
+
+                    if (deleteError) {
+                        console.error("Could not prune old Supabase messages:", deleteError.message);
+                    }
                 }
 
                 function getTotalUnreadMessageCount() {
@@ -1767,6 +1836,113 @@
                     chatInput.focus();
                 }
 
+                function attachChatSwipeGesture(messageItem, bubble, message, isOwnMessage) {
+                    if (!messageItem || !bubble || !message) {
+                        return;
+                    }
+
+                    let pointerStartX = 0;
+                    let pointerStartY = 0;
+                    let activeOffsetX = 0;
+                    let trackingPointer = false;
+                    let horizontalSwipeLocked = false;
+                    const maxSwipeDistance = 82;
+                    const replyThreshold = 56;
+
+                    const resetBubblePosition = () => {
+                        activeOffsetX = 0;
+                        bubble.classList.remove("swiping");
+                        bubble.style.transform = "";
+                        messageItem.classList.remove("reply-ready");
+                    };
+
+                    const handleReplySwipe = () => {
+                        const validDirection = isOwnMessage ? activeOffsetX <= -replyThreshold : activeOffsetX >= replyThreshold;
+
+                        resetBubblePosition();
+
+                        if (!validDirection) {
+                            return;
+                        }
+
+                        setChatReplyState(message);
+                    };
+
+                    bubble.addEventListener("touchstart", (event) => {
+                        if (event.touches.length !== 1) {
+                            return;
+                        }
+
+                        const touch = event.touches[0];
+                        pointerStartX = touch.clientX;
+                        pointerStartY = touch.clientY;
+                        activeOffsetX = 0;
+                        trackingPointer = true;
+                        horizontalSwipeLocked = false;
+                    }, { passive: true });
+
+                    bubble.addEventListener("touchmove", (event) => {
+                        if (!trackingPointer || event.touches.length !== 1) {
+                            return;
+                        }
+
+                        const touch = event.touches[0];
+                        const deltaX = touch.clientX - pointerStartX;
+                        const deltaY = touch.clientY - pointerStartY;
+
+                        if (!horizontalSwipeLocked) {
+                            if (Math.abs(deltaY) > 18 && Math.abs(deltaY) > Math.abs(deltaX)) {
+                                trackingPointer = false;
+                                resetBubblePosition();
+                                return;
+                            }
+
+                            if (Math.abs(deltaX) > 10) {
+                                horizontalSwipeLocked = true;
+                            } else {
+                                return;
+                            }
+                        }
+
+                        const directionallyValidOffset = isOwnMessage
+                            ? Math.min(0, deltaX)
+                            : Math.max(0, deltaX);
+
+                        if (directionallyValidOffset === 0) {
+                            activeOffsetX = 0;
+                            bubble.style.transform = "";
+                            messageItem.classList.remove("reply-ready");
+                            return;
+                        }
+
+                        event.preventDefault();
+                        activeOffsetX = Math.max(-maxSwipeDistance, Math.min(maxSwipeDistance, directionallyValidOffset));
+                        bubble.classList.add("swiping");
+                        bubble.style.transform = `translateX(${activeOffsetX}px)`;
+
+                        const isReplyReady = isOwnMessage
+                            ? activeOffsetX <= -replyThreshold
+                            : activeOffsetX >= replyThreshold;
+
+                        messageItem.classList.toggle("reply-ready", isReplyReady);
+                    }, { passive: false });
+
+                    bubble.addEventListener("touchend", () => {
+                        if (!trackingPointer) {
+                            resetBubblePosition();
+                            return;
+                        }
+
+                        trackingPointer = false;
+                        handleReplySwipe();
+                    });
+
+                    bubble.addEventListener("touchcancel", () => {
+                        trackingPointer = false;
+                        resetBubblePosition();
+                    });
+                }
+
                 function setChatEditState(message) {
                     if (!message) {
                         clearChatComposerState();
@@ -1881,22 +2057,12 @@
                         const actions = document.createElement("div");
                         actions.className = "chat-bubble-actions";
 
-                        const replyButton = document.createElement("button");
-                        replyButton.type = "button";
-                        replyButton.className = "chat-bubble-action";
-                        replyButton.setAttribute("aria-label", "Reply to message");
-                        replyButton.textContent = "\u21A9";
-                        replyButton.addEventListener("click", () => {
-                            setChatReplyState(message);
-                        });
-
-                        actions.appendChild(replyButton);
-
                         const footer = document.createElement("div");
                         footer.className = "chat-message-footer";
 
                         bubble.appendChild(text);
                         bubble.appendChild(meta);
+                        attachChatSwipeGesture(messageItem, bubble, message, isOwnMessage);
                         messageItem.appendChild(bubble);
 
                         const reactionSpacer = document.createElement("div");
@@ -1930,7 +2096,8 @@
                     const otherEntry = leaderboardEntries.find((entry) => entry.id === otherUserId);
                     const currentUsername = normalizeChatParticipant(profileData?.username || currentUser);
                     const otherUsername = normalizeChatParticipant(otherEntry?.username || activeChatUsername || "");
-                    const nextMessages = loadLocalChatMessages().map((message) => {
+                    const existingMessages = loadLocalChatMessages();
+                    const nextMessages = existingMessages.map((message) => {
                         const isUnreadConversationMessage =
                             normalizeChatParticipant(message.receiver_username) === currentUsername &&
                             normalizeChatParticipant(message.sender_username) === otherUsername &&
@@ -1941,7 +2108,7 @@
                             : message;
                     });
 
-                    const hasChanged = nextMessages.some((message, index) => message.is_read !== messagesEntries[index]?.is_read);
+                    const hasChanged = nextMessages.some((message, index) => message.is_read !== existingMessages[index]?.is_read);
 
                     if (!hasChanged) {
                         return;
@@ -1951,6 +2118,21 @@
                     const forceLatest = shouldForceChatLatestView() || shouldPinChatToBottom();
                     renderLeaderboard();
                     requestChatRender({ preserveScroll: !forceLatest, forceLatest });
+
+                    if (!supabaseClient || !profileData?.id) {
+                        return;
+                    }
+
+                    const { error } = await supabaseClient
+                        .from(MESSAGES_TABLE)
+                        .update({ is_read: true })
+                        .eq("receiver_id", profileData.id)
+                        .eq("sender_id", otherUserId)
+                        .eq("is_read", false);
+
+                    if (error) {
+                        console.error("Could not sync read state to Supabase:", error.message);
+                    }
                 }
 
                 async function openChatPanelWithUser(entry) {
@@ -1988,7 +2170,27 @@
                         return;
                     }
 
-                    messagesEntries = loadLocalChatMessages();
+                    const localMessages = loadLocalChatMessages();
+                    let mergedMessages = [...localMessages];
+
+                    if (supabaseClient && profileData?.id) {
+                        const { data, error } = await supabaseClient
+                            .from(MESSAGES_TABLE)
+                            .select("id, sender_id, sender_username, receiver_id, receiver_username, content, created_at, edited_at, parent_message_id, is_read")
+                            .or(`sender_id.eq.${profileData.id},receiver_id.eq.${profileData.id}`)
+                            .order("created_at", { ascending: false })
+                            .limit(REMOTE_CHAT_HISTORY_LIMIT);
+
+                        if (error) {
+                            console.error("Could not load messages:", error.message);
+                        } else {
+                            const remoteMessages = Array.isArray(data) ? [...data].reverse() : [];
+                            mergedMessages = mergeChatMessages(localMessages, remoteMessages);
+                            storeLocalChatMessages(mergedMessages);
+                        }
+                    }
+
+                    messagesEntries = mergedMessages;
                     messageReactionsEntries = [];
                     const forceLatest = shouldForceChatLatestView() || shouldPinChatToBottom();
                     requestChatRender({ preserveScroll: !forceLatest, forceLatest });
@@ -2019,22 +2221,31 @@
                     chatSendButton.disabled = true;
                     const timestamp = new Date().toISOString();
                     const replyTargetId = activeChatReplyMessageId || null;
-                    const chatMessage = {
-                        id: window.crypto?.randomUUID
-                            ? window.crypto.randomUUID()
-                            : `message-${Date.now()}-${Math.random().toString(16).slice(2)}`,
-                        sender_id: profileData.id,
-                        sender_username: currentUser,
-                        receiver_id: activeChatUserId,
-                        receiver_username: targetUsername,
-                        content: messageContent,
-                        created_at: timestamp,
-                        edited_at: null,
-                        parent_message_id: replyTargetId,
-                        is_read: false
-                    };
+                    const { data: insertedMessage, error } = await supabaseClient
+                        .from(MESSAGES_TABLE)
+                        .insert({
+                            sender_id: profileData.id,
+                            sender_username: currentUser,
+                            receiver_id: activeChatUserId,
+                            receiver_username: targetUsername,
+                            content: messageContent,
+                            created_at: timestamp,
+                            edited_at: null,
+                            parent_message_id: replyTargetId,
+                            is_read: false
+                        })
+                        .select("id, sender_id, sender_username, receiver_id, receiver_username, content, created_at, edited_at, parent_message_id, is_read")
+                        .single();
 
-                    upsertLocalChatMessage(chatMessage);
+                    if (error || !insertedMessage) {
+                        chatSendButton.disabled = false;
+                        console.error("Could not send message:", error?.message || "Unknown error");
+                        showPresenceToast("Could not send message.");
+                        return;
+                    }
+
+                    upsertLocalChatMessage(insertedMessage);
+                    await pruneSupabaseMessages();
 
                     chatInput.value = "";
                     clearChatComposerState();
@@ -2043,24 +2254,6 @@
                     renderLeaderboard();
                     requestChatRender({ preserveScroll: !forceLatest, forceLatest });
                     chatSendButton.disabled = false;
-
-                    if (!messagesChannel) {
-                        return;
-                    }
-
-                    try {
-                        await messagesChannel.send({
-                            type: "broadcast",
-                            event: CHAT_BROADCAST_EVENT,
-                            payload: {
-                                message: chatMessage,
-                                sender_client_id: CHAT_CLIENT_ID
-                            }
-                        });
-                    } catch (error) {
-                        console.error("Could not broadcast message:", error?.message || error);
-                        showPresenceToast("Message stayed on this device only.");
-                    }
                 }
 
                 async function connectMessagesRealtime() {
@@ -2073,46 +2266,18 @@
                     }
 
                     messagesChannel = supabaseClient
-                        .channel(CHAT_BROADCAST_CHANNEL)
+                        .channel("shared-messages")
                         .on(
-                            "broadcast",
-                            { event: CHAT_BROADCAST_EVENT },
-                            async ({ payload }) => {
-                                const incomingMessage = payload?.message;
-                                const senderClientId = payload?.sender_client_id;
+                            "postgres_changes",
+                            { event: "*", schema: "public", table: MESSAGES_TABLE },
+                            async () => {
+                                await loadMessages();
 
-                                if (!incomingMessage || senderClientId === CHAT_CLIENT_ID || !currentUser) {
-                                    return;
-                                }
-
-                                const currentUsername = normalizeChatParticipant(profileData?.username || currentUser);
-                                const senderUsername = normalizeChatParticipant(incomingMessage.sender_username);
-                                const receiverUsername = normalizeChatParticipant(incomingMessage.receiver_username);
-                                const isRelevantMessage = currentUsername === senderUsername || currentUsername === receiverUsername;
-
-                                if (!isRelevantMessage) {
-                                    return;
-                                }
-
-                                const activeUsername = normalizeChatParticipant(activeChatUsername || "");
-                                const shouldMarkRead =
-                                    chatPanel?.classList.contains("open") &&
-                                    currentUsername === receiverUsername &&
-                                    activeUsername === senderUsername;
-
-                                upsertLocalChatMessage({
-                                    ...incomingMessage,
-                                    is_read: shouldMarkRead ? true : Boolean(incomingMessage.is_read)
-                                });
-
-                                if (shouldMarkRead && activeChatUserId) {
+                                if (activeChatUserId) {
                                     await markConversationAsRead(activeChatUserId);
+                                    const activeEntry = leaderboardEntries.find((entry) => entry.id === activeChatUserId);
+                                    chatPanelStatus.textContent = formatChatStatus(activeEntry);
                                 }
-
-                                const forceLatest = shouldForceChatLatestView() || shouldPinChatToBottom();
-                                renderLeaderboard();
-                                requestChatRender({ preserveScroll: !forceLatest, forceLatest });
-                                updateMenuMessageAlert();
                             }
                         );
 
