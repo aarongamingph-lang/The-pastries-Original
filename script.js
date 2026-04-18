@@ -1392,26 +1392,26 @@
                         .from(MESSAGES_TABLE)
                         .select("id")
                         .order("created_at", { ascending: false })
-                        .range(REMOTE_CHAT_HISTORY_LIMIT, REMOTE_CHAT_HISTORY_LIMIT + 399);
+                        .limit(REMOTE_CHAT_HISTORY_LIMIT);
 
                     if (error) {
                         console.error("Could not check old messages for cleanup:", error.message);
                         return;
                     }
 
-                    const oldIds = (data || []).map((entry) => entry.id).filter(Boolean);
+                    const savedIds = (data || []).map((entry) => entry.id).filter(Boolean);
 
-                    if (oldIds.length === 0) {
+                    if (savedIds.length < REMOTE_CHAT_HISTORY_LIMIT) {
                         return;
                     }
 
                     const { error: deleteError } = await supabaseClient
                         .from(MESSAGES_TABLE)
                         .delete()
-                        .in("id", oldIds);
+                        .in("id", savedIds);
 
                     if (deleteError) {
-                        console.error("Could not prune old Supabase messages:", deleteError.message);
+                        console.error("Could not reset Supabase message batch:", deleteError.message);
                     }
                 }
 
