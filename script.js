@@ -247,7 +247,9 @@
                 let playbackMode = "shuffle";
                 const LOCAL_SESSION_KEY = "pastries_active_profile";
                 const LOCAL_CHAT_MESSAGES_KEY = "pastries_local_messages_v1";
+                const LOCAL_CHAT_REACTIONS_KEY = "pastries_local_message_reactions_v1";
                 const NOTE_TTL_MS = 24 * 60 * 60 * 1000;
+                const REACTION_REMOTE_TTL_MS = 2 * 60 * 60 * 1000;
                 const LOCAL_NOTE_READS_PREFIX = "pastries_note_reads_";
                 const LOCAL_NOTES_VISIBILITY_PREFIX = "pastries_notes_visibility_";
                 const LOCAL_LIKED_SONGS_PREFIX = "pastries_liked_songs_";
@@ -1530,6 +1532,76 @@
                     return messageReactionsEntries.filter((entry) => String(entry.message_id) === String(messageId));
                 }
 
+                function loadLocalMessageReactions() {
+                    try {
+                        const rawValue = localStorage.getItem(LOCAL_CHAT_REACTIONS_KEY);
+                        const parsedValue = rawValue ? JSON.parse(rawValue) : [];
+
+                        if (!Array.isArray(parsedValue)) {
+                            return [];
+                        }
+
+                        return parsedValue
+                            .filter((entry) => entry && typeof entry === "object")
+                            .map((entry) => ({
+                                id: String(entry.id || ""),
+                                message_id: entry.message_id || null,
+                                user_id: entry.user_id || null,
+                                username: String(entry.username || ""),
+                                emoji: String(entry.emoji || ""),
+                                created_at: entry.created_at || new Date().toISOString()
+                            }))
+                            .filter((entry) => entry.id && entry.message_id && entry.user_id && entry.emoji);
+                    } catch {
+                        return [];
+                    }
+                }
+
+                function storeLocalMessageReactions(nextReactions) {
+                    messageReactionsEntries = [...nextReactions];
+
+                    try {
+                        localStorage.setItem(LOCAL_CHAT_REACTIONS_KEY, JSON.stringify(messageReactionsEntries));
+                    } catch {
+                        // Ignore localStorage write failures.
+                    }
+                }
+
+                function mergeMessageReactions(localReactions, remoteReactions) {
+                    const merged = new Map();
+
+                    [...localReactions, ...remoteReactions].forEach((entry) => {
+                        const reactionId = String(entry?.id || "");
+
+                        if (!reactionId) {
+                            return;
+                        }
+
+                        merged.set(reactionId, {
+                            ...merged.get(reactionId),
+                            ...entry
+                        });
+                    });
+
+                    return Array.from(merged.values()).sort((left, right) => new Date(left.created_at) - new Date(right.created_at));
+                }
+
+                async function pruneSupabaseMessageReactions() {
+                    if (!supabaseClient) {
+                        return;
+                    }
+
+                    const cutoffIso = new Date(Date.now() - REACTION_REMOTE_TTL_MS).toISOString();
+                    const { error } = await supabaseClient
+                        .from(MESSAGE_REACTIONS_TABLE)
+                        .delete()
+                        .lt("created_at", cutoffIso);
+
+                    if (error) {
+                        console.error("Could not prune old message reactions:", error.message);
+                    }
+                }
+
                 function getReactionSummary(messageId) {
                     const grouped = new Map();
 
@@ -1563,6 +1635,7 @@
                     chatComposeContext.classList.add("hidden");
                     chatComposeContextLabel.textContent = "Replying";
                     chatComposeContextText.textContent = "";
+                    chatInput.placeholder = "Type a message...";
                     chatSendButton.textContent = "Send";
                 }
 
@@ -1831,9 +1904,8 @@
                         return;
                     }
 
-                    chatComposeContextLabel.textContent = `Replying to ${message.sender_username || "Unknown"}`;
-                    chatComposeContextText.textContent = getChatMessagePreview(message);
-                    chatComposeContext.classList.remove("hidden");
+                    chatComposeContext.classList.add("hidden");
+                    chatInput.placeholder = `Reply to ${message.sender_username || "Unknown"}...`;
                     chatSendButton.textContent = "Reply";
                     chatInput.focus();
                 }
@@ -1974,6 +2046,9 @@
 
                     const nextMessages = loadLocalChatMessages().filter((message) => String(message.id) !== String(messageId));
                     storeLocalChatMessages(nextMessages);
+                    storeLocalMessageReactions(
+                        loadLocalMessageReactions().filter((entry) => String(entry.message_id) !== String(messageId))
+                    );
 
                     if (String(activeChatEditMessageId) === String(messageId) || String(activeChatReplyMessageId) === String(messageId)) {
                         clearChatComposerState();
@@ -1986,7 +2061,49 @@
                 }
 
                 async function reactToMessage(messageId, emoji) {
-                    return;
+                    if (!supabaseClient || !profileData?.id || !messageId || !emoji) {
+                        return;
+                    }
+
+                    const existingReaction = messageReactionsEntries.find((entry) =>
+                        String(entry.message_id) === String(messageId) &&
+                        entry.user_id === profileData.id
+                    );
+
+                    let error = null;
+
+                    if (existingReaction && existingReaction.emoji === emoji) {
+                        ({ error } = await supabaseClient
+                            .from(MESSAGE_REACTIONS_TABLE)
+                            .delete()
+                            .eq("id", existingReaction.id));
+                    } else if (existingReaction) {
+                        ({ error } = await supabaseClient
+                            .from(MESSAGE_REACTIONS_TABLE)
+                            .update({ emoji })
+                            .eq("id", existingReaction.id));
+                    } else {
+                        ({ error } = await supabaseClient
+                            .from(MESSAGE_REACTIONS_TABLE)
+                            .insert({
+                                message_id: messageId,
+                                user_id: profileData.id,
+                                username: currentUser,
+                                emoji,
+                                created_at: new Date().toISOString()
+                            }));
+                    }
+
+                    if (error) {
+                        console.error("Could not react to message:", error.message);
+                        showPresenceToast("Could not react to message.");
+                        return;
+                    }
+
+                    await pruneSupabaseMessageReactions();
+                    activeChatReactionMenuId = null;
+                    activeChatActionMenuId = null;
+                    await loadMessageReactions();
                 }
 
                 function renderChatMessages(options = {}) {
@@ -2034,19 +2151,6 @@
                         bubble.className = `chat-bubble ${isOwnMessage ? "own" : "other"}`;
                         bubble.dataset.messageId = String(message.id);
 
-                        if (message.parent_message_id) {
-                            const parent = getMessageById(message.parent_message_id);
-                            const parentBox = document.createElement("div");
-                            parentBox.className = "chat-bubble-parent";
-                            const parentLabel = document.createElement("strong");
-                            parentLabel.textContent = parent?.sender_username || "Reply";
-                            const parentText = document.createElement("span");
-                            parentText.textContent = getChatMessagePreview(parent);
-                            parentBox.appendChild(parentLabel);
-                            parentBox.appendChild(parentText);
-                            bubble.appendChild(parentBox);
-                        }
-
                         const text = document.createElement("p");
                         text.className = "chat-bubble-text";
                         text.textContent = message.content || "";
@@ -2056,6 +2160,23 @@
                         const editedMetaSuffix = message.edited_at ? " \u00B7 edited" : "";
                         meta.textContent = `${message.sender_username || "Unknown"} | ${formatNoteDate(message.edited_at || message.created_at)}${editedMetaSuffix}`;
 
+                        const reactions = getReactionSummary(message.id);
+                        let reactionWrap = null;
+
+                        if (reactions.length > 0) {
+                            reactionWrap = document.createElement("div");
+                            reactionWrap.className = "chat-bubble-reactions";
+                            reactions.forEach((reaction) => {
+                                const chip = document.createElement("div");
+                                chip.className = `chat-reaction-chip${reaction.mine ? " mine" : ""}`;
+                                if (reaction.emoji === "\u2764") {
+                                    chip.classList.add("heart");
+                                }
+                                chip.textContent = `${reaction.emoji} ${reaction.count}`;
+                                reactionWrap.appendChild(chip);
+                            });
+                        }
+
                         const actions = document.createElement("div");
                         actions.className = "chat-bubble-actions";
 
@@ -2064,12 +2185,69 @@
 
                         bubble.appendChild(text);
                         bubble.appendChild(meta);
+                        bubble.addEventListener("dblclick", (event) => {
+                            event.stopPropagation();
+                            activeChatReactionMenuId = null;
+                            activeChatActionMenuId = activeChatActionMenuId === message.id ? null : message.id;
+                            syncChatMenuVisibility();
+                        });
                         attachChatSwipeGesture(messageItem, bubble, message, isOwnMessage);
                         messageItem.appendChild(bubble);
 
-                        const reactionSpacer = document.createElement("div");
-                        reactionSpacer.className = "chat-message-footer-spacer";
-                        footer.appendChild(reactionSpacer);
+                        if (reactionWrap) {
+                            footer.appendChild(reactionWrap);
+                        } else {
+                            const reactionSpacer = document.createElement("div");
+                            reactionSpacer.className = "chat-message-footer-spacer";
+                            footer.appendChild(reactionSpacer);
+                        }
+
+                        const actionMenu = document.createElement("div");
+                        actionMenu.className = `chat-bubble-menu${activeChatActionMenuId === message.id ? "" : " hidden"}`;
+                        actionMenu.dataset.messageId = String(message.id);
+
+                        const reactButton = document.createElement("button");
+                        reactButton.type = "button";
+                        reactButton.className = "chat-bubble-menu-button";
+                        reactButton.textContent = "React";
+                        reactButton.addEventListener("click", (event) => {
+                            event.stopPropagation();
+                            activeChatActionMenuId = null;
+                            activeChatReactionMenuId = message.id;
+                            syncChatMenuVisibility();
+                        });
+
+                        actionMenu.appendChild(reactButton);
+
+                        if (isOwnMessage) {
+                            const deleteButton = document.createElement("button");
+                            deleteButton.type = "button";
+                            deleteButton.className = "chat-bubble-menu-button delete";
+                            deleteButton.textContent = "Delete";
+                            deleteButton.addEventListener("click", async (event) => {
+                                event.stopPropagation();
+                                await deleteChatMessage(message.id);
+                            });
+                            actionMenu.appendChild(deleteButton);
+                        }
+
+                        const reactionPicker = document.createElement("div");
+                        reactionPicker.className = `chat-reaction-picker${activeChatReactionMenuId === message.id ? "" : " hidden"}`;
+                        reactionPicker.dataset.messageId = String(message.id);
+                        ["\u2764", "\uD83D\uDE02", "\uD83D\uDE0A", "\uD83D\uDE20", "\uD83D\uDE2E", "\uD83D\uDE22"].forEach((emoji) => {
+                            const option = document.createElement("button");
+                            option.type = "button";
+                            option.className = "chat-reaction-option";
+                            option.textContent = emoji;
+                            option.addEventListener("click", async (event) => {
+                                event.stopPropagation();
+                                await reactToMessage(message.id, emoji);
+                            });
+                            reactionPicker.appendChild(option);
+                        });
+
+                        actions.appendChild(actionMenu);
+                        actions.appendChild(reactionPicker);
 
                         footer.appendChild(actions);
                         messageItem.appendChild(footer);
@@ -2194,14 +2372,37 @@
                     }
 
                     messagesEntries = mergedMessages;
-                    messageReactionsEntries = [];
                     const forceLatest = shouldForceChatLatestView() || shouldPinChatToBottom();
                     requestChatRender({ preserveScroll: !forceLatest, forceLatest });
                     renderLeaderboard();
                 }
 
                 async function loadMessageReactions(shouldRenderChat = true) {
-                    messageReactionsEntries = [];
+                    if (!supabaseClient) {
+                        messageReactionsEntries = loadLocalMessageReactions();
+                        if (shouldRenderChat) {
+                            const forceLatest = shouldPinChatToBottom();
+                            requestChatRender({ preserveScroll: !forceLatest, forceLatest });
+                        }
+                        return;
+                    }
+
+                    await pruneSupabaseMessageReactions();
+
+                    const { data, error } = await supabaseClient
+                        .from(MESSAGE_REACTIONS_TABLE)
+                        .select("id, message_id, user_id, username, emoji, created_at");
+
+                    if (error) {
+                        console.error("Could not load message reactions:", error.message);
+                        return;
+                    }
+
+                    const localReactions = loadLocalMessageReactions();
+                    const remoteReactions = data || [];
+                    const mergedReactions = mergeMessageReactions(localReactions, remoteReactions);
+                    storeLocalMessageReactions(mergedReactions);
+
                     if (shouldRenderChat) {
                         const forceLatest = shouldPinChatToBottom();
                         requestChatRender({ preserveScroll: !forceLatest, forceLatest });
@@ -2288,7 +2489,21 @@
                 }
 
                 async function connectMessageReactionsRealtime() {
-                    return;
+                    if (!supabaseClient || messageReactionsChannel) {
+                        return;
+                    }
+
+                    messageReactionsChannel = supabaseClient
+                        .channel("shared-message-reactions")
+                        .on(
+                            "postgres_changes",
+                            { event: "*", schema: "public", table: MESSAGE_REACTIONS_TABLE },
+                            async () => {
+                                await loadMessageReactions();
+                            }
+                        );
+
+                    messageReactionsChannel.subscribe();
                 }
 
                 function stopMessagesRefreshLoop() {
@@ -2310,11 +2525,14 @@
                     messagesRefreshInFlight = true;
 
                     try {
-                        await loadMessages();
+                        await Promise.all([loadMessages(), loadMessageReactions(false)]);
 
                         if (activeChatUserId) {
                             await markConversationAsRead(activeChatUserId);
                         }
+
+                        const forceLatest = shouldForceChatLatestView() || shouldPinChatToBottom();
+                        requestChatRender({ preserveScroll: !forceLatest, forceLatest });
                     } finally {
                         messagesRefreshInFlight = false;
                     }
@@ -3330,7 +3548,7 @@
                     loadLikedSongsPreference();
                     onlineUsers = [];
                     renderLeaderboard();
-                    await Promise.all([loadNotes(), loadNoteReads(), loadNoteReplies(), loadMessages()]);
+                    await Promise.all([loadNotes(), loadNoteReads(), loadNoteReplies(), loadMessages(), loadMessageReactions(false)]);
                     await connectNotesRealtime();
                     await connectMessagesRealtime();
                     await connectMessageReactionsRealtime();
