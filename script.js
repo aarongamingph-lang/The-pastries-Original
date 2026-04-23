@@ -1673,10 +1673,12 @@
 
                 function requestChatRender(options = {}) {
                     const preserveScroll = Boolean(options.preserveScroll) && !isChatOpenSequenceActive();
-                    const keepPosition = Boolean(options.keepPosition);
+                    const keepPosition = options.keepPosition === undefined
+                        ? preserveScroll
+                        : Boolean(options.keepPosition);
                     const forceLatest = Boolean(options.forceLatest);
                     scheduledChatRenderPreserveScroll =
-                        scheduledChatRenderPreserveScroll || (preserveScroll && keepPosition);
+                        scheduledChatRenderPreserveScroll || preserveScroll;
                     scheduledChatRenderForceLatest = scheduledChatRenderForceLatest || forceLatest;
 
                     if (scheduledChatRenderFrame !== null) {
@@ -2061,7 +2063,8 @@
 
                     activeChatActionMenuId = null;
                     renderLeaderboard();
-                    requestChatRender();
+                    const forceLatest = shouldForceChatLatestView() || shouldPinChatToBottom();
+                    requestChatRender({ preserveScroll: !forceLatest, forceLatest });
                 }
 
                 async function reactToMessage(messageId, emoji) {
