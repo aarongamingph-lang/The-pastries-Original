@@ -1015,22 +1015,11 @@
             }
 
             .chat-bubble-parent {
-                margin: 0 0 8px;
-                padding: 6px 8px;
-                border-left: 3px solid rgba(115, 126, 54, 0.5);
-                border-radius: 8px;
-                background: rgba(0, 0, 0, 0.04);
-                color: rgba(26, 26, 26, 0.72);
-                font-size: 0.72rem;
-                line-height: 1.35;
+                display: none !important;
             }
 
             .chat-bubble-parent strong {
-                display: block;
-                margin-bottom: 3px;
-                font-size: 0.68rem;
-                letter-spacing: 0.04em;
-                text-transform: uppercase;
+                display: none !important;
             }
 
             .chat-bubble-meta {
