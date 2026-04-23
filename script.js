@@ -1725,7 +1725,11 @@
                 }
 
                 function shouldPinChatToBottom() {
-                    return Boolean(activeChatUserId && chatPanel?.classList.contains("open"));
+                    return Boolean(
+                        activeChatUserId &&
+                        chatPanel?.classList.contains("open") &&
+                        (pendingChatScrollToLatest || isChatOpenSequenceActive() || isChatScrolledNearBottom(96))
+                    );
                 }
 
                 function getCurrentChatRenderBatchSize() {
@@ -2160,6 +2164,14 @@
                         const editedMetaSuffix = message.edited_at ? " \u00B7 edited" : "";
                         meta.textContent = `${message.sender_username || "Unknown"} | ${formatNoteDate(message.edited_at || message.created_at)}${editedMetaSuffix}`;
 
+                        if (message.parent_message_id) {
+                            const parent = getMessageById(message.parent_message_id);
+                            const replyLine = document.createElement("p");
+                            replyLine.className = "chat-reply-line";
+                            replyLine.textContent = `Replying to ${parent?.sender_username || "message"}: ${getChatMessagePreview(parent)}`;
+                            bubble.appendChild(replyLine);
+                        }
+
                         const reactions = getReactionSummary(message.id);
                         let reactionWrap = null;
 
@@ -2424,7 +2436,8 @@
 
                     chatSendButton.disabled = true;
                     const timestamp = new Date().toISOString();
-                    const replyTargetId = activeChatReplyMessageId || null;
+                    const parsedReplyTargetId = activeChatReplyMessageId ? Number(activeChatReplyMessageId) : null;
+                    const replyTargetId = Number.isFinite(parsedReplyTargetId) ? parsedReplyTargetId : null;
                     const { data: insertedMessage, error } = await supabaseClient
                         .from(MESSAGES_TABLE)
                         .insert({
