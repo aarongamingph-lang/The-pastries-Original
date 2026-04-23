@@ -212,6 +212,8 @@
                 let noteRepliesChannel = null;
                 let messagesChannel = null;
                 let messageReactionsChannel = null;
+                let messagesRefreshInterval = null;
+                let messagesRefreshInFlight = false;
                 let galleryChannel = null;
                 let galleryLikesChannel = null;
                 let presenceSyncStarted = false;
@@ -2140,6 +2142,7 @@
                         return;
                     }
 
+                    await refreshMessagesNow(true);
                     activeChatUserId = entry.id;
                     activeChatUsername = entry.username || "";
                     clearChatComposerState();
@@ -2286,6 +2289,43 @@
 
                 async function connectMessageReactionsRealtime() {
                     return;
+                }
+
+                function stopMessagesRefreshLoop() {
+                    if (messagesRefreshInterval) {
+                        window.clearInterval(messagesRefreshInterval);
+                        messagesRefreshInterval = null;
+                    }
+                }
+
+                async function refreshMessagesNow(force = false) {
+                    if (!supabaseClient || !profileData?.id || messagesRefreshInFlight) {
+                        return;
+                    }
+
+                    if (!force && document.visibilityState === "hidden") {
+                        return;
+                    }
+
+                    messagesRefreshInFlight = true;
+
+                    try {
+                        await loadMessages();
+
+                        if (activeChatUserId) {
+                            await markConversationAsRead(activeChatUserId);
+                        }
+                    } finally {
+                        messagesRefreshInFlight = false;
+                    }
+                }
+
+                function startMessagesRefreshLoop() {
+                    stopMessagesRefreshLoop();
+                    refreshMessagesNow(true);
+                    messagesRefreshInterval = window.setInterval(() => {
+                        refreshMessagesNow();
+                    }, 2500);
                 }
 
                 function formatNoteDate(dateValue) {
@@ -3275,6 +3315,7 @@
 
                     if (mainPage.classList.contains("active")) {
                         await trackCurrentPresence();
+                        await refreshMessagesNow(true);
                     }
                 }
 
@@ -3293,10 +3334,12 @@
                     await connectNotesRealtime();
                     await connectMessagesRealtime();
                     await connectMessageReactionsRealtime();
+                    startMessagesRefreshLoop();
                     setActiveScreen(landscapeScreen);
                 }
 
                 function clearRememberedSessionAndReturnToLogin() {
+                    stopMessagesRefreshLoop();
                     profileData = null;
                     currentUser = "";
                     onlineUsers = [];
@@ -4623,6 +4666,7 @@
                     });
 
                     logoutButton.addEventListener("click", async () => {
+                        stopMessagesRefreshLoop();
                         settingsLauncher.classList.remove("open");
                         updateMenuMessageAlert();
                         audioPlayer.pause();
