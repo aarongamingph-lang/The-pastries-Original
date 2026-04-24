@@ -4496,7 +4496,7 @@
                 background: linear-gradient(180deg, rgba(12, 12, 12, 0), rgba(12, 12, 12, 0.82) 24%, rgba(12, 12, 12, 0.94) 100%);
             }
 
-            body.mobile-keyboard-open.chat-input-focus-mode .chat-input-wrap {
+            body.chat-input-focus-mode .chat-input-wrap {
                 position: absolute;
                 left: 16px;
                 right: 16px;
@@ -4509,7 +4509,7 @@
                 background: none;
             }
 
-            body.mobile-keyboard-open.chat-input-focus-mode .chat-compose-context {
+            body.chat-input-focus-mode .chat-compose-context {
                 opacity: 0.4;
             }
 
@@ -4645,7 +4645,7 @@
                     background: linear-gradient(180deg, rgba(12, 12, 12, 0), rgba(12, 12, 12, 0.82) 24%, rgba(12, 12, 12, 0.94) 100%) !important;
                 }
 
-                body.mobile-keyboard-open.chat-input-focus-mode .chat-input-wrap {
+                body.chat-input-focus-mode .chat-input-wrap {
                     position: absolute !important;
                     left: 16px !important;
                     right: 16px !important;
@@ -4658,13 +4658,13 @@
                     background: none !important;
                 }
 
-                body.mobile-keyboard-open.chat-input-focus-mode .chat-input {
+                body.chat-input-focus-mode .chat-input {
                     min-height: 84px !important;
                     max-height: 160px !important;
                     box-shadow: 0 18px 40px rgba(0, 0, 0, 0.28) !important;
                 }
 
-                body.mobile-keyboard-open.chat-input-focus-mode .chat-send-button {
+                body.chat-input-focus-mode .chat-send-button {
                     align-self: center !important;
                 }
 
