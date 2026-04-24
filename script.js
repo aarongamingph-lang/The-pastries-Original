@@ -90,6 +90,7 @@
                 const chatComposeCancel = document.getElementById("chatComposeCancel");
                 const chatInput = document.getElementById("chatInput");
                 const chatSendButton = document.getElementById("chatSendButton");
+                const chatInputWrap = document.querySelector(".chat-input-wrap");
                 const notesMenuPanel = document.getElementById("notesMenuPanel");
                 const notesMenuClose = document.getElementById("notesMenuClose");
                 const notesVisibilityToggle = document.getElementById("notesVisibilityToggle");
@@ -1828,6 +1829,8 @@
                     chatOpenSequenceUntil = 0;
                     activeChatReactionMenuId = null;
                     activeChatActionMenuId = null;
+                    activeChatEditMenuId = null;
+                    setChatInputFocusMode(false);
 
                     if (chatMessages) {
                         chatMessages.scrollTop = chatMessages.scrollHeight;
@@ -2063,6 +2066,20 @@
 
                     if (!targetMessage || targetMessage.sender_id !== profileData?.id) {
                         return;
+                    }
+
+                    if (supabaseClient) {
+                        const { error } = await supabaseClient
+                            .from(MESSAGES_TABLE)
+                            .delete()
+                            .eq("id", messageId)
+                            .eq("sender_id", profileData.id);
+
+                        if (error) {
+                            console.error("Could not delete message:", error.message);
+                            showPresenceToast("Could not delete message.");
+                            return;
+                        }
                     }
 
                     const nextMessages = loadLocalChatMessages().filter((message) => String(message.id) !== String(messageId));
@@ -2926,6 +2943,22 @@
                     document.documentElement.style.setProperty("--keyboard-offset", `${keyboardOffset}px`);
                 }
 
+                function isMobileChatFocusModeEligible() {
+                    return Boolean(
+                        window.matchMedia("(max-width: 932px)").matches &&
+                        activeChatUserId &&
+                        chatPanel?.classList.contains("open") &&
+                        chatInputWrap
+                    );
+                }
+
+                function setChatInputFocusMode(isActive) {
+                    document.body.classList.toggle(
+                        "chat-input-focus-mode",
+                        Boolean(isActive) && isMobileChatFocusModeEligible()
+                    );
+                }
+
                 function syncMobileKeyboardState() {
                     updateViewportHeightVariable();
 
@@ -2939,6 +2972,12 @@
                     );
                     const keyboardOpen = keyboardHeight > 140;
                     document.body.classList.toggle("mobile-keyboard-open", keyboardOpen);
+
+                    if (!keyboardOpen || document.activeElement !== chatInput) {
+                        setChatInputFocusMode(false);
+                    } else {
+                        setChatInputFocusMode(true);
+                    }
 
                     if (!keyboardOpen) {
                         return;
@@ -5255,15 +5294,18 @@
                     });
 
                     chatInput.addEventListener("focus", () => {
+                        setChatInputFocusMode(true);
                         syncMobileKeyboardState();
 
                         window.setTimeout(() => {
                             chatInput.scrollIntoView({ block: "nearest", inline: "nearest" });
+                            setChatInputFocusMode(true);
                             syncMobileKeyboardState();
                         }, 120);
                     });
 
                     chatInput.addEventListener("blur", () => {
+                        setChatInputFocusMode(false);
                         window.setTimeout(syncMobileKeyboardState, 120);
                     });
 
