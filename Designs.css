@@ -4496,6 +4496,23 @@
                 background: linear-gradient(180deg, rgba(12, 12, 12, 0), rgba(12, 12, 12, 0.82) 24%, rgba(12, 12, 12, 0.94) 100%);
             }
 
+            body.mobile-keyboard-open.chat-input-focus-mode .chat-input-wrap {
+                position: absolute;
+                left: 16px;
+                right: 16px;
+                top: 50%;
+                bottom: auto;
+                z-index: 5;
+                margin-top: 0;
+                padding: 0;
+                transform: translateY(-50%);
+                background: none;
+            }
+
+            body.mobile-keyboard-open.chat-input-focus-mode .chat-compose-context {
+                opacity: 0.4;
+            }
+
             @media (max-width: 932px) {
                 body.main-page-active {
                     background:
@@ -4626,6 +4643,29 @@
                     margin-top: 10px !important;
                     padding-bottom: max(6px, env(safe-area-inset-bottom)) !important;
                     background: linear-gradient(180deg, rgba(12, 12, 12, 0), rgba(12, 12, 12, 0.82) 24%, rgba(12, 12, 12, 0.94) 100%) !important;
+                }
+
+                body.mobile-keyboard-open.chat-input-focus-mode .chat-input-wrap {
+                    position: absolute !important;
+                    left: 16px !important;
+                    right: 16px !important;
+                    top: 50% !important;
+                    bottom: auto !important;
+                    z-index: 5 !important;
+                    margin-top: 0 !important;
+                    padding: 0 !important;
+                    transform: translateY(-50%) !important;
+                    background: none !important;
+                }
+
+                body.mobile-keyboard-open.chat-input-focus-mode .chat-input {
+                    min-height: 84px !important;
+                    max-height: 160px !important;
+                    box-shadow: 0 18px 40px rgba(0, 0, 0, 0.28) !important;
+                }
+
+                body.mobile-keyboard-open.chat-input-focus-mode .chat-send-button {
+                    align-self: center !important;
                 }
 
                 .chat-send-button {
