@@ -230,6 +230,7 @@
                 let activeChatEditMessageId = null;
                 let activeChatReactionMenuId = null;
                 let activeChatActionMenuId = null;
+                let activeChatEditMenuId = null;
                 let pendingChatScrollToLatest = false;
                 let chatOpenSequenceUntil = 0;
                 let scheduledChatRenderFrame = null;
@@ -1632,6 +1633,7 @@
                     activeChatEditMessageId = null;
                     activeChatReactionMenuId = null;
                     activeChatActionMenuId = null;
+                    activeChatEditMenuId = null;
                     chatComposeContext.classList.add("hidden");
                     chatComposeContextLabel.textContent = "Replying";
                     chatComposeContextText.textContent = "";
@@ -1653,15 +1655,25 @@
                         const isOpen = String(menu.dataset.messageId || "") === String(activeChatActionMenuId ?? "");
                         menu.classList.toggle("hidden", !isOpen);
                     });
+
+                    chatMessages.querySelectorAll(".chat-edit-picker").forEach((picker) => {
+                        const isOpen = String(picker.dataset.messageId || "") === String(activeChatEditMenuId ?? "");
+                        picker.classList.toggle("hidden", !isOpen);
+                    });
                 }
 
                 function closeOpenChatMenus(preserveScroll = true) {
-                    if (activeChatActionMenuId === null && activeChatReactionMenuId === null) {
+                    if (
+                        activeChatActionMenuId === null &&
+                        activeChatReactionMenuId === null &&
+                        activeChatEditMenuId === null
+                    ) {
                         return;
                     }
 
                     activeChatActionMenuId = null;
                     activeChatReactionMenuId = null;
+                    activeChatEditMenuId = null;
 
                     if (preserveScroll) {
                         syncChatMenuVisibility();
@@ -2031,6 +2043,9 @@
 
                     activeChatReplyMessageId = null;
                     activeChatEditMessageId = message.id;
+                    activeChatActionMenuId = null;
+                    activeChatReactionMenuId = null;
+                    activeChatEditMenuId = null;
                     chatComposeContextLabel.textContent = "Editing message";
                     chatComposeContextText.textContent = getChatMessagePreview(message);
                     chatComposeContext.classList.remove("hidden");
@@ -2062,6 +2077,7 @@
                     }
 
                     activeChatActionMenuId = null;
+                    activeChatEditMenuId = null;
                     renderLeaderboard();
                     const forceLatest = shouldForceChatLatestView() || shouldPinChatToBottom();
                     requestChatRender({ preserveScroll: !forceLatest, forceLatest });
@@ -2203,6 +2219,7 @@
                         bubble.addEventListener("dblclick", (event) => {
                             event.stopPropagation();
                             activeChatReactionMenuId = null;
+                            activeChatEditMenuId = null;
                             activeChatActionMenuId = activeChatActionMenuId === message.id ? null : message.id;
                             syncChatMenuVisibility();
                         });
@@ -2228,6 +2245,7 @@
                         reactButton.addEventListener("click", (event) => {
                             event.stopPropagation();
                             activeChatActionMenuId = null;
+                            activeChatEditMenuId = null;
                             activeChatReactionMenuId = message.id;
                             syncChatMenuVisibility();
                         });
@@ -2235,15 +2253,18 @@
                         actionMenu.appendChild(reactButton);
 
                         if (isOwnMessage) {
-                            const deleteButton = document.createElement("button");
-                            deleteButton.type = "button";
-                            deleteButton.className = "chat-bubble-menu-button delete";
-                            deleteButton.textContent = "Delete";
-                            deleteButton.addEventListener("click", async (event) => {
+                            const editButton = document.createElement("button");
+                            editButton.type = "button";
+                            editButton.className = "chat-bubble-menu-button";
+                            editButton.textContent = "Edit";
+                            editButton.addEventListener("click", (event) => {
                                 event.stopPropagation();
-                                await deleteChatMessage(message.id);
+                                activeChatActionMenuId = null;
+                                activeChatReactionMenuId = null;
+                                activeChatEditMenuId = message.id;
+                                syncChatMenuVisibility();
                             });
-                            actionMenu.appendChild(deleteButton);
+                            actionMenu.appendChild(editButton);
                         }
 
                         const reactionPicker = document.createElement("div");
@@ -2261,8 +2282,37 @@
                             reactionPicker.appendChild(option);
                         });
 
+                        const editPicker = document.createElement("div");
+                        editPicker.className = `chat-edit-picker${activeChatEditMenuId === message.id ? "" : " hidden"}`;
+                        editPicker.dataset.messageId = String(message.id);
+
+                        if (isOwnMessage) {
+                            const editMessageButton = document.createElement("button");
+                            editMessageButton.type = "button";
+                            editMessageButton.className = "chat-bubble-menu-button";
+                            editMessageButton.textContent = "Edit message";
+                            editMessageButton.addEventListener("click", (event) => {
+                                event.stopPropagation();
+                                setChatEditState(message);
+                                syncChatMenuVisibility();
+                            });
+                            editPicker.appendChild(editMessageButton);
+
+                            const deleteButton = document.createElement("button");
+                            deleteButton.type = "button";
+                            deleteButton.className = "chat-edit-delete-button";
+                            deleteButton.setAttribute("aria-label", "Delete message");
+                            deleteButton.textContent = "×";
+                            deleteButton.addEventListener("click", async (event) => {
+                                event.stopPropagation();
+                                await deleteChatMessage(message.id);
+                            });
+                            editPicker.appendChild(deleteButton);
+                        }
+
                         actions.appendChild(actionMenu);
                         actions.appendChild(reactionPicker);
+                        actions.appendChild(editPicker);
 
                         footer.appendChild(actions);
                         messageItem.appendChild(footer);
@@ -2439,6 +2489,45 @@
 
                     chatSendButton.disabled = true;
                     const timestamp = new Date().toISOString();
+
+                    if (activeChatEditMessageId) {
+                        const editingMessage = getMessageById(activeChatEditMessageId);
+
+                        if (!editingMessage || editingMessage.sender_id !== profileData.id) {
+                            chatSendButton.disabled = false;
+                            clearChatComposerState();
+                            return;
+                        }
+
+                        const { data: updatedMessage, error } = await supabaseClient
+                            .from(MESSAGES_TABLE)
+                            .update({
+                                content: messageContent,
+                                edited_at: timestamp
+                            })
+                            .eq("id", activeChatEditMessageId)
+                            .eq("sender_id", profileData.id)
+                            .select("id, sender_id, sender_username, receiver_id, receiver_username, content, created_at, edited_at, parent_message_id, is_read")
+                            .single();
+
+                        if (error || !updatedMessage) {
+                            chatSendButton.disabled = false;
+                            console.error("Could not update message:", error?.message || "Unknown error");
+                            showPresenceToast("Could not update message.");
+                            return;
+                        }
+
+                        upsertLocalChatMessage(updatedMessage);
+                        chatInput.value = "";
+                        clearChatComposerState();
+
+                        const forceLatest = shouldForceChatLatestView() || shouldPinChatToBottom();
+                        renderLeaderboard();
+                        requestChatRender({ preserveScroll: !forceLatest, forceLatest });
+                        chatSendButton.disabled = false;
+                        return;
+                    }
+
                     const parsedReplyTargetId = activeChatReplyMessageId ? Number(activeChatReplyMessageId) : null;
                     const replyTargetId = Number.isFinite(parsedReplyTargetId) ? parsedReplyTargetId : null;
                     const { data: insertedMessage, error } = await supabaseClient
@@ -2829,8 +2918,12 @@
                     const viewportHeight = window.visualViewport
                         ? window.visualViewport.height
                         : window.innerHeight;
+                    const keyboardOffset = window.visualViewport
+                        ? Math.max(0, window.innerHeight - window.visualViewport.height - window.visualViewport.offsetTop)
+                        : 0;
 
                     document.documentElement.style.setProperty("--app-viewport-height", `${viewportHeight}px`);
+                    document.documentElement.style.setProperty("--keyboard-offset", `${keyboardOffset}px`);
                 }
 
                 function syncMobileKeyboardState() {
@@ -2840,7 +2933,11 @@
                         return;
                     }
 
-                    const keyboardOpen = window.innerHeight - window.visualViewport.height > 140;
+                    const keyboardHeight = Math.max(
+                        0,
+                        window.innerHeight - window.visualViewport.height - window.visualViewport.offsetTop
+                    );
+                    const keyboardOpen = keyboardHeight > 140;
                     document.body.classList.toggle("mobile-keyboard-open", keyboardOpen);
 
                     if (!keyboardOpen) {
@@ -2852,6 +2949,16 @@
                     openPanels.forEach((panel) => {
                         panel.scrollTop = 0;
                     });
+
+                    if (
+                        activeChatUserId &&
+                        chatPanel?.classList.contains("open") &&
+                        document.activeElement === chatInput
+                    ) {
+                        window.requestAnimationFrame(() => {
+                            chatInput.scrollIntoView({ block: "nearest", inline: "nearest" });
+                        });
+                    }
                 }
 
                 function focusNoteInput(input) {
@@ -5054,7 +5161,12 @@
                     });
 
                     document.addEventListener("pointerdown", (event) => {
-                        if (!event.target.closest(".chat-bubble-actions") && !event.target.closest(".chat-bubble-menu") && !event.target.closest(".chat-reaction-picker")) {
+                        if (
+                            !event.target.closest(".chat-bubble-actions") &&
+                            !event.target.closest(".chat-bubble-menu") &&
+                            !event.target.closest(".chat-reaction-picker") &&
+                            !event.target.closest(".chat-edit-picker")
+                        ) {
                             closeOpenChatMenus(true);
                         }
 
@@ -5140,6 +5252,19 @@
                         input.addEventListener("blur", () => {
                             window.setTimeout(syncMobileKeyboardState, 120);
                         });
+                    });
+
+                    chatInput.addEventListener("focus", () => {
+                        syncMobileKeyboardState();
+
+                        window.setTimeout(() => {
+                            chatInput.scrollIntoView({ block: "nearest", inline: "nearest" });
+                            syncMobileKeyboardState();
+                        }, 120);
+                    });
+
+                    chatInput.addEventListener("blur", () => {
+                        window.setTimeout(syncMobileKeyboardState, 120);
                     });
 
                     updateViewportHeightVariable();
