@@ -2953,10 +2953,9 @@
                 }
 
                 function setChatInputFocusMode(isActive) {
-                    document.body.classList.toggle(
-                        "chat-input-focus-mode",
-                        Boolean(isActive) && isMobileChatFocusModeEligible()
-                    );
+                    const shouldEnable = Boolean(isActive) && isMobileChatFocusModeEligible();
+                    document.body.classList.toggle("chat-input-focus-mode", shouldEnable);
+                    chatPanel?.classList.toggle("chat-input-focus-mode", shouldEnable);
                 }
 
                 function syncMobileKeyboardState() {
