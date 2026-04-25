@@ -33,6 +33,9 @@
                 const settingsMenuToggle = document.getElementById("settingsMenuToggle");
                 const menuMessageAlert = document.getElementById("menuMessageAlert");
                 const settingsToggle = document.getElementById("settingsToggle");
+                const updatesLauncher = document.getElementById("updatesLauncher");
+                const updatesToggle = document.getElementById("updatesToggle");
+                const updatesToggleAlert = document.getElementById("updatesToggleAlert");
                 const galleryToggle = document.getElementById("galleryToggle");
                 const galleryToggleAlert = document.getElementById("galleryToggleAlert");
                 const notesToggle = document.getElementById("notesToggle");
@@ -115,6 +118,18 @@
                 const noteReplySubmitButton = document.getElementById("noteReplySubmitButton");
                 const noteReplyButton = document.getElementById("noteReplyButton");
                 const noteEditButton = document.getElementById("noteEditButton");
+                const appUpdatePanel = document.getElementById("appUpdatePanel");
+                const appUpdateClose = document.getElementById("appUpdateClose");
+                const appUpdateText = document.getElementById("appUpdateText");
+                const appUpdateMeta = document.getElementById("appUpdateMeta");
+                const appUpdateDownload = document.getElementById("appUpdateDownload");
+                const appUpdateAdmin = document.getElementById("appUpdateAdmin");
+                const appUpdateEditor = document.getElementById("appUpdateEditor");
+                const appUpdateFileInput = document.getElementById("appUpdateFileInput");
+                const appUpdateFileLabel = document.getElementById("appUpdateFileLabel");
+                const appUpdateFileName = document.getElementById("appUpdateFileName");
+                const appUpdateSaveButton = document.getElementById("appUpdateSaveButton");
+                const appUpdateStatus = document.getElementById("appUpdateStatus");
                 const presenceNotifications = document.getElementById("presenceNotifications");
                 const pinnedNotesLayer = document.getElementById("pinnedNotesLayer");
                 const themeCards = Array.from(document.querySelectorAll(".theme-card"));
@@ -153,6 +168,7 @@
                 const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_55bGulbB0m9wgD1KsFaw1g_lClSo3Gm";
                 const SUPABASE_BUCKET = "songs";
                 const GALLERY_BUCKET = "gallery";
+                const APP_UPDATE_BUCKET = "downloads";
                 const SONGS_TABLE = "songs_metadata";
                 const PROFILE_TABLE = "profiles";
                 const ENTRY_LOG_TABLE = "entry_logs";
@@ -163,6 +179,7 @@
                 const MESSAGE_REACTIONS_TABLE = "message_reactions";
                 const GALLERY_TABLE = "gallery_images";
                 const GALLERY_LIKES_TABLE = "gallery_likes";
+                const APP_UPDATES_TABLE = "app_updates";
                 const supabaseClient = window.supabase
                     ? window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY)
                     : null;
@@ -192,6 +209,7 @@
                 let mobileNowPlayingTimeout = null;
                 let mainPageNowPlayingTimeout = null;
                 let notesRevealTimeout = null;
+                let appUpdateStatusTimeout = null;
                 let savedUsersCache = [];
                 let lastNameProceedAt = null;
                 let authMode = "username";
@@ -217,6 +235,7 @@
                 let messagesRefreshInFlight = false;
                 let galleryChannel = null;
                 let galleryLikesChannel = null;
+                let appUpdatesChannel = null;
                 let presenceSyncStarted = false;
                 let knownPresenceUserIds = new Set();
                 let suppressPresenceJoinToastsUntil = 0;
@@ -247,15 +266,18 @@
                 let likedSongFiles = new Set();
                 let playlistViewMode = "songs";
                 let playbackMode = "shuffle";
+                let latestAppUpdate = null;
                 const LOCAL_SESSION_KEY = "pastries_active_profile";
                 const LOCAL_CHAT_MESSAGES_KEY = "pastries_local_messages_v1";
                 const LOCAL_CHAT_REACTIONS_KEY = "pastries_local_message_reactions_v1";
                 const NOTE_TTL_MS = 24 * 60 * 60 * 1000;
-                const REACTION_REMOTE_TTL_MS = 2 * 60 * 60 * 1000;
+                const MESSAGE_REMOTE_TTL_MS = 24 * 60 * 60 * 1000;
+                const REACTION_REMOTE_TTL_MS = 24 * 60 * 60 * 1000;
                 const LOCAL_NOTE_READS_PREFIX = "pastries_note_reads_";
                 const LOCAL_NOTES_VISIBILITY_PREFIX = "pastries_notes_visibility_";
                 const LOCAL_LIKED_SONGS_PREFIX = "pastries_liked_songs_";
                 const LOCAL_GALLERY_SEEN_PREFIX = "pastries_gallery_seen_";
+                const LOCAL_APP_UPDATE_SEEN_PREFIX = "pastries_app_update_seen_";
                 const CHAT_HISTORY_LIMIT = 400;
                 const REMOTE_CHAT_HISTORY_LIMIT = 100;
                 const CHAT_RENDER_BATCH_SIZE = 40;
@@ -312,6 +334,36 @@
                                     galleryStatus.textContent = "";
                                 }
                             }, 320);
+                        }, autoClearMs);
+                    }
+                }
+
+                function setAppUpdateStatus(message, tone = "neutral", autoClearMs = 0) {
+                    if (!appUpdateStatus) {
+                        return;
+                    }
+
+                    if (appUpdateStatusTimeout) {
+                        window.clearTimeout(appUpdateStatusTimeout);
+                        appUpdateStatusTimeout = null;
+                    }
+
+                    appUpdateStatus.textContent = message;
+                    appUpdateStatus.classList.remove("success", "error", "visible");
+
+                    if (message) {
+                        appUpdateStatus.classList.add("visible");
+
+                        if (tone === "success" || tone === "error") {
+                            appUpdateStatus.classList.add(tone);
+                        }
+                    }
+
+                    if (message && autoClearMs > 0) {
+                        appUpdateStatusTimeout = window.setTimeout(() => {
+                            appUpdateStatus.textContent = "";
+                            appUpdateStatus.classList.remove("success", "error", "visible");
+                            appUpdateStatusTimeout = null;
                         }, autoClearMs);
                     }
                 }
@@ -383,6 +435,255 @@
                         .replace(/[^a-z0-9._-]/g, "");
                 }
 
+                function renderAppUpdatePanel() {
+                    const hasUpdate = Boolean(latestAppUpdate);
+                    const canManageAppUpdate = isAuthenticatedUser() && isAdminUser();
+
+                    if (appUpdateText) {
+                        appUpdateText.textContent = hasUpdate
+                            ? String(latestAppUpdate.update_text || "").trim() || "No update text yet."
+                            : "No updates yet.";
+                    }
+
+                    if (appUpdateMeta) {
+                        appUpdateMeta.textContent = hasUpdate
+                            ? `Updated ${formatNoteDate(latestAppUpdate.updated_at)}${latestAppUpdate.updated_by ? ` by ${latestAppUpdate.updated_by}` : ""}`
+                            : "";
+                    }
+
+                    if (appUpdateDownload) {
+                        const downloadUrl = hasUpdate ? latestAppUpdate.file_url || "" : "";
+                        const fileName = hasUpdate ? latestAppUpdate.file_name || "app-release.apk" : "app-release.apk";
+                        appUpdateDownload.classList.toggle("hidden", !downloadUrl);
+                        appUpdateDownload.href = downloadUrl || "#";
+                        appUpdateDownload.setAttribute("download", fileName);
+                    }
+
+                    if (appUpdateAdmin) {
+                        appUpdateAdmin.classList.toggle("hidden", !canManageAppUpdate);
+                    }
+
+                    if (appUpdateEditor && canManageAppUpdate && document.activeElement !== appUpdateEditor) {
+                        appUpdateEditor.value = hasUpdate ? latestAppUpdate.update_text || "" : "";
+                    }
+
+                    if (appUpdateFileName) {
+                        if (appUpdateFileInput?.files?.[0]) {
+                            appUpdateFileName.textContent = appUpdateFileInput.files[0].name;
+                        } else if (hasUpdate && latestAppUpdate.file_name) {
+                            appUpdateFileName.textContent = `Current APK: ${latestAppUpdate.file_name}`;
+                        } else {
+                            appUpdateFileName.textContent = "No APK selected.";
+                        }
+                    }
+
+                    if (appUpdateFileInput) {
+                        appUpdateFileInput.disabled = !canManageAppUpdate;
+                    }
+
+                    if (appUpdateFileLabel) {
+                        appUpdateFileLabel.classList.toggle("disabled", !canManageAppUpdate);
+                        appUpdateFileLabel.setAttribute("aria-disabled", String(!canManageAppUpdate));
+                    }
+
+                    updateAppUpdateAlert();
+                }
+
+                async function loadAppUpdate() {
+                    if (!supabaseClient) {
+                        latestAppUpdate = null;
+                        renderAppUpdatePanel();
+                        return;
+                    }
+
+                    const { data, error } = await supabaseClient
+                        .from(APP_UPDATES_TABLE)
+                        .select("id, update_text, file_name, file_path, file_url, updated_by, updated_at")
+                        .order("updated_at", { ascending: false })
+                        .limit(25);
+
+                    if (error) {
+                        console.error("Could not load app update:", error.message);
+                        return;
+                    }
+
+                    const updateEntries = Array.isArray(data) ? data : [];
+                    latestAppUpdate = updateEntries.length > 0 ? updateEntries[0] : null;
+                    renderAppUpdatePanel();
+                    updateAppUpdateAlert();
+
+                    if (updateEntries.length > 1 && latestAppUpdate?.id) {
+                        await cleanupExtraAppUpdates(updateEntries, latestAppUpdate.id, latestAppUpdate.file_path || null);
+                    }
+                }
+
+                async function connectAppUpdatesRealtime() {
+                    if (!supabaseClient || appUpdatesChannel) {
+                        return;
+                    }
+
+                    appUpdatesChannel = supabaseClient
+                        .channel("shared-app-updates")
+                        .on(
+                            "postgres_changes",
+                            { event: "*", schema: "public", table: APP_UPDATES_TABLE },
+                            async () => {
+                                await loadAppUpdate();
+                            }
+                        )
+                        .subscribe();
+                }
+
+                async function uploadAppUpdateFile(file) {
+                    if (!supabaseClient) {
+                        setAppUpdateStatus("Supabase client did not load.", "error", 2600);
+                        return null;
+                    }
+
+                    const safeName = `${Date.now()}-${sanitizeGalleryFileName(file.name || "app-release.apk")}`;
+                    const { error: uploadError } = await supabaseClient.storage
+                        .from(APP_UPDATE_BUCKET)
+                        .upload(safeName, file, {
+                            contentType: file.type || "application/vnd.android.package-archive",
+                            upsert: false
+                        });
+
+                    if (uploadError) {
+                        setAppUpdateStatus(`Upload failed: ${uploadError.message}`, "error", 3200);
+                        return null;
+                    }
+
+                    const { data: publicUrlData } = supabaseClient.storage
+                        .from(APP_UPDATE_BUCKET)
+                        .getPublicUrl(safeName);
+
+                    return {
+                        file_name: file.name || "app-release.apk",
+                        file_path: safeName,
+                        file_url: publicUrlData?.publicUrl || ""
+                    };
+                }
+
+                async function cleanupExtraAppUpdates(updateEntries, keepId, keepFilePath = null) {
+                    if (!supabaseClient || !Array.isArray(updateEntries) || !keepId) {
+                        return;
+                    }
+
+                    const staleEntries = updateEntries.filter((entry) => String(entry.id) !== String(keepId));
+
+                    if (staleEntries.length === 0) {
+                        return;
+                    }
+
+                    const staleIds = staleEntries.map((entry) => entry.id).filter(Boolean);
+                    const staleFilePaths = Array.from(new Set(
+                        staleEntries
+                            .map((entry) => entry.file_path || null)
+                            .filter((filePath) => filePath && filePath !== keepFilePath)
+                    ));
+
+                    const { error: deleteRowsError } = await supabaseClient
+                        .from(APP_UPDATES_TABLE)
+                        .delete()
+                        .in("id", staleIds);
+
+                    if (deleteRowsError) {
+                        console.error("Could not delete extra app update rows:", deleteRowsError.message);
+                        return;
+                    }
+
+                    if (staleFilePaths.length > 0) {
+                        const { error: deleteFilesError } = await supabaseClient.storage
+                            .from(APP_UPDATE_BUCKET)
+                            .remove(staleFilePaths);
+
+                        if (deleteFilesError) {
+                            console.error("Could not delete extra APK files:", deleteFilesError.message);
+                        }
+                    }
+                }
+
+                async function saveAppUpdate() {
+                    if (!supabaseClient || !isAuthenticatedUser()) {
+                        setAppUpdateStatus("Log in first to manage updates.", "error", 2600);
+                        return;
+                    }
+
+                    if (!isAdminUser()) {
+                        setAppUpdateStatus("Only Nico can edit the app update.", "error", 2600);
+                        return;
+                    }
+
+                    const nextUpdateText = String(appUpdateEditor?.value || "").trim();
+                    const nextFile = appUpdateFileInput?.files?.[0] || null;
+
+                    if (!nextUpdateText && !nextFile && !latestAppUpdate) {
+                        setAppUpdateStatus("Add update text or an APK first.", "error", 2400);
+                        return;
+                    }
+
+                    appUpdateSaveButton.disabled = true;
+                    setAppUpdateStatus(nextFile ? "Uploading APK..." : "Saving update...");
+
+                    let nextFileData = null;
+                    const previousFilePath = latestAppUpdate?.file_path || null;
+
+                    if (nextFile) {
+                        nextFileData = await uploadAppUpdateFile(nextFile);
+
+                        if (!nextFileData) {
+                            appUpdateSaveButton.disabled = false;
+                            return;
+                        }
+                    }
+
+                    const payload = {
+                        update_text: nextUpdateText || latestAppUpdate?.update_text || "",
+                        file_name: nextFileData?.file_name || latestAppUpdate?.file_name || null,
+                        file_path: nextFileData?.file_path || latestAppUpdate?.file_path || null,
+                        file_url: nextFileData?.file_url || latestAppUpdate?.file_url || null,
+                        updated_by: currentUser,
+                        updated_at: new Date().toISOString()
+                    };
+
+                    let error = null;
+                    if (latestAppUpdate?.id) {
+                        ({ error } = await supabaseClient
+                            .from(APP_UPDATES_TABLE)
+                            .update(payload)
+                            .eq("id", latestAppUpdate.id));
+                    } else {
+                        ({ error } = await supabaseClient
+                            .from(APP_UPDATES_TABLE)
+                            .insert(payload));
+                    }
+
+                    if (error) {
+                        console.error("Could not save app update:", error.message);
+                        setAppUpdateStatus(`Could not save update: ${error.message}`, "error", 3200);
+                        appUpdateSaveButton.disabled = false;
+                        return;
+                    }
+
+                    if (nextFileData?.file_path && previousFilePath && previousFilePath !== nextFileData.file_path) {
+                        const { error: deleteOldFileError } = await supabaseClient.storage
+                            .from(APP_UPDATE_BUCKET)
+                            .remove([previousFilePath]);
+
+                        if (deleteOldFileError) {
+                            console.error("Could not delete previous APK:", deleteOldFileError.message);
+                        }
+                    }
+
+                    if (appUpdateFileInput) {
+                        appUpdateFileInput.value = "";
+                    }
+
+                    await loadAppUpdate();
+                    setAppUpdateStatus("App update saved.", "success", 2600);
+                    appUpdateSaveButton.disabled = false;
+                }
+
                 function getGalleryLikesForImage(imageId) {
                     return galleryLikesEntries.filter((entry) => String(entry.image_id) === String(imageId));
                 }
@@ -408,6 +709,11 @@
                     return `${LOCAL_GALLERY_SEEN_PREFIX}${userKey}`;
                 }
 
+                function getAppUpdateSeenStorageKey() {
+                    const userKey = profileData?.id || normalizeAuthUsername(currentUser) || "guest";
+                    return `${LOCAL_APP_UPDATE_SEEN_PREFIX}${userKey}`;
+                }
+
                 function getGallerySeenTimestamp() {
                     try {
                         return localStorage.getItem(getGallerySeenStorageKey()) || "";
@@ -427,6 +733,43 @@
                     }
 
                     galleryToggleAlert?.classList.add("hidden");
+                }
+
+                function getSeenAppUpdateTimestamp() {
+                    try {
+                        return localStorage.getItem(getAppUpdateSeenStorageKey()) || "";
+                    } catch (error) {
+                        return "";
+                    }
+                }
+
+                function markAppUpdateAsSeen() {
+                    try {
+                        const newestUpdateTime = latestAppUpdate?.updated_at || "";
+                        if (newestUpdateTime) {
+                            localStorage.setItem(getAppUpdateSeenStorageKey(), newestUpdateTime);
+                        }
+                    } catch (error) {
+                        // Ignore localStorage write failures.
+                    }
+
+                    updatesToggleAlert?.classList.add("hidden");
+                }
+
+                function updateAppUpdateAlert() {
+                    if (!updatesToggleAlert) {
+                        return;
+                    }
+
+                    const newestUpdateTime = latestAppUpdate?.updated_at || "";
+                    const seenUpdateTime = getSeenAppUpdateTimestamp();
+                    const shouldShow = Boolean(
+                        newestUpdateTime &&
+                        newestUpdateTime !== seenUpdateTime &&
+                        !appUpdatePanel?.classList.contains("open")
+                    );
+
+                    updatesToggleAlert.classList.toggle("hidden", !shouldShow);
                 }
 
                 function updateGalleryAlert() {
@@ -706,6 +1049,8 @@
                     if (galleryStatus) {
                         setGalleryStatus("");
                     }
+
+                    renderAppUpdatePanel();
                 }
 
                 function renderGalleryInto(container) {
@@ -1394,30 +1739,14 @@
                         return;
                     }
 
-                    const { data, error } = await supabaseClient
-                        .from(MESSAGES_TABLE)
-                        .select("id")
-                        .order("created_at", { ascending: false })
-                        .limit(REMOTE_CHAT_HISTORY_LIMIT);
-
-                    if (error) {
-                        console.error("Could not check old messages for cleanup:", error.message);
-                        return;
-                    }
-
-                    const savedIds = (data || []).map((entry) => entry.id).filter(Boolean);
-
-                    if (savedIds.length < REMOTE_CHAT_HISTORY_LIMIT) {
-                        return;
-                    }
-
+                    const cutoffIso = new Date(Date.now() - MESSAGE_REMOTE_TTL_MS).toISOString();
                     const { error: deleteError } = await supabaseClient
                         .from(MESSAGES_TABLE)
                         .delete()
-                        .in("id", savedIds);
+                        .lt("created_at", cutoffIso);
 
                     if (deleteError) {
-                        console.error("Could not reset Supabase message batch:", deleteError.message);
+                        console.error("Could not prune expired Supabase messages:", deleteError.message);
                     }
                 }
 
@@ -2394,7 +2723,10 @@
 
                     if (error) {
                         console.error("Could not sync read state to Supabase:", error.message);
+                        return;
                     }
+
+                    await pruneSupabaseMessages();
                 }
 
                 async function openChatPanelWithUser(entry) {
@@ -2924,6 +3256,7 @@
                         galleryPanel,
                         galleryViewerPanel,
                         chatPanel,
+                        appUpdatePanel,
                         notesMenuPanel,
                         notesListPanel,
                         notesPanel,
@@ -3223,6 +3556,23 @@
                     }
                 }
 
+                async function cleanupExpiredNoteReplies() {
+                    if (!supabaseClient) {
+                        return;
+                    }
+
+                    const cutoffIso = new Date(Date.now() - NOTE_TTL_MS).toISOString();
+
+                    try {
+                        await supabaseClient
+                            .from(NOTE_REPLIES_TABLE)
+                            .delete()
+                            .lt("created_at", cutoffIso);
+                    } catch (error) {
+                        console.error("Could not delete expired note replies:", error?.message || error);
+                    }
+                }
+
                 function renderNoteReplies(noteId) {
                     noteRepliesList.innerHTML = "";
 
@@ -3264,6 +3614,8 @@
                         renderPinnedNotes();
                         return;
                     }
+
+                    await cleanupExpiredNoteReplies();
 
                     const { data, error } = await supabaseClient
                         .from(NOTE_REPLIES_TABLE)
@@ -3439,6 +3791,8 @@
                     }
 
                     noteReplySubmitButton.disabled = true;
+
+                    await cleanupExpiredNoteReplies();
 
                     const { error } = await supabaseClient
                         .from(NOTE_REPLIES_TABLE)
@@ -3709,10 +4063,11 @@
                     loadLikedSongsPreference();
                     onlineUsers = [];
                     renderLeaderboard();
-                    await Promise.all([loadNotes(), loadNoteReads(), loadNoteReplies(), loadMessages(), loadMessageReactions(false)]);
+                    await Promise.all([loadNotes(), loadNoteReads(), loadNoteReplies(), loadMessages(), loadMessageReactions(false), loadAppUpdate()]);
                     await connectNotesRealtime();
                     await connectMessagesRealtime();
                     await connectMessageReactionsRealtime();
+                    await connectAppUpdatesRealtime();
                     startMessagesRefreshLoop();
                     setActiveScreen(landscapeScreen);
                 }
@@ -4955,6 +5310,7 @@
                     leaderboardToggle.addEventListener("click", async () => {
                         settingsLauncher.classList.remove("open");
                         updateMenuMessageAlert();
+                        appUpdatePanel.classList.remove("open");
                         settingsPanel.classList.remove("open");
                         galleryViewerPanel?.classList.remove("open");
                         galleryPanel?.classList.remove("open");
@@ -4978,6 +5334,35 @@
                     leaderboardClose.addEventListener("click", () => {
                         leaderboardPanel.classList.remove("open");
                     });
+
+                    updatesToggle?.addEventListener("click", async () => {
+                        settingsLauncher.classList.remove("open");
+                        updateMenuMessageAlert();
+                        settingsPanel.classList.remove("open");
+                        leaderboardPanel.classList.remove("open");
+                        galleryViewerPanel?.classList.remove("open");
+                        galleryPanel?.classList.remove("open");
+                        closeChatPanel();
+                        closeAllNotePanels();
+                        const willOpen = !appUpdatePanel.classList.contains("open");
+                        appUpdatePanel.classList.toggle("open");
+
+                        if (willOpen) {
+                            await loadAppUpdate();
+                            await updateAdminSettingsView();
+                            markAppUpdateAsSeen();
+                        }
+                    });
+
+                    appUpdateClose?.addEventListener("click", () => {
+                        appUpdatePanel.classList.remove("open");
+                    });
+
+                    appUpdateFileInput?.addEventListener("change", () => {
+                        renderAppUpdatePanel();
+                    });
+
+                    appUpdateSaveButton?.addEventListener("click", saveAppUpdate);
 
                     [deleteConfirmClose, deleteConfirmCancel].forEach((button) => {
                         button.addEventListener("click", closeDeleteConfirm);
@@ -5074,23 +5459,30 @@
                             await supabaseClient.removeChannel(messageReactionsChannel);
                             messageReactionsChannel = null;
                         }
+                        if (appUpdatesChannel) {
+                            await supabaseClient.removeChannel(appUpdatesChannel);
+                            appUpdatesChannel = null;
+                        }
                         onlineUsers = [];
                         notesEntries = [];
                         noteRepliesEntries = [];
                         noteReadMap = new Map();
                         messagesEntries = [];
                         messageReactionsEntries = [];
+                        latestAppUpdate = null;
                         notesVisibilityEnabled = true;
                         renderPinnedNotes();
                         renderSubmittedNotes();
                         renderNoteReplies(null);
                         renderLeaderboard();
                         renderChatMessages();
+                        renderAppUpdatePanel();
                         profileData = null;
                         currentUser = "";
                         localStorage.removeItem(LOCAL_SESSION_KEY);
                         settingsPanel.classList.remove("open");
                         leaderboardPanel.classList.remove("open");
+                        appUpdatePanel.classList.remove("open");
                         closeChatPanel();
                         notesMenuPanel.classList.remove("open");
                         notesListPanel.classList.remove("open");
@@ -5238,8 +5630,10 @@
                         const clickedNotesPanel = notesPanel.contains(event.target);
                         const clickedNoteViewer = noteViewerPanel.contains(event.target);
                         const clickedSettingsLauncher = settingsLauncher.contains(event.target);
+                        const clickedAppUpdate = appUpdatePanel.contains(event.target);
+                        const clickedUpdatesLauncher = updatesLauncher?.contains(event.target);
 
-                        if (!clickedInsidePlayer && !clickedNowPlaying && !clickedSettings && !clickedLeaderboard && !clickedChat && !clickedNotesMenu && !clickedNotesList && !clickedNotesPanel && !clickedNoteViewer && !clickedSettingsLauncher) {
+                        if (!clickedInsidePlayer && !clickedNowPlaying && !clickedSettings && !clickedLeaderboard && !clickedChat && !clickedNotesMenu && !clickedNotesList && !clickedNotesPanel && !clickedNoteViewer && !clickedSettingsLauncher && !clickedAppUpdate && !clickedUpdatesLauncher) {
                             closePlayerUi();
                         }
 
@@ -5250,6 +5644,10 @@
 
                         if (!clickedLeaderboard && event.target !== leaderboardToggle) {
                             leaderboardPanel.classList.remove("open");
+                        }
+
+                        if (!clickedAppUpdate && !clickedUpdatesLauncher) {
+                            appUpdatePanel.classList.remove("open");
                         }
 
                         if (!deleteConfirmPanel.contains(event.target)) {
