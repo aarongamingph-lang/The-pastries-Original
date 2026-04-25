@@ -256,7 +256,7 @@
                 const LOCAL_NOTES_VISIBILITY_PREFIX = "pastries_notes_visibility_";
                 const LOCAL_LIKED_SONGS_PREFIX = "pastries_liked_songs_";
                 const LOCAL_GALLERY_SEEN_PREFIX = "pastries_gallery_seen_";
-                const CHAT_HISTORY_LIMIT = 300;
+                const CHAT_HISTORY_LIMIT = 400;
                 const REMOTE_CHAT_HISTORY_LIMIT = 100;
                 const CHAT_RENDER_BATCH_SIZE = 40;
                 const MOBILE_CHAT_RENDER_BATCH_SIZE = 80;
