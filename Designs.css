@@ -442,6 +442,13 @@
                 z-index: 4;
             }
 
+            .updates-launcher {
+                position: absolute;
+                top: max(20px, env(safe-area-inset-top));
+                right: max(20px, env(safe-area-inset-right));
+                z-index: 4;
+            }
+
             .settings-menu-toggle {
                 position: relative;
                 width: 58px;
@@ -467,6 +474,11 @@
             .settings-toggle:hover {
                 transform: none;
                 background: rgba(0, 0, 0, 0.4);
+            }
+
+            .updates-toggle {
+                font-size: 1.3rem;
+                font-weight: 800;
             }
 
             .settings-quick-menu {
@@ -1295,6 +1307,7 @@
                 text-align: center;
             }
 
+            .app-update-panel,
             .notes-menu-panel,
             .notes-list-panel,
             .notes-panel,
@@ -1318,6 +1331,13 @@
                 transition: opacity 0.25s ease, transform 0.25s ease;
             }
 
+            .app-update-panel {
+                display: flex;
+                flex-direction: column;
+                gap: 14px;
+            }
+
+            .app-update-panel::before,
             .notes-menu-panel::before,
             .notes-list-panel::before,
             .notes-panel::before,
@@ -1332,6 +1352,7 @@
                 pointer-events: none;
             }
 
+            .app-update-panel.open,
             .notes-menu-panel.open,
             .notes-list-panel.open,
             .notes-panel.open,
@@ -1339,6 +1360,75 @@
                 opacity: 1;
                 pointer-events: auto;
                 transform: translate(-50%, -50%) scale(1);
+            }
+
+            .app-update-content {
+                position: relative;
+                z-index: 1;
+                display: grid;
+                gap: 14px;
+                min-height: 0;
+                overflow-y: auto;
+                padding-right: 4px;
+            }
+
+            .app-update-card,
+            .app-update-admin {
+                display: grid;
+                gap: 10px;
+                padding: 14px;
+                border: 1px solid rgba(255, 255, 255, 0.12);
+                border-radius: 20px;
+                background: rgba(255, 255, 255, 0.08);
+            }
+
+            .app-update-label {
+                margin: 0;
+                color: rgba(255, 246, 218, 0.74);
+                font-size: 0.72rem;
+                font-weight: 700;
+                letter-spacing: 0.08em;
+                text-transform: uppercase;
+            }
+
+            .app-update-text {
+                margin: 0;
+                color: #fff6da;
+                font-size: 0.96rem;
+                line-height: 1.6;
+                white-space: pre-wrap;
+                word-break: break-word;
+            }
+
+            .app-update-meta,
+            .app-update-file-name {
+                margin: 0;
+                color: rgba(255, 255, 255, 0.7);
+                font-size: 0.78rem;
+            }
+
+            .app-update-download {
+                min-height: 58px;
+                font-size: 0.96rem;
+                justify-content: center;
+                text-align: center;
+            }
+
+            .app-update-editor {
+                min-height: 140px;
+                max-height: min(26dvh, 220px);
+                line-height: 1.5;
+                resize: vertical;
+            }
+
+            .app-update-upload.disabled {
+                opacity: 0.5;
+                pointer-events: none;
+            }
+
+            .app-update-status {
+                min-height: 20px;
+                margin: 0;
             }
 
             .notes-head {
@@ -3193,6 +3283,7 @@
                 }
 
                 .chat-panel,
+                .app-update-panel,
                 .notes-menu-panel,
                 .notes-list-panel,
                 .notes-panel,
@@ -3270,6 +3361,11 @@
                 .settings-launcher {
                     top: max(14px, env(safe-area-inset-top));
                     left: max(14px, env(safe-area-inset-left));
+                }
+
+                .updates-launcher {
+                    top: max(14px, env(safe-area-inset-top));
+                    right: max(14px, env(safe-area-inset-right));
                 }
 
                 .settings-menu-toggle {
@@ -3558,6 +3654,11 @@
                     left: max(12px, env(safe-area-inset-left));
                 }
 
+                .updates-launcher {
+                    top: max(12px, env(safe-area-inset-top));
+                    right: max(12px, env(safe-area-inset-right));
+                }
+
                 .settings-menu-toggle {
                     width: 48px;
                     height: 48px;
@@ -3611,6 +3712,7 @@
                 }
 
                 .chat-panel,
+                .app-update-panel,
                 .notes-menu-panel,
                 .notes-list-panel,
                 .notes-panel,
@@ -3968,6 +4070,12 @@
                     z-index: 22;
                 }
 
+                .updates-launcher {
+                    top: max(10px, env(safe-area-inset-top));
+                    right: max(10px, env(safe-area-inset-right));
+                    z-index: 22;
+                }
+
                 .settings-menu-toggle,
                 .settings-toggle {
                     min-width: 44px;
@@ -4008,6 +4116,7 @@
 
                 .settings-panel,
                 .leaderboard-panel,
+                .app-update-panel,
                 .delete-confirm-panel,
                 .chat-panel,
                 .notes-menu-panel,
@@ -4548,6 +4657,7 @@
                 }
 
                 .leaderboard-panel,
+                .app-update-panel,
                 .chat-panel,
                 .notes-menu-panel,
                 .notes-list-panel,
@@ -4623,6 +4733,25 @@
                     max-height: 110px !important;
                     padding: 10px 12px !important;
                     font-size: 16px !important;
+                }
+
+                .app-update-panel {
+                    gap: 12px !important;
+                }
+
+                .app-update-content {
+                    gap: 12px !important;
+                    overflow-y: auto !important;
+                }
+
+                .app-update-card,
+                .app-update-admin {
+                    padding: 12px !important;
+                }
+
+                .app-update-editor {
+                    min-height: 120px !important;
+                    max-height: min(22dvh, 180px) !important;
                 }
 
                 body.mobile-keyboard-open .chat-panel,
