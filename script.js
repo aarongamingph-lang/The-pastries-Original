@@ -125,8 +125,7 @@
                 const appUpdateDownload = document.getElementById("appUpdateDownload");
                 const appUpdateAdmin = document.getElementById("appUpdateAdmin");
                 const appUpdateEditor = document.getElementById("appUpdateEditor");
-                const appUpdateFileInput = document.getElementById("appUpdateFileInput");
-                const appUpdateFileLabel = document.getElementById("appUpdateFileLabel");
+                const appUpdateLinkInput = document.getElementById("appUpdateLinkInput");
                 const appUpdateFileName = document.getElementById("appUpdateFileName");
                 const appUpdateSaveButton = document.getElementById("appUpdateSaveButton");
                 const appUpdateStatus = document.getElementById("appUpdateStatus");
@@ -168,7 +167,6 @@
                 const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_55bGulbB0m9wgD1KsFaw1g_lClSo3Gm";
                 const SUPABASE_BUCKET = "songs";
                 const GALLERY_BUCKET = "gallery";
-                const APP_UPDATE_BUCKET = "downloads";
                 const SONGS_TABLE = "songs_metadata";
                 const PROFILE_TABLE = "profiles";
                 const ENTRY_LOG_TABLE = "entry_logs";
@@ -467,23 +465,22 @@
                         appUpdateEditor.value = hasUpdate ? latestAppUpdate.update_text || "" : "";
                     }
 
+                    if (appUpdateLinkInput && canManageAppUpdate && document.activeElement !== appUpdateLinkInput) {
+                        appUpdateLinkInput.value = hasUpdate ? latestAppUpdate.file_url || "" : "";
+                    }
+
                     if (appUpdateFileName) {
-                        if (appUpdateFileInput?.files?.[0]) {
-                            appUpdateFileName.textContent = appUpdateFileInput.files[0].name;
+                        if (appUpdateLinkInput?.value.trim()) {
+                            appUpdateFileName.textContent = appUpdateLinkInput.value.trim();
                         } else if (hasUpdate && latestAppUpdate.file_name) {
-                            appUpdateFileName.textContent = `Current APK: ${latestAppUpdate.file_name}`;
+                            appUpdateFileName.textContent = `Current link: ${latestAppUpdate.file_url || latestAppUpdate.file_name}`;
                         } else {
-                            appUpdateFileName.textContent = "No APK selected.";
+                            appUpdateFileName.textContent = "No download link saved.";
                         }
                     }
 
-                    if (appUpdateFileInput) {
-                        appUpdateFileInput.disabled = !canManageAppUpdate;
-                    }
-
-                    if (appUpdateFileLabel) {
-                        appUpdateFileLabel.classList.toggle("disabled", !canManageAppUpdate);
-                        appUpdateFileLabel.setAttribute("aria-disabled", String(!canManageAppUpdate));
+                    if (appUpdateLinkInput) {
+                        appUpdateLinkInput.disabled = !canManageAppUpdate;
                     }
 
                     updateAppUpdateAlert();
@@ -513,7 +510,7 @@
                     updateAppUpdateAlert();
 
                     if (updateEntries.length > 1 && latestAppUpdate?.id) {
-                        await cleanupExtraAppUpdates(updateEntries, latestAppUpdate.id, latestAppUpdate.file_path || null);
+                        await cleanupExtraAppUpdates(updateEntries, latestAppUpdate.id);
                     }
                 }
 
@@ -534,37 +531,19 @@
                         .subscribe();
                 }
 
-                async function uploadAppUpdateFile(file) {
-                    if (!supabaseClient) {
-                        setAppUpdateStatus("Supabase client did not load.", "error", 2600);
-                        return null;
+                function getAppUpdateFileNameFromUrl(urlValue) {
+                    try {
+                        const parsedUrl = new URL(String(urlValue || "").trim());
+                        const pathname = parsedUrl.pathname || "";
+                        const segments = pathname.split("/").filter(Boolean);
+                        const lastSegment = segments[segments.length - 1] || "";
+                        return decodeURIComponent(lastSegment) || "app-release.apk";
+                    } catch {
+                        return "app-release.apk";
                     }
-
-                    const safeName = `${Date.now()}-${sanitizeGalleryFileName(file.name || "app-release.apk")}`;
-                    const { error: uploadError } = await supabaseClient.storage
-                        .from(APP_UPDATE_BUCKET)
-                        .upload(safeName, file, {
-                            contentType: file.type || "application/vnd.android.package-archive",
-                            upsert: false
-                        });
-
-                    if (uploadError) {
-                        setAppUpdateStatus(`Upload failed: ${uploadError.message}`, "error", 3200);
-                        return null;
-                    }
-
-                    const { data: publicUrlData } = supabaseClient.storage
-                        .from(APP_UPDATE_BUCKET)
-                        .getPublicUrl(safeName);
-
-                    return {
-                        file_name: file.name || "app-release.apk",
-                        file_path: safeName,
-                        file_url: publicUrlData?.publicUrl || ""
-                    };
                 }
 
-                async function cleanupExtraAppUpdates(updateEntries, keepId, keepFilePath = null) {
+                async function cleanupExtraAppUpdates(updateEntries, keepId) {
                     if (!supabaseClient || !Array.isArray(updateEntries) || !keepId) {
                         return;
                     }
@@ -576,11 +555,6 @@
                     }
 
                     const staleIds = staleEntries.map((entry) => entry.id).filter(Boolean);
-                    const staleFilePaths = Array.from(new Set(
-                        staleEntries
-                            .map((entry) => entry.file_path || null)
-                            .filter((filePath) => filePath && filePath !== keepFilePath)
-                    ));
 
                     const { error: deleteRowsError } = await supabaseClient
                         .from(APP_UPDATES_TABLE)
@@ -589,17 +563,6 @@
 
                     if (deleteRowsError) {
                         console.error("Could not delete extra app update rows:", deleteRowsError.message);
-                        return;
-                    }
-
-                    if (staleFilePaths.length > 0) {
-                        const { error: deleteFilesError } = await supabaseClient.storage
-                            .from(APP_UPDATE_BUCKET)
-                            .remove(staleFilePaths);
-
-                        if (deleteFilesError) {
-                            console.error("Could not delete extra APK files:", deleteFilesError.message);
-                        }
                     }
                 }
 
@@ -615,33 +578,39 @@
                     }
 
                     const nextUpdateText = String(appUpdateEditor?.value || "").trim();
-                    const nextFile = appUpdateFileInput?.files?.[0] || null;
+                    const nextLink = String(appUpdateLinkInput?.value || "").trim();
+                    const currentSavedText = String(latestAppUpdate?.update_text || "").trim();
+                    const currentSavedLink = String(latestAppUpdate?.file_url || "").trim();
+                    const hasTextChange = nextUpdateText !== currentSavedText;
+                    const hasLinkChange = nextLink !== currentSavedLink;
 
-                    if (!nextUpdateText && !nextFile && !latestAppUpdate) {
-                        setAppUpdateStatus("Add update text or an APK first.", "error", 2400);
+                    if (!nextUpdateText && !nextLink && !latestAppUpdate) {
+                        setAppUpdateStatus("Add update text or a download link first.", "error", 2400);
                         return;
                     }
 
-                    appUpdateSaveButton.disabled = true;
-                    setAppUpdateStatus(nextFile ? "Uploading APK..." : "Saving update...");
-
-                    let nextFileData = null;
-                    const previousFilePath = latestAppUpdate?.file_path || null;
-
-                    if (nextFile) {
-                        nextFileData = await uploadAppUpdateFile(nextFile);
-
-                        if (!nextFileData) {
-                            appUpdateSaveButton.disabled = false;
+                    if (nextLink) {
+                        try {
+                            new URL(nextLink);
+                        } catch {
+                            setAppUpdateStatus("Paste a valid direct download link.", "error", 2600);
                             return;
                         }
                     }
 
+                    if (latestAppUpdate && !hasTextChange && !hasLinkChange) {
+                        setAppUpdateStatus("Nothing new to update yet.", "error", 2200);
+                        return;
+                    }
+
+                    appUpdateSaveButton.disabled = true;
+                    setAppUpdateStatus("Saving update...");
+
                     const payload = {
-                        update_text: nextUpdateText || latestAppUpdate?.update_text || "",
-                        file_name: nextFileData?.file_name || latestAppUpdate?.file_name || null,
-                        file_path: nextFileData?.file_path || latestAppUpdate?.file_path || null,
-                        file_url: nextFileData?.file_url || latestAppUpdate?.file_url || null,
+                        update_text: hasTextChange ? nextUpdateText : currentSavedText,
+                        file_name: nextLink ? getAppUpdateFileNameFromUrl(nextLink) : null,
+                        file_path: null,
+                        file_url: nextLink || null,
                         updated_by: currentUser,
                         updated_at: new Date().toISOString()
                     };
@@ -663,20 +632,6 @@
                         setAppUpdateStatus(`Could not save update: ${error.message}`, "error", 3200);
                         appUpdateSaveButton.disabled = false;
                         return;
-                    }
-
-                    if (nextFileData?.file_path && previousFilePath && previousFilePath !== nextFileData.file_path) {
-                        const { error: deleteOldFileError } = await supabaseClient.storage
-                            .from(APP_UPDATE_BUCKET)
-                            .remove([previousFilePath]);
-
-                        if (deleteOldFileError) {
-                            console.error("Could not delete previous APK:", deleteOldFileError.message);
-                        }
-                    }
-
-                    if (appUpdateFileInput) {
-                        appUpdateFileInput.value = "";
                     }
 
                     await loadAppUpdate();
@@ -5356,10 +5311,6 @@
 
                     appUpdateClose?.addEventListener("click", () => {
                         appUpdatePanel.classList.remove("open");
-                    });
-
-                    appUpdateFileInput?.addEventListener("change", () => {
-                        renderAppUpdatePanel();
                     });
 
                     appUpdateSaveButton?.addEventListener("click", saveAppUpdate);
