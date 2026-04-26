@@ -1473,12 +1473,12 @@
                                 return left.isSelf ? -1 : 1;
                             }
 
-                            if (left.latestEnteredAt !== right.latestEnteredAt) {
-                                return right.latestEnteredAt - left.latestEnteredAt;
-                            }
-
                             if (left.isOnline !== right.isOnline) {
                                 return left.isOnline ? -1 : 1;
+                            }
+
+                            if (left.latestEnteredAt !== right.latestEnteredAt) {
+                                return right.latestEnteredAt - left.latestEnteredAt;
                             }
 
                             return left.index - right.index;
@@ -4382,28 +4382,6 @@
 
                     if (!isLikelyMobile) {
                         return;
-                    }
-
-                    const fullscreenTarget = document.documentElement;
-                    const requestFullscreen =
-                        fullscreenTarget.requestFullscreen ||
-                        fullscreenTarget.webkitRequestFullscreen ||
-                        fullscreenTarget.msRequestFullscreen;
-
-                    try {
-                        if (!document.fullscreenElement && typeof requestFullscreen === "function") {
-                            await requestFullscreen.call(fullscreenTarget);
-                        }
-                    } catch {
-                        // Ignore fullscreen failures; some mobile browsers restrict this.
-                    }
-
-                    try {
-                        if (screen.orientation && typeof screen.orientation.lock === "function") {
-                            await screen.orientation.lock("landscape");
-                        }
-                    } catch {
-                        // Ignore orientation lock failures; support varies across mobile browsers.
                     }
                 }
 
