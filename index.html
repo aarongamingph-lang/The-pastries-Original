@@ -4,7 +4,7 @@
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>THE PASTRIES SPECIAL</title>
-        <link rel="stylesheet" href="Designs.css?v=151">
+        <link rel="stylesheet" href="Designs.css?v=153">
     </head>
     <body>
         <!-- Background dots used on the opening screens -->
@@ -304,9 +304,9 @@
                         <div class="app-update-admin hidden" id="appUpdateAdmin">
                             <label class="app-update-label" for="appUpdateEditor">Update Text</label>
                             <textarea class="notes-textarea app-update-editor" id="appUpdateEditor" placeholder="Write update notes here..."></textarea>
-                            <label class="audio-upload app-update-upload" id="appUpdateFileLabel" for="appUpdateFileInput">Add APK</label>
-                            <input id="appUpdateFileInput" type="file" accept=".apk,application/vnd.android.package-archive" hidden>
-                            <p class="audio-help app-update-file-name" id="appUpdateFileName">No APK selected.</p>
+                            <label class="app-update-label" for="appUpdateLinkInput">Download Link</label>
+                            <input class="notes-textarea app-update-link-input" id="appUpdateLinkInput" type="url" placeholder="Paste direct APK link here...">
+                            <p class="audio-help app-update-file-name" id="appUpdateFileName">No download link saved.</p>
                             <button class="notes-submit-button" id="appUpdateSaveButton" type="button">Update</button>
                             <p class="audio-status app-update-status" id="appUpdateStatus"></p>
                         </div>
@@ -388,6 +388,6 @@
         </section>
 
         <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-        <script src="script.js?v=249"></script>
+        <script src="script.js?v=252"></script>
     </body>
     </html>
