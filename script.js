@@ -218,6 +218,8 @@
                 let noteReadMap = new Map();
                 let messagesEntries = [];
                 let messageReactionsEntries = [];
+                let lastLoadedMessagesSignature = "";
+                let lastLoadedMessageReactionsSignature = "";
                 let galleryEntries = [];
                 let galleryLikesEntries = [];
                 let renderedGalleryCount = 10;
@@ -276,7 +278,7 @@
                 const LOCAL_LIKED_SONGS_PREFIX = "pastries_liked_songs_";
                 const LOCAL_GALLERY_SEEN_PREFIX = "pastries_gallery_seen_";
                 const LOCAL_APP_UPDATE_SEEN_PREFIX = "pastries_app_update_seen_";
-                const CHAT_HISTORY_LIMIT = 400;
+                const CHAT_HISTORY_LIMIT = 1000;
                 const REMOTE_CHAT_HISTORY_LIMIT = 100;
                 const CHAT_RENDER_BATCH_SIZE = 40;
                 const MOBILE_CHAT_RENDER_BATCH_SIZE = 80;
@@ -389,6 +391,33 @@
 
                 function getCurrentChatUsername() {
                     return String(activeChatUsername || chatPanelTitle?.textContent || "").trim();
+                }
+
+                function getMessagesSignature(messages) {
+                    return (Array.isArray(messages) ? messages : [])
+                        .map((message) => [
+                            message?.id ?? "",
+                            message?.sender_id ?? "",
+                            message?.receiver_id ?? "",
+                            message?.content ?? "",
+                            message?.created_at ?? "",
+                            message?.edited_at ?? "",
+                            message?.parent_message_id ?? "",
+                            message?.is_read ? "1" : "0"
+                        ].join("|"))
+                        .join("~");
+                }
+
+                function getMessageReactionsSignature(reactions) {
+                    return (Array.isArray(reactions) ? reactions : [])
+                        .map((reaction) => [
+                            reaction?.id ?? "",
+                            reaction?.message_id ?? "",
+                            reaction?.user_id ?? "",
+                            reaction?.emoji ?? "",
+                            reaction?.created_at ?? ""
+                        ].join("|"))
+                        .join("~");
                 }
 
                 function normalizeAuthUsername(username) {
@@ -2715,6 +2744,8 @@
                     if (!currentUser) {
                         messagesEntries = [];
                         messageReactionsEntries = [];
+                        lastLoadedMessagesSignature = "";
+                        lastLoadedMessageReactionsSignature = "";
                         renderChatMessages();
                         renderLeaderboard();
                         return;
@@ -2740,16 +2771,26 @@
                         }
                     }
 
+                    const nextMessagesSignature = getMessagesSignature(mergedMessages);
+                    const hasMessagesChanged = nextMessagesSignature !== lastLoadedMessagesSignature;
+
                     messagesEntries = mergedMessages;
-                    const forceLatest = shouldForceChatLatestView() || shouldPinChatToBottom();
-                    requestChatRender({ preserveScroll: !forceLatest, forceLatest });
-                    renderLeaderboard();
+                    lastLoadedMessagesSignature = nextMessagesSignature;
+
+                    if (hasMessagesChanged) {
+                        const forceLatest = shouldForceChatLatestView() || shouldPinChatToBottom();
+                        requestChatRender({ preserveScroll: !forceLatest, forceLatest });
+                        renderLeaderboard();
+                    }
                 }
 
                 async function loadMessageReactions(shouldRenderChat = true) {
                     if (!supabaseClient) {
                         messageReactionsEntries = loadLocalMessageReactions();
-                        if (shouldRenderChat) {
+                        const nextReactionsSignature = getMessageReactionsSignature(messageReactionsEntries);
+                        const hasReactionsChanged = nextReactionsSignature !== lastLoadedMessageReactionsSignature;
+                        lastLoadedMessageReactionsSignature = nextReactionsSignature;
+                        if (shouldRenderChat && hasReactionsChanged) {
                             const forceLatest = shouldPinChatToBottom();
                             requestChatRender({ preserveScroll: !forceLatest, forceLatest });
                         }
@@ -2770,9 +2811,13 @@
                     const localReactions = loadLocalMessageReactions();
                     const remoteReactions = data || [];
                     const mergedReactions = mergeMessageReactions(localReactions, remoteReactions);
+                    const nextReactionsSignature = getMessageReactionsSignature(mergedReactions);
+                    const hasReactionsChanged = nextReactionsSignature !== lastLoadedMessageReactionsSignature;
                     storeLocalMessageReactions(mergedReactions);
+                    messageReactionsEntries = mergedReactions;
+                    lastLoadedMessageReactionsSignature = nextReactionsSignature;
 
-                    if (shouldRenderChat) {
+                    if (shouldRenderChat && hasReactionsChanged) {
                         const forceLatest = shouldPinChatToBottom();
                         requestChatRender({ preserveScroll: !forceLatest, forceLatest });
                     }
@@ -2939,9 +2984,6 @@
                         if (activeChatUserId) {
                             await markConversationAsRead(activeChatUserId);
                         }
-
-                        const forceLatest = shouldForceChatLatestView() || shouldPinChatToBottom();
-                        requestChatRender({ preserveScroll: !forceLatest, forceLatest });
                     } finally {
                         messagesRefreshInFlight = false;
                     }
